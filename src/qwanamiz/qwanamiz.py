@@ -11,8 +11,8 @@ import pandas as pd
 from skimage.draw import line
 from scipy.stats import circmean
 import matplotlib.pyplot as plt
-from tools import histogram
-from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
+#from tools import histogram
+from vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
 from scipy.stats import vonmises
 ###########################################################################
 # Function to get the adjacent cells
@@ -898,3 +898,4 @@ def calculate_diameter(label_image, centroid, angle, bbox, spacing = 1):
 
 
     return distance, diam_coords
+
