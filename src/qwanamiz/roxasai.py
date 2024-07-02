@@ -80,9 +80,9 @@ if __name__ == '__main__':
     import datetime
 
     # Set paths
-    input_folder = './input'
-    model_path = './final_semseg_coniferen_model.pth'
-    output_folder = './output_test'
+    input_folder = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/input'
+    model_path = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/final_semseg_coniferen_model.pth'
+    output_folder = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/output_seg'
 
 
     ###------------------------------------------- Prepare Model -------------------------------###
@@ -107,7 +107,7 @@ if __name__ == '__main__':
         print(f'runtime : {endTime - start_save}')
         
         print('save output')
-        base_name = get_basename(img_path)
+        base_name = get_basename(img_path, remove = '.tif')
         
         # Save the segmented image
         output_path = os.path.join(output_folder, f"{base_name}_segmented.png")

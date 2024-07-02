@@ -875,26 +875,39 @@ def calculate_diameter(label_image, centroid, angle, bbox, spacing = 1):
             if min_col <= x_right <= max_col:
                 intersections.append((x_right, max_row))
                 intersections_sliced.append((x_right - min_col, max_row - min_row))
-
-    (x1_sliced, y1_sliced), (x2_sliced, y2_sliced) = intersections_sliced[:2]
-    # Find the points on the line where there is a switch from background to foreground
-    rr, cc = line(int(y1_sliced), int(x1_sliced), int(y2_sliced), int(x2_sliced))
-    
-    line_coords = np.array(list(zip(rr, cc)))
-    
-    # Detect switches
-    switch_points = []
-    if label_image[line_coords[0][0], line_coords[0][1]] == 1:
-        switch_points.append(line_coords[0])
-    if label_image[line_coords[-1][0], line_coords[-1][1]] == 1:
-        switch_points.append(line_coords[-1])
-    for i in range(1, len(line_coords)):
-        if label_image[line_coords[i][0], line_coords[i][1]] != label_image[line_coords[i-1][0], line_coords[i-1][1]]:
-            switch_points.append(line_coords[i])
+                
+    if len(intersections_sliced) < 2:
+         distance = 0
+         diam_coords = 0
+    else: 
+        (x1_sliced, y1_sliced), (x2_sliced, y2_sliced) = intersections_sliced[:2]
+        # Find the points on the line where there is a switch from background to foreground
+        rr, cc = line(int(y1_sliced), int(x1_sliced), int(y2_sliced), int(x2_sliced))
+        
+        line_coords = np.array(list(zip(rr, cc)))
+        
+        # Detect switches
+        switch_points = []
+        if label_image[line_coords[0][0], line_coords[0][1]] == 1:
+            switch_points.append(line_coords[0])
+        if label_image[line_coords[-1][0], line_coords[-1][1]] == 1:
+            switch_points.append(line_coords[-1])
+        for i in range(1, len(line_coords)):
+            if label_image[line_coords[i][0], line_coords[i][1]] != label_image[line_coords[i-1][0], line_coords[i-1][1]]:
+                switch_points.append(line_coords[i])
+                
+        if len(switch_points) == 2:
+            (y1, x1), (y2, x2) = switch_points[0:2]
             
-    (y1, x1), (y2, x2) = switch_points[:2]
-    distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-    diam_coords = ((y1 + min_row) * spacing, (x1 + min_col) * spacing), ((y2 + min_row) * spacing, (x2 + min_col)* spacing)
+        elif len(switch_points) > 2:
+            (y1, x1) = switch_points[0]
+            (y2, x2) = switch_points[-1]
+            
+        elif len(switch_points) < 2:
+            (y1, x1), (y2, x2) = intersections_sliced[0:2]
+            
+        distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        diam_coords = ((y1 + min_row) * spacing, (x1 + min_col) * spacing), ((y2 + min_row) * spacing, (x2 + min_col)* spacing)
 
 
     return distance, diam_coords

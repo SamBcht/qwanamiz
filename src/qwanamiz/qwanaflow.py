@@ -16,12 +16,15 @@ import pandas as pd
 import skimage.io
 import skimage.measure
 import skimage.color
+# import cv2
+# from PIL import Image
 #from skimage import img_as_ubyte
 from scipy.ndimage import distance_transform_edt
 #import matplotlib
 import matplotlib.pyplot as plt
 #import networkx as nx
 import skimage.graph
+import skimage.util
 import qwanamiz
 #from tools import histogram
 #from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
@@ -45,7 +48,7 @@ def batch_measurements(img_path):
     ## INPUT : 'prediction' is a numpy array of float64, output of roxasAI algorithm
     # it is the result of the binarization of the original image.
     # The array has the same size as the original image
-    prediction = skimage.io.imread(img_path)
+    prediction = np.load(img_path)
 
     ## IMAGE METADATA AND RESOLUTION :
     # 10x scans have a resolution of 46146 dpi. We can define a scaling factor
@@ -208,8 +211,8 @@ if __name__ == '__main__':
     import glob
 
     # Set paths
-    input_folder = './output_test'
-    output_folder = './output_measures'
+    input_folder = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/output_seg'
+    output_folder = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/output_measures'
 
 
 
@@ -223,7 +226,7 @@ if __name__ == '__main__':
     for img_path in img_paths:
         
         # Adapt the parameter to the input file type
-        base_name = get_basename(img_path, remove = '_array.npy')
+        base_name = get_basename(img_path, remove = '.tif_array.npy')
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
@@ -233,14 +236,14 @@ if __name__ == '__main__':
         start_save = datetime.datetime.now()
         
         # Save the workflow output images
-        output_path = os.path.join(output_folder, f"{base_name}_dmap.png")
-        skimage.io.imsave(output_path, distance_map)
+        output_path = os.path.join(output_folder, f"{base_name}_dmap.npy")
+        np.save(output_path, distance_map)
         
-        output_path = os.path.join(output_folder, f"{base_name}_explabs.png")
-        skimage.io.imsave(output_path, expanded_labels)
+        output_path = os.path.join(output_folder, f"{base_name}_explabs.npy")
+        np.save(output_path, expanded_labels)
         
-        output_path = os.path.join(output_folder, f"{base_name}_labs.png")
-        skimage.io.imsave(output_path, labeled_image)
+        output_path = os.path.join(output_folder, f"{base_name}_labs.npy")
+        np.save(output_path, labeled_image)
         
         output_path = os.path.join(output_folder, f"{base_name}_angles.png")
         angle_plot.savefig(output_path)
@@ -255,7 +258,7 @@ if __name__ == '__main__':
         
         output_path = os.path.join(output_folder, f"{base_name}_params.csv")
         (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
-         .to_csv('dict_file.csv', header=True))
+         .to_csv(output_path, header=True))
         
         print(f"Saved workflow output to {output_path}")
         endTime = datetime.datetime.now()
