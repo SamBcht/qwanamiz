@@ -211,8 +211,8 @@ if __name__ == '__main__':
     import glob
 
     # Set paths
-    input_folder = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/output_seg'
-    output_folder = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/output_measures'
+    input_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_seg'
+    output_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_measures'
 
 
 
@@ -226,7 +226,7 @@ if __name__ == '__main__':
     for img_path in img_paths:
         
         # Adapt the parameter to the input file type
-        base_name = get_basename(img_path, remove = '.tif_array.npy')
+        base_name = get_basename(img_path, remove = '_array.npy')
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
@@ -236,14 +236,17 @@ if __name__ == '__main__':
         start_save = datetime.datetime.now()
         
         # Save the workflow output images
-        output_path = os.path.join(output_folder, f"{base_name}_dmap.npy")
-        np.save(output_path, distance_map)
+        output_path = os.path.join(output_folder, f"{base_name}_imgs")
+        np.savez_compressed(output_path, dmap = distance_map, 
+                            explabs = expanded_labels, 
+                            labs = labeled_image)
+        #np.save(output_path, distance_map)
         
-        output_path = os.path.join(output_folder, f"{base_name}_explabs.npy")
-        np.save(output_path, expanded_labels)
+        #output_path = os.path.join(output_folder, f"{base_name}_explabs.npy")
+        #np.save(output_path, expanded_labels)
         
-        output_path = os.path.join(output_folder, f"{base_name}_labs.npy")
-        np.save(output_path, labeled_image)
+        #output_path = os.path.join(output_folder, f"{base_name}_labs.npy")
+        #np.save(output_path, labeled_image)
         
         output_path = os.path.join(output_folder, f"{base_name}_angles.png")
         angle_plot.savefig(output_path)
