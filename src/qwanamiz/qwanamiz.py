@@ -310,7 +310,7 @@ def classify_edges(df, tolerance = 5):
     # Convert tolerance in radians
     tolerance_rad = np.radians(tolerance)
 
-    # Update the classification to 'tan_wall' for edges with angle between lower and upper bounds
+    # Update the classification to 'tangential' for edges with angle between lower and upper bounds
     for index, row in df.iterrows():
         lower_bound = row['lower_bound']
         upper_bound = row['upper_bound']
@@ -582,7 +582,7 @@ def get_cell_walls(cells_df, walls_df):
             
             cells_df.at[idx, 'radial_file'] = edge_data['radial_file']
             
-            if neighbor_centroid[0] < label_centroid[0]:  # Left neighbor
+            if neighbor_centroid[1] < label_centroid[1]:  # Left neighbor
                 cells_df.at[idx, 'left_neighbor'] = neighbor_label
                 cells_df.at[idx, 'left_wall_thickness'] = edge_data['wall_thickness']
                 cells_df.at[idx, 'left_angle'] = edge_data['angle']
@@ -611,7 +611,7 @@ def get_cell_walls(cells_df, walls_df):
                 cells_df.at[idx, 'radial_file'] = edge_data1['radial_file']
             else: cells_df.at[idx, 'radial_file'] = 0
             
-            if neighbor1_centroid[0] < label_centroid[0] and neighbor2_centroid[0] > label_centroid[0]:
+            if neighbor1_centroid[1] < label_centroid[1] and neighbor2_centroid[1] > label_centroid[1]:
                 # Proper left and right neighbors
                 cells_df.at[idx, 'left_neighbor'] = neighbor1_label
                 cells_df.at[idx, 'left_wall_thickness'] = edge_data1['wall_thickness']
@@ -620,7 +620,7 @@ def get_cell_walls(cells_df, walls_df):
                 cells_df.at[idx, 'right_wall_thickness'] = edge_data2['wall_thickness']
                 cells_df.at[idx, 'right_angle'] = edge_data2['angle']
             
-            elif neighbor1_centroid[0] > label_centroid[0] and neighbor2_centroid[0] < label_centroid[0]:
+            elif neighbor1_centroid[1] > label_centroid[1] and neighbor2_centroid[1] < label_centroid[1]:
                 # Proper left and right neighbors, swapped order
                 cells_df.at[idx, 'left_neighbor'] = neighbor2_label
                 cells_df.at[idx, 'left_wall_thickness'] = edge_data2['wall_thickness']
@@ -646,6 +646,7 @@ def assign_radial_files(complete_df):
     
     # Initialize the 'radial_file' column with None
     complete_df['radial_file'] = None
+    complete_df['file_rank'] = None
     
     # Filter the DataFrame
     edges_df = complete_df[
@@ -712,6 +713,10 @@ def assign_radial_files(complete_df):
         edges_df.at[current_edge, 'radial_file'] = radial_file_id
         visited_edges.add(current_edge)
         previous_edge = None
+        
+        # Initialize the file rank counter
+        ranking = 1
+        edges_df.at[current_edge, 'file_rank'] = ranking
 
         while True:
             # Update the list of neighbors to exclude those that have already been visited
@@ -727,6 +732,10 @@ def assign_radial_files(complete_df):
             # Assign the radial file ID to the next edge and add it to the set of visited edges
             edges_df.at[next_edge, 'radial_file'] = radial_file_id
             visited_edges.add(next_edge)
+            
+            # Assign the file rank to the edge
+            ranking += 1
+            edges_df.at[next_edge, 'file_rank'] = ranking
             
             # Mark remaining neighbors as visited
             visited_edges.update(neighbors)
