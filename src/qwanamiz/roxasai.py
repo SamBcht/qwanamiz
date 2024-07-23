@@ -115,9 +115,9 @@ if __name__ == '__main__':
         cv2.imwrite(output_path, prediction)
         
         # Save the array
-        output_path = os.path.join(output_folder, f"{base_name}_array.npy")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        np.save(output_path, prediction)
+        #output_path = os.path.join(output_folder, f"{base_name}_array.npy")
+        #os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        #np.save(output_path, prediction)
         print(f"Saved segmentation output to {output_path}")
         endTime = datetime.datetime.now()
         print(f'runtime : {endTime - start_save}')
