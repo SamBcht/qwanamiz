@@ -142,9 +142,9 @@ def qwa_napari_view(img_path, cells_path, edges_path):
 
 if __name__ == '__main__':
     
-    imgs = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F07-1M1-Sc2_imgs.npz'
-    cells_df = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F07-1M1-Sc2_cells.csv'
-    edges_df = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F07-1M1-Sc2_adjacency.csv'
+    imgs = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F02-1M2-Sc5_imgs.npz'
+    cells_df = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F02-1M2-Sc5_cells.csv'
+    edges_df = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F02-1M2-Sc5_adjacency.csv'
     
     qwa_napari_view(img_path = imgs, 
                     cells_path = cells_df, 

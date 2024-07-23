@@ -35,7 +35,7 @@ import qwanamiz
 #from scipy.stats import vonmises
 import datetime
 
-def batch_measurements(img_path):
+def batch_measurements(img_path, sampleID = "Sample1"):
 
     start = datetime.datetime.now()
 
@@ -48,7 +48,7 @@ def batch_measurements(img_path):
     ## INPUT : 'prediction' is a numpy array of float64, output of roxasAI algorithm
     # it is the result of the binarization of the original image.
     # The array has the same size as the original image
-    prediction = np.load(img_path)
+    prediction = skimage.io.imread(img_path)
 
     ## IMAGE METADATA AND RESOLUTION :
     # 10x scans have a resolution of 46146 dpi. We can define a scaling factor
@@ -86,6 +86,8 @@ def batch_measurements(img_path):
                 'perimeter_crofton',
                 'image',
                 'bbox')))
+    
+    regionprops_df['SampleId'] = sampleID
 
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
@@ -103,6 +105,23 @@ def batch_measurements(img_path):
     expanded_labels = skimage.segmentation.expand_labels(labeled_image,
                                                          distance = 10,
                                                          spacing = pix_to_um)
+    
+    expandprops_df = pd.DataFrame(
+        skimage.measure.regionprops_table(
+            expanded_labels,
+            spacing = pix_to_um,
+            properties = (
+                'label',
+                'area')
+            )
+        )
+
+    regionprops_df = regionprops_df.join(expandprops_df.set_index('label'), 
+                        on = 'label',  
+                        lsuffix = '_lumen',
+                        rsuffix = '_cell',
+                        validate = '1:1')
+
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -190,6 +209,14 @@ def batch_measurements(img_path):
 
     print("Measure lumen diameters")
     qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
+    
+    regionprops_df = regionprops_df.drop(
+        columns = [
+            'image',
+            'bbox-0',
+            'bbox-1',
+            'bbox-2',
+            'bbox-3'])
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -218,7 +245,7 @@ if __name__ == '__main__':
 
     # Process each image in the input folder
     # Adapt the parameter to the input file type
-    img_paths = glob.glob(os.path.join(input_folder, '*.npy'))
+    img_paths = glob.glob(os.path.join(input_folder, '*.png'))
     
     
     ###------------------------------------------- Process files --------------------------------###
@@ -226,11 +253,12 @@ if __name__ == '__main__':
     for img_path in img_paths:
         
         # Adapt the parameter to the input file type
-        base_name = get_basename(img_path, remove = '_array.npy')
+        base_name = get_basename(img_path, remove = '_segmented.png')
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path)
+        regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
+                                                                                                                                sampleID = base_name)
 
         print('save output')
         start_save = datetime.datetime.now()
