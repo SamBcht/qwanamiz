@@ -69,7 +69,7 @@ def adjacency_dataframe(rag, lumen_props):
                           ).drop(
                               columns = [
                                   'label',
-                                  'area',
+                                  'area_lumen',
                                   'major_axis_length',
                                   'minor_axis_length',
                                   'orientation',
@@ -78,7 +78,8 @@ def adjacency_dataframe(rag, lumen_props):
                                   'bbox-0',
                                   'bbox-1',
                                   'bbox-2',
-                                  'bbox-3'])
+                                  'bbox-3',
+                                  'area_cell'])
     
     # Merge to get coordinates for label2
     adj_df = adj_df.merge(lumen_props,
@@ -88,7 +89,7 @@ def adjacency_dataframe(rag, lumen_props):
                           ).drop(
                               columns = [
                                   'label',
-                                  'area',
+                                  'area_lumen',
                                   'major_axis_length',
                                   'minor_axis_length',
                                   'orientation',
@@ -97,7 +98,8 @@ def adjacency_dataframe(rag, lumen_props):
                                   'bbox-0',
                                   'bbox-1',
                                   'bbox-2',
-                                  'bbox-3'])
+                                  'bbox-3',
+                                  'area_cell'])
     
     # Use assign to create centroid1 and centroid2 columns as tuples
     adj_df = adj_df.assign(
