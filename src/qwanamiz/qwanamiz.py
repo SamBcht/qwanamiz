@@ -20,8 +20,8 @@ def get_adjacent_labels(labeled_image, background_label=0):
     adjacent_labels = set()
 
     # Iterate over the labeled image
-    for i in range(1, labeled_image.shape[0] - 1):
-        for j in range(1, labeled_image.shape[1] - 1):
+    for i in range(0, labeled_image.shape[0] - 1):
+        for j in range(0, labeled_image.shape[1] - 1):
             label = labeled_image[i, j]
             
             # Skip background pixels
@@ -29,7 +29,7 @@ def get_adjacent_labels(labeled_image, background_label=0):
                 continue
 
             # Check neighboring pixels
-            neighbors = [labeled_image[i-1, j], labeled_image[i+1, j], labeled_image[i, j-1], labeled_image[i, j+1]]
+            neighbors = [labeled_image[i+1, j], labeled_image[i, j+1]]
             neighbors = [neighbor for neighbor in neighbors if neighbor != label and neighbor != background_label]
 
             # Add unique pairs of neighboring labels
