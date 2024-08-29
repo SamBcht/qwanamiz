@@ -12,6 +12,7 @@ Created on Fri Jun 21 13:28:00 2024
 @author: sambo
 """
 import os
+import sys
 import argparse
 import glob
 import datetime
@@ -24,7 +25,8 @@ import skimage.color
 # from PIL import Image
 #from skimage import img_as_ubyte
 from scipy.ndimage import distance_transform_edt
-#import matplotlib
+import matplotlib
+matplotlib.use('Agg') # this avoids matplotlib hanging in command-line environments
 import matplotlib.pyplot as plt
 #import networkx as nx
 import skimage.graph
@@ -241,15 +243,23 @@ if __name__ == '__main__':
     # Set the command line arguments
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("input", help = """A single directory to process. All png files in that directory will be processed.""")
+    parser.add_argument("input", help = """If a single directory, all png files in that directory will be processed.
+                                           If a single .png file, processed only that file.""")
     parser.add_argument("output", help = """A directory to write output files to.""")
 
     # Parse the arguments
     args = parser.parse_args()
 
-    # Process each image in the input folder
-    # Adapt the parameter to the input file type
-    img_paths = glob.glob(os.path.join(args.input, '*.png'))
+    # If 'input' is a directory then all images ending in .png in that directory will be processed
+    if(os.path.isdir(args.input)):
+        # Process each .png image in the input folder
+        img_paths = glob.glob(os.path.join(args.input, '*.png'))
+    elif(os.path.isfile(args.input) and os.path.splitext(args.input)[1] == ".png"):
+        # In this case the list of paths is simply the file itself
+        img_paths = [args.input]
+    else:
+        print(f"qwanaflow does not know how to process file {args.input}")
+        sys.exit()
     
     
     ###------------------------------------------- Process files --------------------------------###
