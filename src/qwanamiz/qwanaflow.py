@@ -11,6 +11,10 @@ Created on Fri Jun 21 13:28:00 2024
 
 @author: sambo
 """
+import os
+import argparse
+import glob
+import datetime
 import numpy as np
 import pandas as pd
 import skimage.io
@@ -33,7 +37,6 @@ import qwanamiz
 #from scipy.special import iv
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
-import datetime
 
 def batch_measurements(img_path, sampleID = "Sample1"):
 
@@ -234,18 +237,19 @@ def get_basename(input_file, remove = '_ring.TIF'):
 
 
 if __name__ == '__main__':
-    import os
-    import glob
 
-    # Set paths
-    input_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_seg'
-    output_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_measures'
+    # Set the command line arguments
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument("input", help = """A single directory to process. All png files in that directory will be processed.""")
+    parser.add_argument("output", help = """A directory to write output files to.""")
 
+    # Parse the arguments
+    args = parser.parse_args()
 
     # Process each image in the input folder
     # Adapt the parameter to the input file type
-    img_paths = glob.glob(os.path.join(input_folder, '*.png'))
+    img_paths = glob.glob(os.path.join(args.input, '*.png'))
     
     
     ###------------------------------------------- Process files --------------------------------###
@@ -264,30 +268,31 @@ if __name__ == '__main__':
         start_save = datetime.datetime.now()
         
         # Save the workflow output images
-        output_path = os.path.join(output_folder, f"{base_name}_imgs")
+        output_path = os.path.join(args.output, f"{base_name}_imgs")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         np.savez_compressed(output_path, dmap = distance_map, 
                             explabs = expanded_labels, 
                             labs = labeled_image)
         #np.save(output_path, distance_map)
         
-        #output_path = os.path.join(output_folder, f"{base_name}_explabs.npy")
+        #output_path = os.path.join(args.output, f"{base_name}_explabs.npy")
         #np.save(output_path, expanded_labels)
         
-        #output_path = os.path.join(output_folder, f"{base_name}_labs.npy")
+        #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
         #np.save(output_path, labeled_image)
         
-        output_path = os.path.join(output_folder, f"{base_name}_angles.png")
+        output_path = os.path.join(args.output, f"{base_name}_angles.png")
         angle_plot.savefig(output_path)
         
         # Save the cell measurements dataframe
-        output_path = os.path.join(output_folder, f"{base_name}_cells.csv")
+        output_path = os.path.join(args.output, f"{base_name}_cells.csv")
         regionprops_df.to_csv(output_path, index=False)
         
         # Save the adjacency dataframe
-        output_path = os.path.join(output_folder, f"{base_name}_adjacency.csv")
+        output_path = os.path.join(args.output, f"{base_name}_adjacency.csv")
         adjacency.to_csv(output_path, index=True)
         
-        output_path = os.path.join(output_folder, f"{base_name}_params.csv")
+        output_path = os.path.join(args.output, f"{base_name}_params.csv")
         (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
          .to_csv(output_path, header=True))
         
