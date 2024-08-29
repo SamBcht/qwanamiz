@@ -244,7 +244,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("input", help = """If a single directory, all png files in that directory will be processed.
-                                           If a single .png file, processed only that file.""")
+                                           If a single .png file, process only that file.
+                                           If a single .txt file, should be a file containing a list of files to process, with one .png file per line.""")
     parser.add_argument("output", help = """A directory to write output files to.""")
 
     # Parse the arguments
@@ -257,9 +258,15 @@ if __name__ == '__main__':
     elif(os.path.isfile(args.input) and os.path.splitext(args.input)[1] == ".png"):
         # In this case the list of paths is simply the file itself
         img_paths = [args.input]
+    elif(os.path.isfile(args.input) and os.path.splitext(args.input)[1] == ".txt"):
+        with(open(args.input, "r") as f):
+            img_paths = [line.rstrip() for line in f]
+
+        if not all([os.path.exists(file) and file.endswith(".png") for file in img_paths]):
+            sys.exit(f"ERROR: Not all files in {args.input} exist or are.png files")
+
     else:
-        print(f"qwanaflow does not know how to process file {args.input}")
-        sys.exit()
+        sys.exit(f"ERROR: qwanaflow does not know how to process file {args.input}")
     
     
     ###------------------------------------------- Process files --------------------------------###
