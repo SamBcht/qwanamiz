@@ -40,7 +40,7 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1"):
+def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8):
 
     start = datetime.datetime.now()
 
@@ -160,7 +160,9 @@ def batch_measurements(img_path, sampleID = "Sample1"):
         adjacency,
         image_height = img_height, 
         image_width = img_width,
-        spacing = pix_to_um)
+        spacing = pix_to_um,
+        num_rows = dir_nrows,
+        num_cols = dir_ncols)
 
 
     endTime = datetime.datetime.now()
@@ -246,7 +248,14 @@ if __name__ == '__main__':
     parser.add_argument("input", help = """If a single directory, all png files in that directory will be processed.
                                            If a single .png file, process only that file.
                                            If a single .txt file, should be a file containing a list of files to process, with one .png file per line.""")
+
     parser.add_argument("output", help = """A directory to write output files to.""")
+
+    parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = 4,
+                        help = """Number of rows to split the image into for the directionality analysis. Defaults to 4.""")
+
+    parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = 8,
+                        help = """Number of columns to split the image into for the directionality analysis. Defaults to 8.""")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -279,7 +288,9 @@ if __name__ == '__main__':
         # Run the workflow script
         print(f"Running workflow on {base_name}")
         regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
-                                                                                                                                sampleID = base_name)
+                                                                                                                                sampleID = base_name,
+                                                                                                                                dir_nrows = args.nrows,
+                                                                                                                                dir_ncols = args.ncols)
 
         print('save output')
         start_save = datetime.datetime.now()
