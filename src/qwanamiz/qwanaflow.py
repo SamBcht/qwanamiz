@@ -257,6 +257,9 @@ if __name__ == '__main__':
     parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = 8,
                         help = """Number of columns to split the image into for the directionality analysis. Defaults to 8.""")
 
+    parser.add_argument("--disable-plots", dest = "noplots", action = "store_true",
+                        help = """Specify this flag to disable the generation of angle plots. By default they will be produced.""")
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -309,9 +312,10 @@ if __name__ == '__main__':
         #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
         #np.save(output_path, labeled_image)
         
-        angle_plot = qwanamiz.plot_angles(params = vm_parameters, num_rows = args.nrows, num_cols = args.ncols)
-        output_path = os.path.join(args.output, f"{base_name}_angles.png")
-        angle_plot.savefig(output_path)
+        if not args.noplots:
+            angle_plot = qwanamiz.plot_angles(params = vm_parameters, num_rows = args.nrows, num_cols = args.ncols)
+            output_path = os.path.join(args.output, f"{base_name}_angles.png")
+            angle_plot.savefig(output_path)
         
         # Save the cell measurements dataframe
         output_path = os.path.join(args.output, f"{base_name}_cells.csv")
