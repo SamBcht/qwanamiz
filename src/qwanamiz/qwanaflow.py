@@ -156,7 +156,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     # Determine the bounds of the subsamples
     img_height, img_width = prediction.shape
 
-    adjacency, vm_parameters, angle_plot = qwanamiz.directionnality(
+    adjacency, vm_parameters = qwanamiz.directionnality(
         adjacency,
         image_height = img_height, 
         image_width = img_width,
@@ -231,7 +231,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
 
     print("successfully run")
     
-    return regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image
+    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image
 
 
 def get_basename(input_file, remove = '_ring.TIF'):
@@ -287,10 +287,10 @@ if __name__ == '__main__':
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
-                                                                                                                                sampleID = base_name,
-                                                                                                                                dir_nrows = args.nrows,
-                                                                                                                                dir_ncols = args.ncols)
+        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
+                                                                                                                    sampleID = base_name,
+                                                                                                                    dir_nrows = args.nrows,
+                                                                                                                    dir_ncols = args.ncols)
 
         print('save output')
         start_save = datetime.datetime.now()
@@ -309,6 +309,7 @@ if __name__ == '__main__':
         #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
         #np.save(output_path, labeled_image)
         
+        angle_plot = qwanamiz.plot_angles(params = vm_parameters, num_rows = args.nrows, num_cols = args.ncols)
         output_path = os.path.join(args.output, f"{base_name}_angles.png")
         angle_plot.savefig(output_path)
         
