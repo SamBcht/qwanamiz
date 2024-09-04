@@ -185,12 +185,25 @@ def directionnality(adj_df,
             
             # Find the angle corresponding to the maximum y value in the histogram
             max_peak_angle = np.degrees(x_histo[np.argmax(y_histo)])
+
+            # Determining starting values to find the von Mises distribution parameters
+            # The max peak angle ± 60 degrees are a good starting approximation
+            mu_start = [max_peak_angle - 60, max_peak_angle, max_peak_angle + 60]
+            mu_start = [i + 180 if i < -90 else i for i in mu_start]
+            mu_start = [i - 180 if i > 90 else i for i in mu_start]
+            mu_start = np.radians(mu_start)
+
+            # Kappa values roughly similar to those empirically observed
+            kappa_start = np.array([10, 150, 10])
+
+            # We use pi values in equal proportions
+            pi_start = np.array([1.0, 1.0, 1.0]) / 3
             
             # Fit mixture of von Mises distributions
             iterations = 0
             while iterations < max_iterations:
                 
-                m = mixture_pdfit(angle_rad,n=3)
+                m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start)
             
                 # Parameters of the horizontal edges distribution
                 max_index = np.unravel_index(np.argmax(m, axis=None), m.shape)[1]
