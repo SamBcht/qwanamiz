@@ -40,7 +40,7 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8):
+def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001):
 
     start = datetime.datetime.now()
 
@@ -162,7 +162,8 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
         image_width = img_width,
         spacing = pix_to_um,
         num_rows = dir_nrows,
-        num_cols = dir_ncols)
+        num_cols = dir_ncols,
+        convergence_threshold = convergence_threshold)
 
 
     endTime = datetime.datetime.now()
@@ -260,6 +261,11 @@ if __name__ == '__main__':
     parser.add_argument("--disable-plots", dest = "noplots", action = "store_true",
                         help = """Specify this flag to disable the generation of angle plots. By default they will be produced.""")
 
+    parser.add_argument("--vm-threshold", dest = "vmthreshold", type = float, default = 0.001,
+                        help = """The convergence threshold in the search of von Mises distribution parameters.
+                                  Lower values result in more precise results but slower convergence.
+                                  Defaults to 0.001.""")
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -293,7 +299,8 @@ if __name__ == '__main__':
         regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
                                                                                                                     sampleID = base_name,
                                                                                                                     dir_nrows = args.nrows,
-                                                                                                                    dir_ncols = args.ncols)
+                                                                                                                    dir_ncols = args.ncols,
+                                                                                                                    convergence_threshold = args.vmthreshold)
 
         print('save output')
         start_save = datetime.datetime.now()

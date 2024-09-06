@@ -153,6 +153,7 @@ def directionnality(adj_df,
                     # Threshold for acceptable difference between mu and the peak angle
                     mu_threshold = 5,  # in degrees. Adjust this value based on your needs
                     max_iterations = 10,  # Maximum number of iterations to avoid infinite looping
+                    convergence_threshold = 0.001,
                     k_threshold = 50):
     
     row_height = (image_height*spacing) / num_rows
@@ -203,7 +204,7 @@ def directionnality(adj_df,
             iterations = 0
             while iterations < max_iterations:
                 
-                m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start)
+                m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
             
                 # Parameters of the horizontal edges distribution
                 max_index = np.unravel_index(np.argmax(m, axis=None), m.shape)[1]
