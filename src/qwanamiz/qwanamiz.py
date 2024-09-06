@@ -592,11 +592,11 @@ def get_cell_walls(cells_df, walls_df):
     
     # Iterate over each row in cells_df
     cells_df['left_neighbor'] = 0
-    cells_df['left_wall_thickness'] = 0
-    cells_df['left_angle'] = 0
+    cells_df['left_wall_thickness'] = 0.0
+    cells_df['left_angle'] = 0.0
     cells_df['right_neighbor'] = 0
-    cells_df['right_wall_thickness'] = 0
-    cells_df['right_angle'] = 0
+    cells_df['right_wall_thickness'] = 0.0
+    cells_df['right_angle'] = 0.0
     cells_df['classification'] = 'regular'
     cells_df['radial_file'] = None
 
