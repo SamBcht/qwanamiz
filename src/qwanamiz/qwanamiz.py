@@ -421,7 +421,7 @@ def refine_neighbors(complete_df):
         
 
     # Filter ambiguous edges and initialize columns for reclassification
-    ambiguous_edge = complete_df[complete_df['wall_classification'] == 'indoubt']
+    ambiguous_edge = complete_df.copy()[complete_df['wall_classification'] == 'indoubt']
     ambiguous_edge['amb_neighbors'] = None
     ambiguous_edge['situation'] = None
 
@@ -536,7 +536,8 @@ def refine_neighbors(complete_df):
                     ambiguous_edge.at[edge, 'situation'] = 'bridge'
             # inside bifurcation if amb_neighbor is also 'cross'
     
-    complete_df['wall_classification'].update(ambiguous_edge['situation'])
+    for index,row in ambiguous_edge.iterrows():
+        complete_df.loc[index, 'wall_classification'] = ambiguous_edge.loc[index, 'situation']
     
     return complete_df
 ###################################################################################
