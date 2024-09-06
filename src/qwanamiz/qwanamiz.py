@@ -545,7 +545,7 @@ def refine_neighbors(complete_df):
 def update_neighbors(complete_df):
     
     # Filter the DataFrame
-    edges_df = complete_df[
+    edges_df = complete_df.copy()[
         (complete_df['wall_classification'] == 'tangential') |
         (complete_df['wall_classification'].str.contains('bridge'))
     ]
@@ -577,7 +577,8 @@ def update_neighbors(complete_df):
     # Remove duplicates from neighbors list
     edges_df['neighbors'] = edges_df['neighbors'].apply(lambda x: list(set(x)))
     
-    complete_df['neighbors'].update(edges_df['neighbors'])
+    for index,row in edges_df.iterrows():
+        complete_df.at[index, 'neighbors'] = edges_df.at[index, 'neighbors']
     
     return complete_df
 
