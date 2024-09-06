@@ -537,7 +537,8 @@ def refine_neighbors(complete_df):
             # inside bifurcation if amb_neighbor is also 'cross'
     
     for index,row in ambiguous_edge.iterrows():
-        complete_df.loc[index, 'wall_classification'] = ambiguous_edge.loc[index, 'situation']
+        if ambiguous_edge.at[index, 'situation'] is not None:
+            complete_df.at[index, 'wall_classification'] = ambiguous_edge.at[index, 'situation']
     
     return complete_df
 ###################################################################################
