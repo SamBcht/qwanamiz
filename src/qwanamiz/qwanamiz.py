@@ -19,21 +19,31 @@ from scipy.stats import vonmises
 def get_adjacent_labels(labeled_image, background_label=0):
     adjacent_labels = set()
 
-    # Iterate over the labeled image
-    for i in range(1, labeled_image.shape[0] - 1):
-        for j in range(1, labeled_image.shape[1] - 1):
-            label = labeled_image[i, j]
-            
-            # Skip background pixels
-            if label == background_label:
-                continue
+    # Create shifted image to check vertical adjacencies
+    vshift1 = labeled_image[:-1,] # All but the last row
+    vshift2 = labeled_image[1:,]  # All but the first row
 
-            # Check neighboring pixels
-            neighbors = [labeled_image[i-1, j], labeled_image[i+1, j], labeled_image[i, j-1], labeled_image[i, j+1]]
-            neighbors = [neighbor for neighbor in neighbors if neighbor != label and neighbor != background_label]
+    # We have an adjacency if
+    # - The corresponding values are different
+    # - None of the values correspond to the background label
+    v_adj = vshift1 != vshift2
+    v_adj = np.logical_and(v_adj, vshift1 != background_label)
+    v_ind = np.where(np.logical_and(v_adj, vshift2 != background_label))
 
-            # Add unique pairs of neighboring labels
-            adjacent_labels.update([tuple(sorted((label, neighbor))) for neighbor in neighbors])
+    # We do the same thing to check for horizontal adjacencies
+    hshift1 = labeled_image[:,:-1] # All but the last column
+    hshift2 = labeled_image[:,1:]  # All but the first column
+
+    h_adj = hshift1 != hshift2
+    h_adj = np.logical_and(h_adj, hshift1 != background_label)
+    h_ind = np.where(np.logical_and(h_adj, hshift2 != background_label))
+
+    # Now we add the adjacent label tuples based on the positions of the matches
+    for i in range(len(v_ind[0])):
+        adjacent_labels.add(tuple(sorted((vshift1[v_ind[0][i], v_ind[1][i]], vshift2[v_ind[0][i], v_ind[1][i]]))))
+
+    for i in range(len(h_ind[0])):
+        adjacent_labels.add(tuple(sorted((hshift1[h_ind[0][i], h_ind[1][i]], hshift2[h_ind[0][i], h_ind[1][i]]))))
 
     return adjacent_labels
 
