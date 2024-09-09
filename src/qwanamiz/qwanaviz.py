@@ -5,6 +5,7 @@ Created on Thu Jul 11 13:46:49 2024
 @author: sambo
 """
 
+import argparse
 import napari
 import numpy as np
 import pandas as pd
@@ -137,16 +138,28 @@ def qwa_napari_view(img_path, cells_path, edges_path):
                       edge_color='green', 
                       edge_width=1, 
                       name='Tangential Diameters')
+
+    napari.run()
     
     return viewer
 
 if __name__ == '__main__':
+
+
+    # Set the command line arguments
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("prefix", help = """The prefix of the sample to use qwanamiz.py with. qwanamiz will look for
+                                            file paths corresponding to 'prefix + _imgs.npz', 'prefix + _cells.csv',
+                                            and 'prefix + _adjacency.csv'. These files should all be output by qwanaflow.py.""")
+
+    args = parser.parse_args()
     
-    imgs = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F02-1M2-Sc5_imgs.npz'
-    cells_df = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F02-1M2-Sc5_cells.csv'
-    edges_df = r'C:\Users\sambo\Desktop\QWAnamiz_store\final_outputs\L20_F02-1M2-Sc5_adjacency.csv'
+    imgs = args.prefix + "_imgs.npz"
+    cells_df = args.prefix + '_cells.csv'
+    edges_df = args.prefix + '_adjacency.csv'
     
     qwa_napari_view(img_path = imgs, 
                     cells_path = cells_df, 
                     edges_path = edges_df)
-    
+
