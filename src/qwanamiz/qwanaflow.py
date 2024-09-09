@@ -40,7 +40,7 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1"):
+def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001):
 
     start = datetime.datetime.now()
 
@@ -156,11 +156,14 @@ def batch_measurements(img_path, sampleID = "Sample1"):
     # Determine the bounds of the subsamples
     img_height, img_width = prediction.shape
 
-    adjacency, vm_parameters, angle_plot = qwanamiz.directionnality(
+    adjacency, vm_parameters = qwanamiz.directionnality(
         adjacency,
         image_height = img_height, 
         image_width = img_width,
-        spacing = pix_to_um)
+        spacing = pix_to_um,
+        num_rows = dir_nrows,
+        num_cols = dir_ncols,
+        convergence_threshold = convergence_threshold)
 
 
     endTime = datetime.datetime.now()
@@ -229,7 +232,7 @@ def batch_measurements(img_path, sampleID = "Sample1"):
 
     print("successfully run")
     
-    return regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image
+    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image
 
 
 def get_basename(input_file, remove = '_ring.TIF'):
@@ -246,7 +249,22 @@ if __name__ == '__main__':
     parser.add_argument("input", help = """If a single directory, all png files in that directory will be processed.
                                            If a single .png file, process only that file.
                                            If a single .txt file, should be a file containing a list of files to process, with one .png file per line.""")
+
     parser.add_argument("output", help = """A directory to write output files to.""")
+
+    parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = 4,
+                        help = """Number of rows to split the image into for the directionality analysis. Defaults to 4.""")
+
+    parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = 8,
+                        help = """Number of columns to split the image into for the directionality analysis. Defaults to 8.""")
+
+    parser.add_argument("--disable-plots", dest = "noplots", action = "store_true",
+                        help = """Specify this flag to disable the generation of angle plots. By default they will be produced.""")
+
+    parser.add_argument("--vm-threshold", dest = "vmthreshold", type = float, default = 0.001,
+                        help = """The convergence threshold in the search of von Mises distribution parameters.
+                                  Lower values result in more precise results but slower convergence.
+                                  Defaults to 0.001.""")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -278,8 +296,11 @@ if __name__ == '__main__':
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, angle_plot, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
-                                                                                                                                sampleID = base_name)
+        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
+                                                                                                                    sampleID = base_name,
+                                                                                                                    dir_nrows = args.nrows,
+                                                                                                                    dir_ncols = args.ncols,
+                                                                                                                    convergence_threshold = args.vmthreshold)
 
         print('save output')
         start_save = datetime.datetime.now()
@@ -298,8 +319,10 @@ if __name__ == '__main__':
         #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
         #np.save(output_path, labeled_image)
         
-        output_path = os.path.join(args.output, f"{base_name}_angles.png")
-        angle_plot.savefig(output_path)
+        if not args.noplots:
+            angle_plot = qwanamiz.plot_angles(params = vm_parameters, num_rows = args.nrows, num_cols = args.ncols)
+            output_path = os.path.join(args.output, f"{base_name}_angles.png")
+            angle_plot.savefig(output_path)
         
         # Save the cell measurements dataframe
         output_path = os.path.join(args.output, f"{base_name}_cells.csv")

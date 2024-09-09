@@ -53,16 +53,35 @@ You can see detailed qwanaflow usage by running the `qwanaflow.py --help` comman
 ```bash
 python qwanaflow.py --help
 
-usage: qwanaflow.py [-h] input output
+usage: qwanaflow.py [-h] [--dir-nrows NROWS] [--dir-ncols NCOLS]
+                    [--disable-plots] [--vm-threshold VMTHRESHOLD]
+                    input output
 
 positional arguments:
-  input       If a single directory, all png files in that directory will be processed.
-              If a single .png file, process only that file. If a single .txt file, should be a
-              file containing a list of files to process, with one .png file per line.
-  output      A directory to write output files to.
+  input                 If a single directory, all png files in that directory
+                        will be processed. If a single .png file, process only
+                        that file. If a single .txt file, should be a file
+                        containing a list of files to process, with one .png
+                        file per line.
+  output                A directory to write output files to.
 
 options:
-  -h, --help  show this help message and exit
+  -h, --help            show this help message and exit
+  --dir-nrows NROWS, -r NROWS
+                        Number of rows to split the image into for the
+                        directionality analysis. Defaults to 4.
+  --dir-ncols NCOLS, -c NCOLS
+                        Number of columns to split the image into for the
+                        directionality analysis. Defaults to 8.
+  --disable-plots       Specify this flag to disable the generation of angle
+                        plots. By default they will be produced.
+  --vm-threshold VMTHRESHOLD
+                        The convergence threshold in the search of von Mises
+                        distribution parameters. Lower values result in more
+                        precise results but slower convergence. Defaults to
+                        0.001.
+
+
 ```
 
 ### QWAnaviz:

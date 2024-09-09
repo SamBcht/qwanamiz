@@ -153,17 +153,14 @@ def directionnality(adj_df,
                     # Threshold for acceptable difference between mu and the peak angle
                     mu_threshold = 5,  # in degrees. Adjust this value based on your needs
                     max_iterations = 10,  # Maximum number of iterations to avoid infinite looping
+                    convergence_threshold = 0.001,
                     k_threshold = 50):
     
     row_height = (image_height*spacing) / num_rows
     col_width = (image_width*spacing) / num_cols
 
-
     # Subsampling image and filtering of edges based on von Mises distributions
 
-    # Create a figure to display the histograms
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(20, 10))
-    
     # Dictionary to store the parameters for each subsample
     subsample_params = {}
 
@@ -189,13 +186,25 @@ def directionnality(adj_df,
             
             # Find the angle corresponding to the maximum y value in the histogram
             max_peak_angle = np.degrees(x_histo[np.argmax(y_histo)])
+
+            # Determining starting values to find the von Mises distribution parameters
+            # The max peak angle ± 60 degrees are a good starting approximation
+            mu_start = [max_peak_angle - 60, max_peak_angle, max_peak_angle + 60]
+            mu_start = [i + 180 if i < -90 else i for i in mu_start]
+            mu_start = [i - 180 if i > 90 else i for i in mu_start]
+            mu_start = np.radians(mu_start)
+
+            # Kappa values roughly similar to those empirically observed
+            kappa_start = np.array([10, 150, 10])
+
+            # We use pi values in equal proportions
+            pi_start = np.array([1.0, 1.0, 1.0]) / 3
             
             # Fit mixture of von Mises distributions
             iterations = 0
             while iterations < max_iterations:
                 
-                m = mixture_pdfit(angle_rad,n=3)
-            
+                m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
             
                 # Parameters of the horizontal edges distribution
                 max_index = np.unravel_index(np.argmax(m, axis=None), m.shape)[1]
@@ -218,44 +227,13 @@ def directionnality(adj_df,
                 'bounds': (lower_bound, upper_bound),
                 'x': (x_min, x_max),
                 'y': (y_min, y_max),
+                'x_histo': x_histo,
+                'y_histo': y_histo,
+                'mu': mu,
+                'kappa': kappa,
                 'nb_cells': len(angle_rad),
                 'cell_index': subsample_edges.index}
-           
-            # Plotting
-            ax = axes[i, j]
-            
-            # Plot the empirical distribution
-            
-            ax.plot(x_histo, y_histo, label='Raw', color='blue')
-            
-            # Plot the distribution using the parameters obtained from the EM algorithm
-            f = np.zeros(len(x_histo))
-            for k in range(m.shape[1]):
-                f += m[0, k] * density(x_histo, m[1, k], m[2, k])
-            ax.plot(x_histo, f / np.sum(f), label='Fit', color='red')
 
-            # Add the 99% interval bounds as vertical lines
-            ax.axvline(lower_bound, color='green', linestyle='--')
-            ax.axvline(upper_bound, color='green', linestyle='--')
-            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
-
-
-            # Set limits and title
-            ax.set_xlim(-np.pi/2, np.pi/2)
-            ax.set_xticks([-np.pi/2, -np.pi/4, 0, np.pi/4, np.pi/2])
-            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
-            ax.set_title(f"Subsample ({i+1}, {j+1})")
-
-            # Display the legend
-            #ax.legend()
-
-    # Adjust layout
-    fig.tight_layout()
-    fig.show()
-    
     # Initialize an empty list to store the rows
     rows = []
 
@@ -279,8 +257,62 @@ def directionnality(adj_df,
     # Merge the dataframes based on the index (cell_index)
     merged_df = pd.merge(adj_df, df, left_index=True, right_on='cell_index')
     
-    return merged_df, subsample_params, fig
+    return merged_df, subsample_params
 
+# A function that shows the empirical distribution of angles
+# and the one esimated by the von Mises distributions for
+# each of the subsets (num_rows x num_cols) of the image
+def plot_angles(params, num_rows, num_cols):
+
+    # Create a figure to display the histograms
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(20, 10))
+
+    # Looping over the rows and columns
+    for i in range(num_rows):
+        for j in range(num_cols):
+
+            # Extracting the relevant data from the set of parameters
+            x_histo = params[f'{i+1}_{j+1}']['x_histo']
+            y_histo = params[f'{i+1}_{j+1}']['y_histo']
+            mu = params[f'{i+1}_{j+1}']['mu']
+            kappa = params[f'{i+1}_{j+1}']['kappa']
+            m = params[f'{i+1}_{j+1}']['vonmisses_params']
+            lower_bound = params[f'{i+1}_{j+1}']['bounds'][0]
+            upper_bound = params[f'{i+1}_{j+1}']['bounds'][1]
+
+            # Plotting
+            ax = axes[i, j]
+            
+            # Plot the empirical distribution
+            ax.plot(x_histo, y_histo, label='Raw', color='blue')
+            
+            # Plot the distribution using the parameters obtained from the EM algorithm
+            f = np.zeros(len(x_histo))
+            for k in range(m.shape[1]):
+                f += m[0, k] * density(x_histo, m[1, k], m[2, k])
+            ax.plot(x_histo, f / np.sum(f), label='Fit', color='red')
+
+            # Add the 99% interval bounds as vertical lines
+            ax.axvline(lower_bound, color='green', linestyle='--')
+            ax.axvline(upper_bound, color='green', linestyle='--')
+            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
+
+            # Set limits and title
+            ax.set_xlim(-np.pi/2, np.pi/2)
+            ax.set_xticks([-np.pi/2, -np.pi/4, 0, np.pi/4, np.pi/2])
+            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
+            ax.set_title(f"Subsample ({i+1}, {j+1})")
+
+            # Display the legend
+            #ax.legend()
+
+    # Adjust layout
+    fig.tight_layout()
+
+    return fig 
 
 #########################################################################
 # Cell Wall Measurements

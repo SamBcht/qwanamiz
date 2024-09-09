@@ -76,7 +76,7 @@ def vonmises_pdfit(series: np.array) -> Tuple[float]:
     """Alias for `pdfit` function. Kept for retro-compatibility."""
     return pdfit(series)
 
-def mixture_pdfit(series: np.array, n: int=2, threshold: float=1e-3) -> np.array:
+def mixture_pdfit(series: np.array, pi, mu, kappa, n: int=2, threshold: float=1e-3) -> np.array:
     """
     Find the parameters of a mixture of von Mises distributions, using an EM algorithm.
     
@@ -84,15 +84,15 @@ def mixture_pdfit(series: np.array, n: int=2, threshold: float=1e-3) -> np.array
     -- | -- | --
     series | a 1D numpy array | represent the stochastic periodic process
     n | an int | the number of von Mises distributions in the mixture
+    pi | initial values for pi (proportions of each distribution)
+    mu | initial values for mu (measure of location, analogous to mean) 
+    kappa | initial values for kappa (measure of concentration, analogous to 1/variance)
     threshold | a float | correspond to the euclidean distance between the old parameters and the new ones
     
     Output : a (3 x n) numpy-array, containing the probability amplitude of the distribution, 
     and the mu and kappa parameters on each line.
     """
     # initialise the parameters and the distributions
-    pi = np.random.random(n)
-    mu = np.random.vonmises(0.0, 0.0, n)
-    kappa = np.random.random(n)
     t = pi*vonmises_density(series, mu, kappa)
     s = np.sum(t, axis=1)
     t = (t.T/s).T
