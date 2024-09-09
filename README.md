@@ -1,60 +1,77 @@
 # qwanamiz
 
-Quantitative Wood Anatomy Measurements
+Quantitative Wood Anatomy Measurements and Visualization
 
 ## Installation
 
-Installlation has not been set up for now. Better download a zip copy of the repo.
+At the moment, we recommend cloning the repository directly from GitHub:
 
 ```bash
-$ pip install qwanamiz
+git clone https://github.com/SamBcht/qwanamiz.git
 ```
 
-## Usage
+The two executable files that are needed for analyses are located in `src/qwanamiz`:
 
-- TODO
+- `qwanaflow.py` (cell labeling, measurements, and radial file identification)
+- `qwanamiz.py` (visualization of the results produced by `qwanaflow.py`)
 
-Create an environment using the environment.yml file:
+### Requirements
+
+In addition to some standard Python modules, qwanamiz requires the following
+modules to be available:
+
+- [numpy](https://numpy.org/)
+- [pandas](https://pandas.pydata.org/)
+- [scikit-image](https://scikit-image.org/)
+- [matplotlib](https://matplotlib.org/)
+- [napari](https://napari.org/stable/) (optional, for visualisation with `qwanaviz.py`)
+
+We recommend users to install these modules in a virtual environment. We
+provide the environment.yml file to facilitate the installation of dependencies
+using conda:
 
 ```bash
-$ conda env create -f environment.yml
+conda env create -f environment.yml
 ```
-For now, I advice to use the IDE Spyder to process the scripts
 
-### RoxasAI:
+## Image preprocessing
 
-The "roxasai.py" file contains the script to run the TowardsRoxasAI segmentation model proposed in Katzenmaier et al. (2023).
-It transform the original scanned image in a binary white and black image distinguishing cell lumens from cell walls. 
+We recommend using [RoxasAI](https://github.com/marckatzenmaier/TowardsRoxasAI)
+by Katzenmeier et al. (2023) to preprocess wood anatomy images prior to running
+the qwanamiz workflow. This tool outputs binarized .png files which
+differentiate cell lumina from other features in the image. However, any .png
+file which encodes binarized wood anatomy images this way is suitable for input
+to qwanamiz.
 
-At the end of the "roxas.py" file, set the path of the folder containing the input image(s), the path of the folder that will contain the outputs and the path to the model file.
-The input folder must contain images in ".tif" format.
-The segmentation model file can be found at https://github.com/marckatzenmaier/TowardsRoxasAI
-Run the entire file
+## QWAnaflow
 
-### QWAnaflow:
+The `qwanaflow.py` file contains a script that sequentially runs all the steps
+to measure wood anatomical traits. It is an entirely automated quantitative
+wood anatomy analysis.
 
-The "qwanaflow.py" file contains a script that run sequentially all the steps to measure wood anatomical traits.
-It's an entirely automated quantitative wood anatomy analysis.
-
-`qwanaflow.py` is designed to be launched from the command line as follows
+`qwanaflow.py` is designed to be launched from the command line as follows:
 
 ```bash
-python qwanaflow.py <input> <output>
+python qwanaflow.py input output
 ```
 
-where `input` is either a directory containing .png files to be processed, a
-single .png file, or a .txt file listing .png files to process. Only .png files
-are supported at the moment, but support could be extended to other file types
-in the future. The `output` parameter is a directory to which the output files
-will be written.
+The `input` parameter is either a directory containing .png files to be
+processed, a single .png file, or a .txt file listing .png files to process.
+Only .png files are supported at the moment, but support could be extended to
+other file types in the future.
+
+The `output` parameter is a directory to which the output files will be
+written. `qwanaflow.py` will strip the input files from their .png extension
+and use the resulting prefix to save output files in the `output` directory.
 
 You can see detailed qwanaflow usage by running the `qwanaflow.py --help` command:
 
-```bash
+```
 python qwanaflow.py --help
 
 usage: qwanaflow.py [-h] [--dir-nrows NROWS] [--dir-ncols NCOLS]
                     [--disable-plots] [--vm-threshold VMTHRESHOLD]
+                    [--ncores NCORES]
                     input output
 
 positional arguments:
@@ -80,20 +97,42 @@ options:
                         distribution parameters. Lower values result in more
                         precise results but slower convergence. Defaults to
                         0.001.
-
-
+  --ncores NCORES       The number of processes to launch for multiprocessing
+                        for computing wall thickness. Defaults to 1 (no
+                        multiprocessing).
 ```
 
-### QWAnaviz:
-At the end of the "qwanaviz.py" file, set the path to:
-    - the "imgs.npz" file of the image
-    - the "cells.csv" file
-    - the "adjacency.csv" file
-Run the entire file
+## Output files
+
+TODO: A description of the files output by `qwanaflow.py` should be written here.
+
+## QWAnaviz
+
+The results produced by `qwanaflow.py` can be visualized using `qwanaviz.py`,
+which requires the [napari](https://napari.org/stable/) module to be installed.
+This script can be launched from the command line using the prefix of the sample
+to visualize as input:
+
+```
+python qwanaviz.py --help
+
+usage: qwanaviz.py [-h] prefix
+
+positional arguments:
+  prefix      The prefix of the sample to use qwanamiz.py with. qwanamiz will
+              look for file paths corresponding to 'prefix + _imgs.npz',
+              'prefix + _cells.csv', and 'prefix + _adjacency.csv'. These
+              files should all be output by qwanaflow.py.
+
+options:
+  -h, --help  show this help message and exit
+```
 
 ## Contributing
 
-Interested in contributing? Check out the contributing guidelines. Please note that this project is released with a Code of Conduct. By contributing to this project, you agree to abide by its terms.
+Interested in contributing? Check out the contributing guidelines. Please note
+that this project is released with a Code of Conduct. By contributing to this
+project, you agree to abide by its terms.
 
 ## License
 
