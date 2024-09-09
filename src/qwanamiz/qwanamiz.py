@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 #from tools import histogram
 from vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
 from scipy.stats import vonmises
+from multiprocessing import Pool
+from functools import partial
 ###########################################################################
 # Function to get the adjacent cells
 def get_adjacent_labels(labeled_image, background_label=0):
@@ -316,12 +318,12 @@ def plot_angles(params, num_rows, num_cols):
 
 #########################################################################
 # Cell Wall Measurements
-def thickness_between_centroids(centroid1, centroid2, dist_map, pixelwidth = 10):
+def thickness_between_centroids(row, dist_map, pixelwidth = 10):
     # Define profile line between centroids
     mid_line = skimage.measure.profile_line(
         dist_map,
-        centroid1,
-        centroid2,
+        row['centroid1'],
+        row['centroid2'],
         linewidth = pixelwidth,
         reduce_func = None)
     
@@ -333,14 +335,22 @@ def thickness_between_centroids(centroid1, centroid2, dist_map, pixelwidth = 10)
 
     return max_thickness
 
-def measure_wallthickness(adj_df, dist_map, scan_width = 10):
+def measure_wallthickness(adj_df, dist_map, scan_width = 10, nprocesses = 1):
+
+    # The case for multiprocessing
+    if(nprocesses > 1):
+        with Pool(processes = nprocesses) as p:
+            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, pixelwidth = scan_width)
+            adj_df['wall_thickness'] = p.map(multi_thickness, [row for index,row in adj_df.iterrows()])
     
-    adj_df['wall_thickness'] = adj_df.apply(
-        lambda row: thickness_between_centroids(row['centroid1'],
-                                                row['centroid2'],
-                                                dist_map = dist_map,
-                                                pixelwidth = scan_width),
-        axis=1)
+    # Otherwise with only one process
+    else:
+        adj_df['wall_thickness'] = adj_df.apply(
+                lambda row: thickness_between_centroids(row,
+                                                        dist_map = dist_map,
+                                                        pixelwidth = scan_width),
+                axis=1)
+
     
     return adj_df
 
