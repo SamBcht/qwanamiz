@@ -11,6 +11,11 @@ Created on Fri Jun 21 13:28:00 2024
 
 @author: sambo
 """
+import os
+import sys
+import argparse
+import glob
+import datetime
 import numpy as np
 import pandas as pd
 import skimage.io
@@ -20,7 +25,8 @@ import skimage.color
 # from PIL import Image
 #from skimage import img_as_ubyte
 from scipy.ndimage import distance_transform_edt
-#import matplotlib
+import matplotlib
+matplotlib.use('Agg') # this avoids matplotlib hanging in command-line environments
 import matplotlib.pyplot as plt
 #import networkx as nx
 import skimage.graph
@@ -33,7 +39,6 @@ import qwanamiz
 #from scipy.special import iv
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
-import datetime
 
 def batch_measurements(img_path, sampleID = "Sample1"):
 
@@ -234,18 +239,34 @@ def get_basename(input_file, remove = '_ring.TIF'):
 
 
 if __name__ == '__main__':
-    import os
-    import glob
 
-    # Set paths
-    input_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_seg'
-    output_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_measures'
+    # Set the command line arguments
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument("input", help = """If a single directory, all png files in that directory will be processed.
+                                           If a single .png file, process only that file.
+                                           If a single .txt file, should be a file containing a list of files to process, with one .png file per line.""")
+    parser.add_argument("output", help = """A directory to write output files to.""")
 
+    # Parse the arguments
+    args = parser.parse_args()
 
-    # Process each image in the input folder
-    # Adapt the parameter to the input file type
-    img_paths = glob.glob(os.path.join(input_folder, '*.png'))
+    # If 'input' is a directory then all images ending in .png in that directory will be processed
+    if(os.path.isdir(args.input)):
+        # Process each .png image in the input folder
+        img_paths = glob.glob(os.path.join(args.input, '*.png'))
+    elif(os.path.isfile(args.input) and os.path.splitext(args.input)[1] == ".png"):
+        # In this case the list of paths is simply the file itself
+        img_paths = [args.input]
+    elif(os.path.isfile(args.input) and os.path.splitext(args.input)[1] == ".txt"):
+        with(open(args.input, "r") as f):
+            img_paths = [line.rstrip() for line in f]
+
+        if not all([os.path.exists(file) and file.endswith(".png") for file in img_paths]):
+            sys.exit(f"ERROR: Not all files in {args.input} exist or are.png files")
+
+    else:
+        sys.exit(f"ERROR: qwanaflow does not know how to process file {args.input}")
     
     
     ###------------------------------------------- Process files --------------------------------###
@@ -264,30 +285,31 @@ if __name__ == '__main__':
         start_save = datetime.datetime.now()
         
         # Save the workflow output images
-        output_path = os.path.join(output_folder, f"{base_name}_imgs")
+        output_path = os.path.join(args.output, f"{base_name}_imgs")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         np.savez_compressed(output_path, dmap = distance_map, 
                             explabs = expanded_labels, 
                             labs = labeled_image)
         #np.save(output_path, distance_map)
         
-        #output_path = os.path.join(output_folder, f"{base_name}_explabs.npy")
+        #output_path = os.path.join(args.output, f"{base_name}_explabs.npy")
         #np.save(output_path, expanded_labels)
         
-        #output_path = os.path.join(output_folder, f"{base_name}_labs.npy")
+        #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
         #np.save(output_path, labeled_image)
         
-        output_path = os.path.join(output_folder, f"{base_name}_angles.png")
+        output_path = os.path.join(args.output, f"{base_name}_angles.png")
         angle_plot.savefig(output_path)
         
         # Save the cell measurements dataframe
-        output_path = os.path.join(output_folder, f"{base_name}_cells.csv")
+        output_path = os.path.join(args.output, f"{base_name}_cells.csv")
         regionprops_df.to_csv(output_path, index=False)
         
         # Save the adjacency dataframe
-        output_path = os.path.join(output_folder, f"{base_name}_adjacency.csv")
+        output_path = os.path.join(args.output, f"{base_name}_adjacency.csv")
         adjacency.to_csv(output_path, index=True)
         
-        output_path = os.path.join(output_folder, f"{base_name}_params.csv")
+        output_path = os.path.join(args.output, f"{base_name}_params.csv")
         (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
          .to_csv(output_path, header=True))
         

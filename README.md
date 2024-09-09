@@ -36,9 +36,34 @@ Run the entire file
 The "qwanaflow.py" file contains a script that run sequentially all the steps to measure wood anatomical traits.
 It's an entirely automated quantitative wood anatomy analysis.
 
-At the end of the "qwanaflow.py" file, set the path of the folder containing the input and the path of the folder that will contain the outputs.
-The input folder must contain a numpy array with a name ending by "_array.npy".
-Run the entire file
+`qwanaflow.py` is designed to be launched from the command line as follows
+
+```bash
+python qwanaflow.py <input> <output>
+```
+
+where `input` is either a directory containing .png files to be processed, a
+single .png file, or a .txt file listing .png files to process. Only .png files
+are supported at the moment, but support could be extended to other file types
+in the future. The `output` parameter is a directory to which the output files
+will be written.
+
+You can see detailed qwanaflow usage by running the `qwanaflow.py --help` command:
+
+```bash
+python qwanaflow.py --help
+
+usage: qwanaflow.py [-h] input output
+
+positional arguments:
+  input       If a single directory, all png files in that directory will be processed.
+              If a single .png file, process only that file. If a single .txt file, should be a
+              file containing a list of files to process, with one .png file per line.
+  output      A directory to write output files to.
+
+options:
+  -h, --help  show this help message and exit
+```
 
 ### QWAnaviz:
 At the end of the "qwanaviz.py" file, set the path to:
