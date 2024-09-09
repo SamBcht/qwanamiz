@@ -421,7 +421,7 @@ def refine_neighbors(complete_df):
         
 
     # Filter ambiguous edges and initialize columns for reclassification
-    ambiguous_edge = complete_df[complete_df['wall_classification'] == 'indoubt']
+    ambiguous_edge = complete_df.copy()[complete_df['wall_classification'] == 'indoubt']
     ambiguous_edge['amb_neighbors'] = None
     ambiguous_edge['situation'] = None
 
@@ -536,7 +536,9 @@ def refine_neighbors(complete_df):
                     ambiguous_edge.at[edge, 'situation'] = 'bridge'
             # inside bifurcation if amb_neighbor is also 'cross'
     
-    complete_df['wall_classification'].update(ambiguous_edge['situation'])
+    for index,row in ambiguous_edge.iterrows():
+        if ambiguous_edge.at[index, 'situation'] is not None:
+            complete_df.at[index, 'wall_classification'] = ambiguous_edge.at[index, 'situation']
     
     return complete_df
 ###################################################################################
@@ -544,7 +546,7 @@ def refine_neighbors(complete_df):
 def update_neighbors(complete_df):
     
     # Filter the DataFrame
-    edges_df = complete_df[
+    edges_df = complete_df.copy()[
         (complete_df['wall_classification'] == 'tangential') |
         (complete_df['wall_classification'].str.contains('bridge'))
     ]
@@ -576,7 +578,8 @@ def update_neighbors(complete_df):
     # Remove duplicates from neighbors list
     edges_df['neighbors'] = edges_df['neighbors'].apply(lambda x: list(set(x)))
     
-    complete_df['neighbors'].update(edges_df['neighbors'])
+    for index,row in edges_df.iterrows():
+        complete_df.at[index, 'neighbors'] = edges_df.at[index, 'neighbors']
     
     return complete_df
 
@@ -592,11 +595,11 @@ def get_cell_walls(cells_df, walls_df):
     
     # Iterate over each row in cells_df
     cells_df['left_neighbor'] = 0
-    cells_df['left_wall_thickness'] = 0
-    cells_df['left_angle'] = 0
+    cells_df['left_wall_thickness'] = 0.0
+    cells_df['left_angle'] = 0.0
     cells_df['right_neighbor'] = 0
-    cells_df['right_wall_thickness'] = 0
-    cells_df['right_angle'] = 0
+    cells_df['right_wall_thickness'] = 0.0
+    cells_df['right_angle'] = 0.0
     cells_df['classification'] = 'regular'
     cells_df['radial_file'] = None
 
