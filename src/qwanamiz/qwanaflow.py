@@ -40,7 +40,7 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001):
+def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001, ncores = 1):
 
     start = datetime.datetime.now()
 
@@ -172,7 +172,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
     print("Wall thickness measurements")
-    adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map)
+    adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, nprocesses = ncores)
          
 
     endTime = datetime.datetime.now()
@@ -266,6 +266,10 @@ if __name__ == '__main__':
                                   Lower values result in more precise results but slower convergence.
                                   Defaults to 0.001.""")
 
+    parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
+                        help = """The number of processes to launch for multiprocessing for computing wall thickness.
+                        Defaults to 1 (no multiprocessing).""")
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -300,7 +304,8 @@ if __name__ == '__main__':
                                                                                                                     sampleID = base_name,
                                                                                                                     dir_nrows = args.nrows,
                                                                                                                     dir_ncols = args.ncols,
-                                                                                                                    convergence_threshold = args.vmthreshold)
+                                                                                                                    convergence_threshold = args.vmthreshold,
+                                                                                                                    ncores = args.ncores)
 
         print('save output')
         start_save = datetime.datetime.now()
