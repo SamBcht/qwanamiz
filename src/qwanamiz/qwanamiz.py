@@ -145,6 +145,41 @@ def adjacency_dataframe(rag, lumen_props):
     return adj_df
 
 #############################################################################
+# Automatically define the numbers of rows and columns used to divide the image based on the image shape
+def calculate_grid(image_width, image_height, pixel_to_micron, row_min_height = 480, row_max_height = 750, col_min_width = 1250, col_max_width = 2000):
+    """
+    Calculate the number of rows and columns based on given image size and desired micron ranges.
+
+    Args:
+    - image_width: width of the image in pixels.
+    - image_height: height of the image in pixels.
+    - pixel_to_micron: conversion factor (microns per pixel).
+    - row_min_height: minimum height of a row in microns.
+    - row_max_height: maximum height of a row in microns.
+    - col_min_width: minimum width of a column in microns.
+    - col_max_width: maximum width of a column in microns.
+
+    Returns:
+    - num_rows: number of rows
+    - num_cols: number of columns
+    """
+
+    # Convert image dimensions from pixels to microns
+    image_width_microns = image_width * pixel_to_micron
+    image_height_microns = image_height * pixel_to_micron
+
+    # Calculate the number of rows and columns based on desired micron range
+    # Number of rows: each row has a height between row_min_height and row_max_height
+    row_height = (row_min_height + row_max_height) / 2  # average height
+    num_rows = np.ceil(image_height_microns / row_height)
+
+    # Number of columns: each column has a width between col_min_width and col_max_width
+    col_width = (col_min_width + col_max_width) / 2  # average width
+    num_cols = np.ceil(image_width_microns / col_width)
+
+    return int(num_rows), int(num_cols)
+
+
 # Directionnality modelisation
 def directionnality(adj_df,
                     image_height,
@@ -234,7 +269,9 @@ def directionnality(adj_df,
                 'mu': mu,
                 'kappa': kappa,
                 'nb_cells': len(angle_rad),
-                'cell_index': subsample_edges.index}
+                'cell_index': subsample_edges.index,
+                'nrows': num_rows,
+                'ncols': num_cols}
 
     # Initialize an empty list to store the rows
     rows = []

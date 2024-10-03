@@ -155,14 +155,18 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
 
     # Determine the bounds of the subsamples
     img_height, img_width = prediction.shape
+    
+    nb_rows, nb_cols = qwanamiz.calculate_grid(image_width = img_width, 
+                                      image_height = img_height, 
+                                      pixel_to_micron = pix_to_um)
 
     adjacency, vm_parameters = qwanamiz.directionnality(
         adjacency,
         image_height = img_height, 
         image_width = img_width,
         spacing = pix_to_um,
-        num_rows = dir_nrows,
-        num_cols = dir_ncols,
+        num_rows = nb_rows,
+        num_cols = nb_cols,
         convergence_threshold = convergence_threshold)
 
 
@@ -325,7 +329,9 @@ if __name__ == '__main__':
         #np.save(output_path, labeled_image)
         
         if not args.noplots:
-            angle_plot = qwanamiz.plot_angles(params = vm_parameters, num_rows = args.nrows, num_cols = args.ncols)
+            angle_plot = qwanamiz.plot_angles(params = vm_parameters, 
+                                              num_rows = vm_parameters['nrows'], 
+                                              num_cols = vm_parameters['nb_cols'])
             output_path = os.path.join(args.output, f"{base_name}_angles.png")
             angle_plot.savefig(output_path)
         
