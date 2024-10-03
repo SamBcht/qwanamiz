@@ -269,9 +269,7 @@ def directionnality(adj_df,
                 'mu': mu,
                 'kappa': kappa,
                 'nb_cells': len(angle_rad),
-                'cell_index': subsample_edges.index,
-                'nrows': num_rows,
-                'ncols': num_cols}
+                'cell_index': subsample_edges.index}
 
     # Initialize an empty list to store the rows
     rows = []

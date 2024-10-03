@@ -236,7 +236,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
 
     print("successfully run")
     
-    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image
+    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image,nb_rows, nb_cols
 
 
 def get_basename(input_file, remove = '_ring.TIF'):
@@ -304,7 +304,7 @@ if __name__ == '__main__':
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image = batch_measurements(img_path, 
+        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, nrows, ncols = batch_measurements(img_path, 
                                                                                                                     sampleID = base_name,
                                                                                                                     dir_nrows = args.nrows,
                                                                                                                     dir_ncols = args.ncols,
@@ -330,8 +330,8 @@ if __name__ == '__main__':
         
         if not args.noplots:
             angle_plot = qwanamiz.plot_angles(params = vm_parameters, 
-                                              num_rows = vm_parameters['nrows'], 
-                                              num_cols = vm_parameters['nb_cols'])
+                                              num_rows = nrows, 
+                                              num_cols = ncols)
             output_path = os.path.join(args.output, f"{base_name}_angles.png")
             angle_plot.savefig(output_path)
         
