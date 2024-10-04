@@ -463,8 +463,11 @@ def refine_neighbors(complete_df):
                 starting_edge.at[start, 'ext_label'] = ext1
             elif (ext2 not in start_neigh[0]):
                 starting_edge.at[start, 'ext_label'] = ext2
+    
+    # Filter tangential edges with more than one neighbor
+    tan_edge = complete_df[complete_df['wall_classification'] == 'tangential']
+    tan_edge = tan_edge[tan_edge['neighbors'].apply(lambda x: len(x) > 1)]
         
-
     # Filter ambiguous edges and initialize columns for reclassification
     ambiguous_edge = complete_df.copy()[complete_df['wall_classification'] == 'indoubt']
     ambiguous_edge['amb_neighbors'] = None
@@ -514,7 +517,21 @@ def refine_neighbors(complete_df):
         
         # End of a file
         elif len(neighbors) == 1 and len(amb_neighbors) == 0:
-            ambiguous_edge.at[edge, 'situation'] = 'end'
+            if starting_edge.at[neighbors[0], 'ext_label'] in edge:
+                end1, end2 = edge
+                if end1 == starting_edge.at[neighbors[0], 'ext_label']:
+                    end_connex = end2
+                else: end_connex = end1
+                end_neighb = tan_edge[
+                    (tan_edge.index.get_level_values('label1') == end_connex) |
+                    (tan_edge.index.get_level_values('label2') == end_connex)
+                    ].index
+                if len(list(end_neighb)) > 0:
+                    ambiguous_edge.at[edge, 'situation'] = 'end_bifurc'
+                else:
+                    ambiguous_edge.at[edge, 'situation'] = 'bridge_end'
+            else: ambiguous_edge.at[edge, 'situation'] = 'false_end'
+                
             
         # Start of a long connection (2 or more bridges)
         elif len(neighbors) == 1 and len(amb_neighbors) == 1:
