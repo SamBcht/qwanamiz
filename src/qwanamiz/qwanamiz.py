@@ -862,6 +862,7 @@ def measure_diameters(complete_df, spacing = 1):
     complete_df['diameter_tan'] = None
     complete_df['extr_rad'] = None
     complete_df['extr_tan'] = None
+    complete_df['mean_angle'] = None
     
     df = complete_df[
         (complete_df['classification'] == 'extremity') |
@@ -902,11 +903,12 @@ def measure_diameters(complete_df, spacing = 1):
             bbox,
             spacing = spacing)
 
-        # Add the diameters to the dataframe
+        # Add diameters, mean angle and extremities to the dataframe
         complete_df.at[index, 'diameter_rad'] = rad_diameter * spacing
         complete_df.at[index, 'diameter_tan'] = tan_diameter * spacing
         complete_df.at[index, 'extr_rad'] = rad_extr
         complete_df.at[index, 'extr_tan'] = tan_extr
+        complete_df.at[index, 'mean_angle'] = np.rad2deg(angle_rad)
 
     return complete_df
 
