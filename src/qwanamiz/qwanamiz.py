@@ -353,29 +353,45 @@ def plot_angles(params, num_rows, num_cols):
 
 #########################################################################
 # Cell Wall Measurements
-def thickness_between_centroids(row, dist_map, pixelwidth = 10):
+def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
     # Define profile line between centroids
     mid_line = skimage.measure.profile_line(
         dist_map,
-        row['centroid1'],
-        row['centroid2'],
+        row['pix_centroid1'],
+        row['pix_centroid2'],
         linewidth = pixelwidth,
+        order = 0,
         reduce_func = None)
     
-    # Measure maximum thickness along profile line
-    max_val = np.max(mid_line, axis = 0)
+    # Initialize list to store max values
+    adjusted_max_vals = []
+        
+        # Loop through each column to find the maximum and check for duplicates
+    for col in range(mid_line.shape[1]):
+        max_val = np.max(mid_line[:, col])  # Find the max value in the column
+        max_in_col = mid_line[:, col]       # Get all values in the column
+            
+            # Check if there are multiple values equal to the max
+        if np.sum(max_in_col == max_val) > 1:  # If more than one max value exists
+            max_val += scaling/2         # Adjust the max value
+                
+        adjusted_max_vals.append(max_val)
     
     # Calculate the mean of these maximum values
-    max_thickness = np.mean(max_val)
+    max_thickness = np.mean(adjusted_max_vals)
 
     return max_thickness
 
-def measure_wallthickness(adj_df, dist_map, scan_width = 10, nprocesses = 1):
+def measure_wallthickness(adj_df, dist_map, scan_width = 10, scale = 1, nprocesses = 1):
+
+    # Get the centroids coordinates in pixels
+    adj_df['pix_centroid1'] = adj_df['centroid1'].apply(lambda x: (x[0] / scale, x[1] / scale))
+    adj_df['pix_centroid2'] = adj_df['centroid2'].apply(lambda x: (x[0] / scale, x[1] / scale))
 
     # The case for multiprocessing
     if(nprocesses > 1):
         with Pool(processes = nprocesses) as p:
-            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, pixelwidth = scan_width)
+            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, pixelwidth = scan_width, scaling = scale)
             adj_df['wall_thickness'] = p.map(multi_thickness, [row for index,row in adj_df.iterrows()])
     
     # Otherwise with only one process
@@ -383,7 +399,8 @@ def measure_wallthickness(adj_df, dist_map, scan_width = 10, nprocesses = 1):
         adj_df['wall_thickness'] = adj_df.apply(
                 lambda row: thickness_between_centroids(row,
                                                         dist_map = dist_map,
-                                                        pixelwidth = scan_width),
+                                                        pixelwidth = scan_width,
+                                                        scaling = scale),
                 axis=1)
 
     

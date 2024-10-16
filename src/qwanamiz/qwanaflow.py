@@ -176,7 +176,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
     print("Wall thickness measurements")
-    adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, nprocesses = ncores)
+    adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, scale = pix_to_um, scan_width = 20, nprocesses = ncores)
          
 
     endTime = datetime.datetime.now()
