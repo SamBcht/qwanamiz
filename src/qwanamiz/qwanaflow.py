@@ -40,7 +40,7 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001, ncores = 1):
+def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001, ncores = 1):
 
     start = datetime.datetime.now()
 
@@ -58,7 +58,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     ## IMAGE METADATA AND RESOLUTION :
     # 10x scans have a resolution of 46146 dpi. We can define a scaling factor
     # with conversion : 1 Pixel = 0.55042690590734 Microns
-    pix_to_um = 0.55042690590734
+    pix_to_um = pixel_size
 
     #################################################################################
     #### Step 1: Cell Labeling and Measurements
@@ -200,7 +200,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     # Radial files grouping
     print("neighbor mapping and radial files detection")
 
-    # Take approx. 1-2min to run
+    # Edges classification refining
     qwanamiz.find_neighbors(adjacency) 
 
     qwanamiz.refine_neighbors(adjacency)
@@ -222,6 +222,9 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     print("Measure lumen diameters")
     qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
     
+    print("Get radial walls")
+    qwanamiz.get_radial_walls(regionprops_df, adjacency)
+    
     regionprops_df = regionprops_df.drop(
         columns = [
             'image',
@@ -239,7 +242,7 @@ def batch_measurements(img_path, sampleID = "Sample1", dir_nrows = 4, dir_ncols 
     return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image,nb_rows, nb_cols
 
 
-def get_basename(input_file, remove = '_ring.TIF'):
+def get_basename(input_file, remove = '.png'):
     base_name = os.path.basename(input_file)
     base_name = base_name.replace(remove, '')
     return base_name
@@ -255,6 +258,10 @@ if __name__ == '__main__':
                                            If a single .txt file, should be a file containing a list of files to process, with one .png file per line.""")
 
     parser.add_argument("output", help = """A directory to write output files to.""")
+    
+    parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
+                        help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
+
 
     parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = 4,
                         help = """Number of rows to split the image into for the directionality analysis. Defaults to 4.""")
@@ -296,8 +303,10 @@ if __name__ == '__main__':
     
     
     ###------------------------------------------- Process files --------------------------------###
-    
+    start_save = datetime.datetime.now()
     for img_path in img_paths:
+        
+        
         
         # Adapt the parameter to the input file type
         base_name = get_basename(img_path, remove = '_segmented.png')
@@ -306,13 +315,14 @@ if __name__ == '__main__':
         print(f"Running workflow on {base_name}")
         regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, nrows, ncols = batch_measurements(img_path, 
                                                                                                                     sampleID = base_name,
+                                                                                                                    pixel_size = args.pixel,
                                                                                                                     dir_nrows = args.nrows,
                                                                                                                     dir_ncols = args.ncols,
                                                                                                                     convergence_threshold = args.vmthreshold,
                                                                                                                     ncores = args.ncores)
-
-        print('save output')
-        start_save = datetime.datetime.now()
+        
+        print('save outputs')
+        
         
         # Save the workflow output images
         output_path = os.path.join(args.output, f"{base_name}_imgs")
@@ -349,5 +359,5 @@ if __name__ == '__main__':
         
         print(f"Saved workflow output to {output_path}")
         endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start_save}')
+        print(f'Total runtime : {endTime - start_save}')
 

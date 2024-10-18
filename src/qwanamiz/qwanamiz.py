@@ -886,8 +886,8 @@ def measure_diameters(complete_df, spacing = 1):
     Measure the diameters of objects along specified angles and their perpendiculars.
     
     Parameters:
-    - labeled_image: 2D numpy array where each object is labeled with a unique integer.
-    - df: DataFrame containing columns 'label', 'centroid-0', 'centroid-1', and 'angle'.
+    - complete_df: DataFrame containing columns 'label', 'centroid-0', 'centroid-1', and 'angle'.
+    - spacing: Conversion factor from pixels to micrometers
     
     Returns:
     - df: Updated DataFrame with additional 'diameter_rad' and 'diameter_tan' columns.
@@ -1049,3 +1049,100 @@ def calculate_diameter(label_image, centroid, angle, bbox, spacing = 1):
 
     return distance, diam_coords
 
+################################################
+
+# Attribute the correct up and down radial wall measurements to each tracheid
+def get_radial_walls(cells_df, walls_df):
+    
+    edges_df = walls_df[
+        (walls_df['wall_classification'] == 'radial')
+    ]
+    
+    # Initialize new columns
+    cells_df['up_neighbor'] = 0
+    cells_df['up_wall_thickness'] = 0.0
+    cells_df['down_neighbor'] = 0
+    cells_df['down_wall_thickness'] = 0.0
+    
+    # Adjust the comparison to handle angles between -90 and 90
+    def angle_difference(a, b):
+        diff = abs(a - b)
+        return min(diff, 180 - diff)  # Handle angle wrapping
+    
+    # Function to find the edge with angle closest to the perpendicular angle
+    def closest_edge(edges, perpendicular_angle):
+        if not edges:
+            return None
+        # Find the index of the closest edge (edges are tuples, so access angle via edge[1]['angle'])
+        closest_edge_tuple = min(edges, key=lambda x: angle_difference(x[1]['angle'], perpendicular_angle))
+        return closest_edge_tuple[0]  # Return the index of the closest edge        
+
+    # Iterate over each row in cells_df
+    for idx, row in cells_df.iterrows():
+        
+        # Skip rows where left or right wall thickness is None or 0
+        if row['classification'] == 'isolated' or (row['right_wall_thickness'] in [None, 0] and row['left_wall_thickness'] in [None, 0]):
+            continue
+        
+        label = row['label']
+        label_centroid = (row['centroid-0'], row['centroid-1'])
+        # Calculate perpendicular angle to the cell's orientation
+        angle_deg = row['mean_angle']
+        if angle_deg > 90:
+            angle_deg -= 180
+        elif angle_deg < -90:
+            angle_deg += 180
+            
+        perpendicular_angle = (angle_deg + 90)
+        # Wrap perpendicular angle to the range -90 to 90
+        if perpendicular_angle > 90:
+            perpendicular_angle -= 180
+        elif perpendicular_angle < -90:
+            perpendicular_angle += 180
+        
+        
+        # Filter edges_df for rows where the label is either label1 or label2
+        filtered_edges = edges_df[(edges_df.index.get_level_values('label1') == label) |
+                                  (edges_df.index.get_level_values('label2') == label)]
+        
+        # Initialize lists for up and down edges
+        up_edges = []
+        down_edges = []
+        
+        # Iterate over each filtered edge
+        for edge_idx, edge_row in filtered_edges.iterrows():
+            
+            # Classify as 'up' or 'down' based on the y-coordinate comparison (centroid-0 is y)
+            if edge_row['center'][0] < label_centroid[0]:
+                up_edges.append((edge_idx, edge_row))
+                
+            elif edge_row['center'][0] > label_centroid[0]:
+                down_edges.append((edge_idx, edge_row))
+                
+            # Find the closest up edge and down edge
+        closest_up_edge = closest_edge(up_edges, perpendicular_angle)
+        closest_down_edge = closest_edge(down_edges, perpendicular_angle)
+        
+    #return closest_up_edge, closest_down_edge
+        
+                
+        # Assign the neighbors and wall thicknesses based on the closest edges
+        if closest_up_edge is not None:
+            up_label1, up_label2 = closest_up_edge
+            up_neighbor = up_label2 if up_label1 == label else up_label1
+            up_thick = walls_df.at[closest_up_edge, 'wall_thickness']
+            cells_df.at[idx, 'up_neighbor'] = up_neighbor  # Set up neighbor
+            cells_df.at[idx, 'up_wall_thickness'] = up_thick
+            walls_df.at[closest_up_edge, 'wall_classification'] = 'radial_sel' # Set up wall thickness
+
+        if closest_down_edge is not None:
+            down_label1, down_label2 = closest_down_edge
+            down_neighbor = down_label2 if down_label1 == label else down_label1
+            down_thick = walls_df.at[closest_down_edge, 'wall_thickness']
+            cells_df.at[idx, 'down_neighbor'] = down_neighbor  # Set down neighbor
+            cells_df.at[idx, 'down_wall_thickness'] = down_thick  # Set down wall thickness
+            walls_df.at[closest_down_edge, 'wall_classification'] = 'radial_sel'
+        
+        
+
+    return cells_df, walls_df

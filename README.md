@@ -69,7 +69,7 @@ You can see detailed qwanaflow usage by running the `qwanaflow.py --help` comman
 ```
 python qwanaflow.py --help
 
-usage: qwanaflow.py [-h] [--dir-nrows NROWS] [--dir-ncols NCOLS]
+usage: qwanaflow.py [-h] [--pixel-size PIXEL] [--dir-nrows NROWS] [--dir-ncols NCOLS]
                     [--disable-plots] [--vm-threshold VMTHRESHOLD]
                     [--ncores NCORES]
                     input output
@@ -84,6 +84,8 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  --pixel_size PIXEL    Size of a pixel in the wanted measurement unit. 
+                        Defaults to 0.55042690590734 micrometers
   --dir-nrows NROWS, -r NROWS
                         Number of rows to split the image into for the
                         directionality analysis. Defaults to 4.
