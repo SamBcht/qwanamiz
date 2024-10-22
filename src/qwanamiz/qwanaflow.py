@@ -99,17 +99,20 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # e.g. background pixels. Return an image where each back ground pixel takes
     # the value of the distance to the nearest cell lumen in microns with the 
     # sampling parameter set to the scaling factor.
-    distance_map = distance_transform_edt(labeled_image == 0,
-                                          sampling = pix_to_um)
+    distance_map, nearest_label_coords = distance_transform_edt(labeled_image == 0,
+                                          sampling = pix_to_um,
+                                          return_indices = True)
 
     ## EXPAND CELL LUMENS UNTIL JUNCTION WITH ADJACENT CELLS : Expand labels in 
     # label image by distance pixels without overlapping.
     # The distance parameter can be considered as a cell wall thickness threshold
     # Two lumens separated by more than two times the distance won't be considered
     # as adjacent.
-    expanded_labels = skimage.segmentation.expand_labels(labeled_image,
-                                                         distance = 10,
-                                                         spacing = pix_to_um)
+    expanded_labels = qwanamiz.expand_cells(labeled_image,
+                                            distance_map,
+                                            nearest_label_coords,
+                                            distance = 10,
+                                            spacing = pix_to_um)
     
     expandprops_df = pd.DataFrame(
         skimage.measure.regionprops_table(
