@@ -1168,7 +1168,17 @@ def get_radial_walls(cells_df, walls_df):
     return cells_df, walls_df
 
 ###############################################################################
+# Add the total number of neighbors in a new column
+def count_neighbors(complete_df, adjacency_df):
+    # Count occurrences of each label in both label1 and label2 columns
+    label_counts = pd.concat([adjacency_df['label1'], adjacency_df['label2']]).value_counts()
+    
+    # Create a new column in the dataframe for the number of neighbors
+    complete_df['nb_of_neighbors'] = complete_df['label'].map(label_counts).fillna(0).astype(int)
 
+    return complete_df
+
+#####
 def rays_and_ducts(labels, 
                    scale = 1, 
                    min_duct_area = 80, 
@@ -1294,3 +1304,21 @@ def artefact_adjacent(labeled_image, classified_mask, ray_class=1, resin_duct_cl
 
     # Convert sets to lists
     return list(rays_adjacent), list(ducts_adjacent), list(unknown_adjacent)
+
+def adjacent_type_column(complete_df, 
+                             rays_adjacent, 
+                             duct_adjacent, 
+                             unk_adjacent):
+    # Create a new column 'adj_type' initialized with NaN
+    complete_df['adj_type'] = np.nan
+    
+    # Set the column value to 1 if the label is in rays_adj
+    complete_df.loc[complete_df['label'].isin(rays_adjacent), 'adj_type'] = 1
+    
+    # Set the column value to 2 if the label is in duct_adj
+    complete_df.loc[complete_df['label'].isin(duct_adjacent), 'adj_type'] = 2
+    
+    # Set the column value to 3 if the label is in unk_adj
+    complete_df.loc[complete_df['label'].isin(unk_adjacent), 'adj_type'] = 3
+
+    return complete_df

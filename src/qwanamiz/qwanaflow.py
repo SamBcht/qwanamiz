@@ -202,6 +202,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ###################################################################################
     # Radial files grouping
     print("neighbor mapping and radial files detection")
+    
+    # Count the total number of neighbors of each cell
+    regionprops_df = qwanamiz.count_neighbors(regionprops_df, adjacency)
 
     # Edges classification refining
     qwanamiz.find_neighbors(adjacency) 
@@ -214,6 +217,28 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     qwanamiz.assign_radial_files(adjacency)
 
     endTime = datetime.datetime.now()
+    print(f'runtime : {endTime - start}')
+    
+    ######################################################################
+    # FIND POTENTIAL RAYS & RESIN DUCTS
+    print("Rays and Resin Ducts possibility")
+    
+    rays_ducts_table, rays_ducts_map = qwanamiz.rays_and_ducts(expanded_labels, 
+                                                      scale = pix_to_um, 
+                                                      min_duct_area = 80, 
+                                                      min_duct_width = 10, 
+                                                      min_ray_ecc = 0.8, 
+                                                      min_ray_aspect = 2.5)   
+
+
+    rays_adj, duct_adj, unk_adj = qwanamiz.artefact_adjacent(expanded_labels, 
+                                                    rays_ducts_map)
+
+    regionprops_df = qwanamiz.adjacent_type_column(regionprops_df, 
+                                 rays_adj, 
+                                 duct_adj, 
+                                 unk_adj)
+    
     print(f'runtime : {endTime - start}')
 
     print("labels and edges correspondance")
@@ -242,7 +267,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     print("successfully run")
     
-    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image,nb_rows, nb_cols
+    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, rays_ducts_map, rays_ducts_table, nb_rows, nb_cols
 
 
 def get_basename(input_file, remove = '.png'):
@@ -316,13 +341,13 @@ if __name__ == '__main__':
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, nrows, ncols = batch_measurements(img_path, 
-                                                                                                                    sampleID = base_name,
-                                                                                                                    pixel_size = args.pixel,
-                                                                                                                    dir_nrows = args.nrows,
-                                                                                                                    dir_ncols = args.ncols,
-                                                                                                                    convergence_threshold = args.vmthreshold,
-                                                                                                                    ncores = args.ncores)
+        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, rays_and_ducts, rd_table, nrows, ncols = batch_measurements(img_path, 
+                                                                                                                                                            sampleID = base_name,
+                                                                                                                                                            pixel_size = args.pixel,
+                                                                                                                                                            dir_nrows = args.nrows,
+                                                                                                                                                            dir_ncols = args.ncols,
+                                                                                                                                                            convergence_threshold = args.vmthreshold,
+                                                                                                                                                            ncores = args.ncores)
         
         print('save outputs')
         
@@ -332,7 +357,8 @@ if __name__ == '__main__':
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         np.savez_compressed(output_path, dmap = distance_map, 
                             explabs = expanded_labels, 
-                            labs = labeled_image)
+                            labs = labeled_image,
+                            rd_map = rays_and_ducts)
         #np.save(output_path, distance_map)
         
         #output_path = os.path.join(args.output, f"{base_name}_explabs.npy")
@@ -355,6 +381,9 @@ if __name__ == '__main__':
         # Save the adjacency dataframe
         output_path = os.path.join(args.output, f"{base_name}_adjacency.csv")
         adjacency.to_csv(output_path, index=True)
+        
+        output_path = os.path.join(args.output, f"{base_name}_rays.csv")
+        rd_table.to_csv(output_path, index=True)
         
         output_path = os.path.join(args.output, f"{base_name}_params.csv")
         (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
