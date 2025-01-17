@@ -430,25 +430,17 @@ def measure_wallthickness(adj_df, dist_map, scan_width = 10, scale = 1, nprocess
 # Classify cell walls between radial and tangential
 def classify_edges(df, tolerance = 5):
     
-    # Create a new column 'edge_classification' with initial value 'rad_wall'
-    df['wall_classification'] = 'radial'
-    
-    # Convert tolerance in radians
-    tolerance_rad = np.radians(tolerance)
+    # Extracting some variables from the DataFrame for coding convenience
+    angle = np.radians(df["angle"])
+    tolerance = np.radians(tolerance)
+    lb = df["lower_bound"]
+    ub = df["upper_bound"]
 
-    # Update the classification to 'tangential' for edges with angle between lower and upper bounds
-    for index, row in df.iterrows():
-        lower_bound = row['lower_bound']
-        upper_bound = row['upper_bound']
-        angle = np.radians(row['angle'])
-        low_tolerance = lower_bound - tolerance_rad
-        up_tolerance = upper_bound + tolerance_rad
-        
-        if lower_bound <= angle <= upper_bound:
-            df.at[index, 'wall_classification'] = 'tangential'
-            
-        elif (low_tolerance <= angle < lower_bound) or (upper_bound < angle <= up_tolerance):
-            df.at[index, 'wall_classification'] = 'indoubt'
+    # Using np.where twice to classify the edges in a vectorized way
+    classes = np.where(np.logical_and(angle >= lb - tolerance, angle <= ub + tolerance), "indoubt", "radial")
+    classes = np.where(np.logical_and(angle >= lb, angle <= ub), "tangential", classes)
+
+    df["wall_classification"] = classes
                
     return df
 
