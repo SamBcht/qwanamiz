@@ -161,6 +161,9 @@ def adjacency_dataframe(rag, lumen_props):
 
     # Drop the intermediate column
     adj_df = adj_df.drop(columns=['angle_center_length'])
+
+    # Set indices as a multi-index on both labels
+    adj_df.set_index(['label1', 'label2'], inplace=True)
     
     return adj_df
 
@@ -311,8 +314,14 @@ def directionnality(adj_df,
     # Create DataFrame from the list of rows
     df = pd.DataFrame(rows)
 
-    # Merge the dataframes based on the index (cell_index)
-    merged_df = pd.merge(adj_df, df, left_index=True, right_on='cell_index')
+    # Merge the dataframes based on the index
+    # But we need to reformat a bit to ensure proper matching
+    df["label1"] = [cell[0] for cell in df["cell_index"]]
+    df["label2"] = [cell[1] for cell in df["cell_index"]]
+    df = df.drop(columns = 'cell_index')
+    df.set_index(['label1', 'label2'], inplace = True)
+
+    merged_df = pd.merge(adj_df, df, left_index = True, right_index = True)
     
     return merged_df, subsample_params
 
@@ -448,9 +457,6 @@ def classify_edges(df, tolerance = 5):
 # Find tangential neighbors
 def find_neighbors(complete_df):
     
-    # Reset indexes
-    complete_df.set_index(['label1', 'label2'], inplace=True)
-
     # Initialize the neighbor column
     complete_df['neighbors'] = None
     
@@ -1163,7 +1169,7 @@ def get_radial_walls(cells_df, walls_df):
 # Add the total number of neighbors in a new column
 def count_neighbors(complete_df, adjacency_df):
     # Count occurrences of each label in both label1 and label2 columns
-    label_counts = pd.concat([adjacency_df['label1'], adjacency_df['label2']]).value_counts()
+    label_counts = pd.concat([pd.Series(adjacency_df.index.get_level_values('label1')), pd.Series(adjacency_df.index.get_level_values('label2'))]).value_counts()
     
     # Create a new column in the dataframe for the number of neighbors
     complete_df['nb_of_neighbors'] = complete_df['label'].map(label_counts).fillna(0).astype(int)
