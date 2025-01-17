@@ -1166,17 +1166,6 @@ def get_radial_walls(cells_df, walls_df):
     return cells_df, walls_df
 
 ###############################################################################
-# Add the total number of neighbors in a new column
-def count_neighbors(complete_df, adjacency_df):
-    # Count occurrences of each label in both label1 and label2 columns
-    label_counts = pd.concat([pd.Series(adjacency_df.index.get_level_values('label1')), pd.Series(adjacency_df.index.get_level_values('label2'))]).value_counts()
-    
-    # Create a new column in the dataframe for the number of neighbors
-    complete_df['nb_of_neighbors'] = complete_df['label'].map(label_counts).fillna(0).astype(int)
-
-    return complete_df
-
-#####
 def rays_and_ducts(labels, 
                    scale = 1, 
                    min_duct_area = 80, 
