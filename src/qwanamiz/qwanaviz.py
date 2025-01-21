@@ -20,10 +20,6 @@ def qwa_napari_view(img_path, cells_path, edges_path):
 
     cells = pd.read_csv(cells_path)
 
-    edges = pd.read_csv(edges_path,
-                        converters={"centroid1": ast.literal_eval,
-                                    "centroid2": ast.literal_eval})
-
     pix_to_um = 0.55042690590734
 
     # Launch Napari viewer
@@ -62,31 +58,29 @@ def qwa_napari_view(img_path, cells_path, edges_path):
 
     ## RADIAL FILES LAYER
     # Prepare the lines and colors for visualization
-    # Filter the DataFrame
-    final_df = edges.dropna(subset=['radial_file'])
-        #(edges['radial_file'] != 'nan')]
     lines = []
     colors = []
-    unique_radial_files = final_df['radial_file'].unique()
+    unique_radial_files = cells['radial_file'].dropna().unique()
+    unique_radial_files = unique_radial_files[unique_radial_files != 0]
 
     # Create a colormap
     cmap = plt.get_cmap('tab20', len(unique_radial_files))
     color_map = {rf: cmap(i) for i, rf in enumerate(unique_radial_files)}
 
     # Prepare the lines and corresponding colors
-    for edge, edge_data in final_df.iterrows():
-        coords1 = edge_data['centroid1']
-        coords2 = edge_data['centroid2']
-        radial_file_id = edge_data['radial_file']
+    for i in unique_radial_files:
+        radial_file_df = cells[cells["radial_file"] == i]
+        radial_file_df = radial_file_df.sort_values("centroid-1")
+        coords = list(zip(radial_file_df["centroid-0"], radial_file_df["centroid-1"]))
         
         # Append line coordinates and color to respective lists
-        lines.append([coords1, coords2])
-        colors.append(color_map[radial_file_id])
+        lines.append(coords)
+        colors.append(color_map[i])
 
 
     # Add lines as shapes to the viewer
     viewer.add_shapes(lines, 
-                      shape_type='line', 
+                      shape_type='path', 
                       edge_color=colors, 
                       edge_width=3, 
                       name='Radial Files')
