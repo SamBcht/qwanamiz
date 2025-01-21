@@ -54,7 +54,7 @@ def qwa_napari_view(img_path, cells_path):
                       name = 'Centroids', 
                       size = 5, 
                       face_color = 'red', 
-                      edge_color = 'white')
+                      border_color = 'white')
 
     ## RADIAL FILES LAYER
     # Prepare the lines and colors for visualization
@@ -87,7 +87,8 @@ def qwa_napari_view(img_path, cells_path):
 
 
     ## DIAMETERS LAYERS
-    diam_df = cells.dropna(subset=['extr_rad'])
+    diam_df = cells.copy()
+    diam_df = diam_df.dropna(subset=['extr_rad'])
 
     diam_df['extr_rad'] = diam_df['extr_rad'].apply(ast.literal_eval)
     diam_df['extr_tan'] = diam_df['extr_tan'].apply(ast.literal_eval)
