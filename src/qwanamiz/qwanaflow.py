@@ -203,11 +203,14 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Radial files grouping
     print("neighbor mapping and radial files detection")
     
-    # Count the total number of neighbors of each cell
-    regionprops_df = qwanamiz.count_neighbors(regionprops_df, adjacency)
-
     # Edges classification refining
-    qwanamiz.find_neighbors(adjacency) 
+    ## We need a DataFrame that contains only tangential adjacencies
+    tangential_df = adjacency[adjacency["wall_classification"] == "tangential"]
+
+    # Adding a "neighbors" column with all tangential neighbors
+    qwanamiz.find_neighbors(complete_df = adjacency,
+                            edges = tangential_df.index,
+                            graph = qwanamiz.df_to_graph(tangential_df))
 
     qwanamiz.refine_neighbors(adjacency)
 
@@ -239,6 +242,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                                  duct_adj, 
                                  unk_adj)
     
+    endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
     print("labels and edges correspondance")
