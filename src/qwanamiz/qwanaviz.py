@@ -13,7 +13,7 @@ from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 import ast
 
-def qwa_napari_view(img_path, cells_path, edges_path):
+def qwa_napari_view(img_path, cells_path):
     
     
     images = np.load(img_path)
@@ -149,16 +149,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("prefix", help = """The prefix of the sample to use qwanamiz.py with. qwanamiz will look for
-                                            file paths corresponding to 'prefix + _imgs.npz', 'prefix + _cells.csv',
-                                            and 'prefix + _adjacency.csv'. These files should all be output by qwanaflow.py.""")
+                                            file paths corresponding to 'prefix + _imgs.npz' and 'prefix + _cells.csv'.
+                                            These files should all be output by qwanaflow.py.""")
 
     args = parser.parse_args()
     
     imgs = args.prefix + "_imgs.npz"
     cells_df = args.prefix + '_cells.csv'
-    edges_df = args.prefix + '_adjacency.csv'
     
     qwa_napari_view(img_path = imgs, 
-                    cells_path = cells_df, 
-                    edges_path = edges_df)
+                    cells_path = cells_df)
 
