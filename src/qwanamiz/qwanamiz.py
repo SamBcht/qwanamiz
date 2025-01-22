@@ -794,7 +794,79 @@ def get_cell_walls(cells_df, walls_df):
     
 ###################################################################
 
+# This function returns a graph with only adjacencies that go forward
+# along radial files (left-to-right in the image) among potential
+# radial adjacencies. The idea is to query this graph for radial file
+# assignment
+def get_forward_graph(df):
+    # We want to re-index the DataFrame such that the first label is the left cell
+    df = df.copy()
+    x1 = np.array([i[1] for i in df["centroid1"]])
+    x2 = np.array([i[1] for i in df["centroid2"]])
+    label1 = df.index.get_level_values("label1")
+    label2 = df.index.get_level_values("label2")
+
+    df["left_cell"]  = np.where(x2 > x1, label1, label2)
+    df["right_cell"] = np.where(x2 > x1, label2, label1)
+    df.set_index(["left_cell", "right_cell"], inplace = True)
+
+    fwd_graph = df_to_graph(df, bidirectional = False)
+
+    return(fwd_graph)
+
 ############################################################################
+# A function that assigns radial files using a search through a dict-based
+# graph that contains only edges going from left to right
+# For consistency with assign_radial_files it performs modifications on
+# the DataFrame of adjacencies (edge_df) even though the search is done
+# on the cell DataFrame. This will be simplified if this method of finding
+# radial files is retained
+def assign_radial_files2(cell_df, edge_df):
+    # We reassign the wall classification column of edge_df as this
+    # is what we would have as input if we go through with this new
+    # method
+    edge_copy = edge_df.copy()
+    classify_edges(edge_copy, tolerance = 15)
+    edge_copy = edge_copy[np.isin(edge_copy["wall_classification"], ["tangential", "indoubt"])]
+
+    fwd_graph = get_forward_graph(edge_copy)
+
+    # We identify starting nodes as edges for which no cell points to
+    nodes = np.array(cell_df["label"])
+    starting_nodes = nodes[~np.isin(nodes, sum(fwd_graph.values(), []))]
+
+    # We initialize a list holder and a counter for radial files
+    radial_files = []
+    current_file = 1
+
+    # Then we loop over the starting nodes as long as there are still starting nodes
+    #while len(starting_nodes):
+    for i in starting_nodes:
+        # Initializing a new radial file with this starting node
+        radial_files.append([i])
+        current_node = i
+
+        while current_node in fwd_graph:
+            current_node = fwd_graph[current_node][0]
+            radial_files[current_file - 1].append(current_node)
+
+        current_file += 1
+
+    # Assigning the radial files and file rank into the input edge DataFrame
+    edge_df["radial_file"] = None
+    edge_df["file_rank"] = None
+
+    for i in range(len(radial_files)):
+        for j in range(len(radial_files[i]) - 1):
+            current_edge = tuple(sorted([radial_files[i][j], radial_files[i][j + 1]]))
+            edge_df.at[current_edge, "radial_file"] = i + 1
+            edge_df.at[current_edge, "file_rank"] = j + 1
+            # All edges that are part of a radial file are considered tangential
+            # for use in downstream functions
+            edge_df.at[current_edge, "wall_classification"] = "tangential"
+
+    return(edge_df)
+
 # Assign radial files ids to continuous straight lines of cells
 def assign_radial_files(complete_df):
     

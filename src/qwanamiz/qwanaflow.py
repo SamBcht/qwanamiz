@@ -217,7 +217,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Assign radial files to the edges
     qwanamiz.update_neighbors(adjacency)
 
-    qwanamiz.assign_radial_files(adjacency)
+    qwanamiz.assign_radial_files2(regionprops_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
