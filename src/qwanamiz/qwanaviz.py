@@ -70,6 +70,10 @@ def qwa_napari_view(img_path, cells_path):
     # Prepare the lines and corresponding colors
     for i in unique_radial_files:
         radial_file_df = cells[cells["radial_file"] == i]
+
+        if radial_file_df.shape[0] == 1:
+            continue
+
         radial_file_df = radial_file_df.sort_values("centroid-1")
         coords = list(zip(radial_file_df["centroid-0"], radial_file_df["centroid-1"]))
         
