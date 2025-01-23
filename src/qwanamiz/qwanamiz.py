@@ -818,9 +818,14 @@ def get_forward_graph(df):
 # A function that get the next node in the graph in the search for radial
 # files. The idea is to select the node that has the outbound angle (angle
 # to next cell) that is most similar to the inbound angle (angle from previous cell)
-def get_next_node(graph, current_node, previous_node, edge_df):
+def get_next_node(graph, current_node, previous_node, edge_df, visited):
     # Extracting the set of nodes to consider
     possible_nodes = graph[current_node]
+    possible_nodes = [i for i in possible_nodes if not i in visited]
+
+    # If the graph is empty then we return no node at all
+    if len(possible_nodes) == 0:
+       return None
 
     # If there is only one node then we return it
     if len(possible_nodes) == 1:
@@ -850,6 +855,16 @@ def get_next_node(graph, current_node, previous_node, edge_df):
 
     return best_neighbor
 
+# A function that removes any reference to nodes that have already been visited
+# and therefore should not be further visited
+# We do not need to delete the nodes in the visited set because they
+# should have been already by the time this function is called
+def prune_graph(graph, visited):
+    for node,neighbors in graph.items():
+        graph[node] = [i for i in neighbors if not i in visited]
+
+    return graph
+
 ############################################################################
 # A function that assigns radial files using a search through a dict-based
 # graph that contains only edges going from left to right
@@ -875,6 +890,9 @@ def assign_radial_files2(cell_df, edge_df):
     radial_files = []
     current_file = 1
 
+    # And also a set of visited nodes
+    visited = set()
+
     # Then we loop over the starting nodes as long as there are still starting nodes
     #while len(starting_nodes):
     for i in starting_nodes:
@@ -883,12 +901,21 @@ def assign_radial_files2(cell_df, edge_df):
         current_node = i
         previous_node = None
 
-        while current_node in fwd_graph:
-            current_node = get_next_node(fwd_graph, current_node, previous_node, edge_copy)
+        while current_node is not None and current_node in fwd_graph:
+            current_node = get_next_node(fwd_graph, current_node, previous_node, edge_copy, visited)
+
+            # Storing a variable for the previous node, deleting it from the graph, and adding it to the visited set
             previous_node = radial_files[current_file - 1][-1]
-            radial_files[current_file - 1].append(current_node)
+            visited.add(previous_node)
+            del fwd_graph[previous_node]
+
+            # Appending to the current radial file if we indeed found a neighbor
+            if current_node is not None:
+                radial_files[current_file - 1].append(current_node)
 
         current_file += 1
+
+    prune_graph(fwd_graph, visited)
 
     # Assigning the radial files and file rank into the input edge DataFrame
     edge_df["radial_file"] = None
