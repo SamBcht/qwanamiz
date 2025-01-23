@@ -13,16 +13,12 @@ from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 import ast
 
-def qwa_napari_view(img_path, cells_path, edges_path):
+def qwa_napari_view(img_path, cells_path):
     
     
     images = np.load(img_path)
 
     cells = pd.read_csv(cells_path)
-
-    edges = pd.read_csv(edges_path,
-                        converters={"centroid1": ast.literal_eval,
-                                    "centroid2": ast.literal_eval})
 
     pix_to_um = 0.55042690590734
 
@@ -58,42 +54,45 @@ def qwa_napari_view(img_path, cells_path, edges_path):
                       name = 'Centroids', 
                       size = 5, 
                       face_color = 'red', 
-                      edge_color = 'white')
+                      border_color = 'white')
 
     ## RADIAL FILES LAYER
     # Prepare the lines and colors for visualization
-    # Filter the DataFrame
-    final_df = edges.dropna(subset=['radial_file'])
-        #(edges['radial_file'] != 'nan')]
     lines = []
     colors = []
-    unique_radial_files = final_df['radial_file'].unique()
+    unique_radial_files = cells['radial_file'].dropna().unique()
+    unique_radial_files = unique_radial_files[unique_radial_files != 0]
 
     # Create a colormap
     cmap = plt.get_cmap('tab20', len(unique_radial_files))
     color_map = {rf: cmap(i) for i, rf in enumerate(unique_radial_files)}
 
     # Prepare the lines and corresponding colors
-    for edge, edge_data in final_df.iterrows():
-        coords1 = edge_data['centroid1']
-        coords2 = edge_data['centroid2']
-        radial_file_id = edge_data['radial_file']
+    for i in unique_radial_files:
+        radial_file_df = cells[cells["radial_file"] == i]
+
+        if radial_file_df.shape[0] == 1:
+            continue
+
+        radial_file_df = radial_file_df.sort_values("centroid-1")
+        coords = list(zip(radial_file_df["centroid-0"], radial_file_df["centroid-1"]))
         
         # Append line coordinates and color to respective lists
-        lines.append([coords1, coords2])
-        colors.append(color_map[radial_file_id])
+        lines.append(coords)
+        colors.append(color_map[i])
 
 
     # Add lines as shapes to the viewer
     viewer.add_shapes(lines, 
-                      shape_type='line', 
+                      shape_type='path', 
                       edge_color=colors, 
                       edge_width=3, 
                       name='Radial Files')
 
 
     ## DIAMETERS LAYERS
-    diam_df = cells.dropna(subset=['extr_rad'])
+    diam_df = cells.copy()
+    diam_df = diam_df.dropna(subset=['extr_rad'])
 
     diam_df['extr_rad'] = diam_df['extr_rad'].apply(ast.literal_eval)
     diam_df['extr_tan'] = diam_df['extr_tan'].apply(ast.literal_eval)
@@ -155,16 +154,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("prefix", help = """The prefix of the sample to use qwanamiz.py with. qwanamiz will look for
-                                            file paths corresponding to 'prefix + _imgs.npz', 'prefix + _cells.csv',
-                                            and 'prefix + _adjacency.csv'. These files should all be output by qwanaflow.py.""")
+                                            file paths corresponding to 'prefix + _imgs.npz' and 'prefix + _cells.csv'.
+                                            These files should all be output by qwanaflow.py.""")
 
     args = parser.parse_args()
     
     imgs = args.prefix + "_imgs.npz"
     cells_df = args.prefix + '_cells.csv'
-    edges_df = args.prefix + '_adjacency.csv'
     
     qwa_napari_view(img_path = imgs, 
-                    cells_path = cells_df, 
-                    edges_path = edges_df)
+                    cells_path = cells_df)
 
