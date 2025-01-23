@@ -866,6 +866,23 @@ def prune_graph(graph, visited):
     return graph
 
 ############################################################################
+# This function identifies node that represent starting nodes in a radial file
+# from a set of candidate starting nodes. It basically looks in the graph
+# which of the candidates have no node pointing to it. It then re-orders the
+# list of starting nodes in increasing order of x-position such that cells
+# in the left of the image are queried first. This is done such that higher
+# priority is given to potentially longer radial files.
+def get_starting_nodes(candidates, graph, cell_data):
+    nodes = np.array(candidates)
+    starting_nodes = nodes[~np.isin(nodes, sum(graph.values(), []))]
+
+    cell_subset = cell_data.copy()
+    cell_subset.set_index("label", inplace = True)
+    cell_subset = cell_subset.loc[starting_nodes]
+
+    return starting_nodes[np.argsort(cell_subset["centroid-1"])]
+
+############################################################################
 # A function that assigns radial files using a search through a dict-based
 # graph that contains only edges going from left to right
 # For consistency with assign_radial_files it performs modifications on
@@ -883,8 +900,7 @@ def assign_radial_files2(cell_df, edge_df):
     fwd_graph = get_forward_graph(edge_copy)
 
     # We identify starting nodes as edges for which no cell points to
-    nodes = np.array(cell_df["label"])
-    starting_nodes = nodes[~np.isin(nodes, sum(fwd_graph.values(), []))]
+    starting_nodes = get_starting_nodes(cell_df["label"], fwd_graph, cell_df)
 
     # We initialize a list holder and a counter for radial files
     radial_files = []
@@ -894,28 +910,29 @@ def assign_radial_files2(cell_df, edge_df):
     visited = set()
 
     # Then we loop over the starting nodes as long as there are still starting nodes
-    #while len(starting_nodes):
-    for i in starting_nodes:
-        # Initializing a new radial file with this starting node
-        radial_files.append([i])
-        current_node = i
-        previous_node = None
+    while len(starting_nodes):
+        for i in starting_nodes:
+            # Initializing a new radial file with this starting node
+            radial_files.append([i])
+            current_node = i
+            previous_node = None
 
-        while current_node is not None and current_node in fwd_graph:
-            current_node = get_next_node(fwd_graph, current_node, previous_node, edge_copy, visited)
+            while current_node is not None and current_node in fwd_graph:
+                current_node = get_next_node(fwd_graph, current_node, previous_node, edge_copy, visited)
 
-            # Storing a variable for the previous node, deleting it from the graph, and adding it to the visited set
-            previous_node = radial_files[current_file - 1][-1]
-            visited.add(previous_node)
-            del fwd_graph[previous_node]
+                # Storing a variable for the previous node, deleting it from the graph, and adding it to the visited set
+                previous_node = radial_files[current_file - 1][-1]
+                visited.add(previous_node)
+                del fwd_graph[previous_node]
 
-            # Appending to the current radial file if we indeed found a neighbor
-            if current_node is not None:
-                radial_files[current_file - 1].append(current_node)
+                # Appending to the current radial file if we indeed found a neighbor
+                if current_node is not None:
+                    radial_files[current_file - 1].append(current_node)
 
-        current_file += 1
+            current_file += 1
 
-    prune_graph(fwd_graph, visited)
+        prune_graph(fwd_graph, visited)
+        starting_nodes = get_starting_nodes(list(fwd_graph.keys()), fwd_graph, cell_df)
 
     # Assigning the radial files and file rank into the input edge DataFrame
     edge_df["radial_file"] = None
