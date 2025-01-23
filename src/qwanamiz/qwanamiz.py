@@ -889,7 +889,7 @@ def get_starting_nodes(candidates, graph, cell_data):
 # the DataFrame of adjacencies (edge_df) even though the search is done
 # on the cell DataFrame. This will be simplified if this method of finding
 # radial files is retained
-def assign_radial_files2(cell_df, edge_df):
+def assign_radial_files(cell_df, edge_df):
     # We reassign the wall classification column of edge_df as this
     # is what we would have as input if we go through with this new
     # method
@@ -948,120 +948,6 @@ def assign_radial_files2(cell_df, edge_df):
             edge_df.at[current_edge, "wall_classification"] = "tangential"
 
     return(edge_df)
-
-# Assign radial files ids to continuous straight lines of cells
-def assign_radial_files(complete_df):
-    
-    # Set cell labels column as index
-    #edges_df.set_index(['label1', 'label2'], inplace=True)
-    
-    # Initialize the 'radial_file' column with None
-    complete_df['radial_file'] = None
-    complete_df['file_rank'] = None
-    
-    # Filter the DataFrame
-    edges_df = complete_df[
-        (complete_df['wall_classification'] == 'tangential') |
-        (complete_df['wall_classification'].str.contains('bridge'))
-    ]
-    
-
-    # Initialize radial_file_id to start assigning IDs from 1
-    radial_file_id = 1
-    
-    # Create an empty set visited_edges to keep track of visited edges
-    visited_edges = set()
-    
-    # Create a function to define the next edge in the same radial file
-    # that takes the current edge, previous edge, and neighbors as input
-    def find_next_edge(current_edge, previous_edge, neighbors):
-        
-        # If there are no neighbors, return None
-        if not neighbors:
-            return None
-        
-        # If there's only one neighbor, return it
-        if len(neighbors) == 1:
-            return neighbors[0]
-        
-        # Find the neighbor with the closest angle
-        # To do this, calculate the angle difference between the current edge and each neighbor's angle,
-        # and select the neighbor with the minimum difference
-        current_angle = edges_df.at[current_edge, 'angle']
-        previous_angle = edges_df.at[previous_edge, 'angle']
-        
-        def angle_difference(angle1, angle2):
-            return min(abs(angle1 - angle2), 360 - abs(angle1 - angle2))
-        
-        best_neighbor = min(neighbors, key=lambda neighbor: angle_difference(edges_df.at[neighbor, 'angle'], current_angle))
-        
-        #DEPRECTATED : if angle_difference(edges_df.at[best_neighbor, 'angle'], previous_angle) <= angle_difference(edges_df.at[best_neighbor, 'angle'], current_angle):
-            #return best_neighbor
-        
-        #return None
-        return best_neighbor
-    
-    # Iterate over each edge in the DataFrame
-    for edge in edges_df.index:
-    # Find a starting edge (that as only one neighbor and hasn't been visited yet)
-        # if the edge has alreaby been assigned to a radial file or
-        # if it has already been visited
-        # go to the next line
-        if edges_df.at[edge, 'radial_file'] is not None or edge in visited_edges:
-            continue
-        
-        # if not retrieve the neighbors
-        neighbors = edges_df.at[edge, 'neighbors']
-        
-        # if it has more than one neighbor, go to the next line
-        if len(neighbors) != 1:
-            continue
-    # here the conditions to be a starting edge have been complied
-    
-    # Then we initialize the radial file loop with the starting edge
-        # Assign radial_file ID to the starting edge
-        current_edge = edge
-        edges_df.at[current_edge, 'radial_file'] = radial_file_id
-        visited_edges.add(current_edge)
-        previous_edge = None
-        
-        # Initialize the file rank counter
-        ranking = 1
-        edges_df.at[current_edge, 'file_rank'] = ranking
-
-        while True:
-            # Update the list of neighbors to exclude those that have already been visited
-            neighbors = [n for n in edges_df.at[current_edge, 'neighbors'] 
-                         if n not in visited_edges 
-                         or edges_df.at[n, 'radial_file'] is None]
-            #Use the find_next_edge function to find the next edge
-            next_edge = find_next_edge(current_edge, previous_edge, neighbors)
-            # If no next edge is found, exit the loop
-            if next_edge is None:
-                break
-            
-            # Assign the radial file ID to the next edge and add it to the set of visited edges
-            edges_df.at[next_edge, 'radial_file'] = radial_file_id
-            visited_edges.add(next_edge)
-            
-            # Assign the file rank to the edge
-            ranking += 1
-            edges_df.at[next_edge, 'file_rank'] = ranking
-            
-            # Mark remaining neighbors as visited
-            visited_edges.update(neighbors)
-            
-            # Update the previous and current edges for the next iteration
-            previous_edge, current_edge = current_edge, next_edge
-            
-        # After completing the loop for a radial file, increment the radial file ID
-
-        radial_file_id += 1
-        
-    complete_df.update(edges_df)
-        
-    return complete_df
-
 
 ######################################################################################
 # Measure radial and tangential diameters relative to the cell angle

@@ -191,7 +191,6 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Edge classification and filtering
     print("Edge classification")
 
-
     qwanamiz.classify_edges(adjacency, tolerance = 15)
 
     endTime = datetime.datetime.now()
@@ -201,23 +200,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     ###################################################################################
     # Radial files grouping
-    print("neighbor mapping and radial files detection")
+    print("Radial files detection")
     
-    # Edges classification refining
-    ## We need a DataFrame that contains only tangential adjacencies
-    tangential_df = adjacency[adjacency["wall_classification"] == "tangential"]
-
-    # Adding a "neighbors" column with all tangential neighbors
-    qwanamiz.find_neighbors(complete_df = adjacency,
-                            edges = tangential_df.index,
-                            graph = qwanamiz.df_to_graph(tangential_df))
-
-    qwanamiz.refine_neighbors(adjacency)
-
-    # Assign radial files to the edges
-    qwanamiz.update_neighbors(adjacency)
-
-    qwanamiz.assign_radial_files2(regionprops_df, adjacency)
+    qwanamiz.assign_radial_files(regionprops_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
