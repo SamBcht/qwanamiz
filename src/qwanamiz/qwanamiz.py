@@ -815,6 +815,42 @@ def get_forward_graph(df):
     return(fwd_graph)
 
 ############################################################################
+# A function that get the next node in the graph in the search for radial
+# files. The idea is to select the node that has the outbound angle (angle
+# to next cell) that is most similar to the inbound angle (angle from previous cell)
+def get_next_node(graph, current_node, previous_node, edge_df):
+    # Extracting the set of nodes to consider
+    possible_nodes = graph[current_node]
+
+    # If there is only one node then we return it
+    if len(possible_nodes) == 1:
+        return(possible_nodes[0])
+
+    # Otherwise we need to determine the inbound angle
+    # If the previous node is not None then this is simply the angle of that edge
+    if previous_node is not None:
+        inbound_edge = tuple(sorted([current_node, previous_node]))
+        inbound_angle = edge_df.at[inbound_edge, "angle"]
+    # Otherwise we use the mean angle determined by the directionality function
+    # We use one of the outbound edges to get that value
+    else:
+        edge = tuple(sorted([current_node, possible_nodes[0]]))
+        inbound_angle = np.degrees(np.mean(edge_df.loc[edge, ["lower_bound", "upper_bound"]]))
+
+    # Finally we loop over the neighbors to find the one with the least different angle from the inbound one
+    min_diff = np.inf
+
+    for i in possible_nodes:
+        outbound_edge = tuple(sorted([current_node, i]))
+        outbound_angle = edge_df.at[outbound_edge, "angle"]
+        angle_diff = abs(outbound_angle - inbound_angle)
+        if angle_diff < min_diff:
+            best_neighbor = i
+            min_diff = angle_diff
+
+    return best_neighbor
+
+############################################################################
 # A function that assigns radial files using a search through a dict-based
 # graph that contains only edges going from left to right
 # For consistency with assign_radial_files it performs modifications on
@@ -845,9 +881,11 @@ def assign_radial_files2(cell_df, edge_df):
         # Initializing a new radial file with this starting node
         radial_files.append([i])
         current_node = i
+        previous_node = None
 
         while current_node in fwd_graph:
-            current_node = fwd_graph[current_node][0]
+            current_node = get_next_node(fwd_graph, current_node, previous_node, edge_copy)
+            previous_node = radial_files[current_file - 1][-1]
             radial_files[current_file - 1].append(current_node)
 
         current_file += 1
