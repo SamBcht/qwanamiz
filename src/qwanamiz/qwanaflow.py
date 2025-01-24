@@ -202,7 +202,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Radial files grouping
     print("Radial files detection")
     
-    qwanamiz.assign_radial_files(regionprops_df, adjacency)
+    regionprops_df, adjacency = qwanamiz.assign_radial_files(regionprops_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -231,7 +231,6 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     print(f'runtime : {endTime - start}')
 
     print("labels and edges correspondance")
-    qwanamiz.get_cell_walls(regionprops_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')

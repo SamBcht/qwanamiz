@@ -693,105 +693,6 @@ def update_neighbors(complete_df):
     
     return complete_df
 
-#################################################################################
-# Get cell wall thickness and cell neighbors
-
-def get_cell_walls(cells_df, walls_df):
-    
-    edges_df = walls_df[
-        (walls_df['wall_classification'] == 'tangential') |
-        (walls_df['wall_classification'].str.contains('bridge'))
-    ]
-    
-    # Iterate over each row in cells_df
-    cells_df['left_neighbor'] = 0
-    cells_df['left_wall_thickness'] = 0.0
-    cells_df['left_angle'] = 0.0
-    cells_df['right_neighbor'] = 0
-    cells_df['right_wall_thickness'] = 0.0
-    cells_df['right_angle'] = 0.0
-    cells_df['classification'] = 'regular'
-    cells_df['radial_file'] = None
-
-    # Iterate over each row in cells_df
-    for idx, row in cells_df.iterrows():
-        label = row['label']
-        label_centroid = (row['centroid-0'], row['centroid-1'])
-        
-        # Filter edges_df for rows where the label is either label1 or label2
-        filtered_edges = edges_df[(edges_df.index.get_level_values('label1') == label) |
-                                  (edges_df.index.get_level_values('label2') == label)]
-        
-        if len(filtered_edges) == 0:
-            # No neighbors
-            cells_df.at[idx, 'classification'] = 'isolated'
-        
-        elif len(filtered_edges) == 1:
-            # Single neighbor
-            cells_df.at[idx, 'classification'] = 'extremity'
-            
-            edge = filtered_edges.index[0]
-            edge_data = filtered_edges.iloc[0]
-            
-            label1, label2 = edge
-            neighbor_label = label2 if label1 == label else label1
-            neighbor_centroid = cells_df.loc[cells_df['label'] == neighbor_label, ['centroid-0', 'centroid-1']].values[0]
-            
-            cells_df.at[idx, 'radial_file'] = edge_data['radial_file']
-            
-            if neighbor_centroid[1] < label_centroid[1]:  # Left neighbor
-                cells_df.at[idx, 'left_neighbor'] = neighbor_label
-                cells_df.at[idx, 'left_wall_thickness'] = edge_data['wall_thickness']
-                cells_df.at[idx, 'left_angle'] = edge_data['angle']
-            else:  # Right neighbor
-                cells_df.at[idx, 'right_neighbor'] = neighbor_label
-                cells_df.at[idx, 'right_wall_thickness'] = edge_data['wall_thickness']
-                cells_df.at[idx, 'right_angle'] = edge_data['angle']
-        
-        elif len(filtered_edges) == 2:
-            # Two neighbors
-            edge1 = filtered_edges.index[0]
-            edge2 = filtered_edges.index[1]
-            edge_data1 = filtered_edges.iloc[0]
-            edge_data2 = filtered_edges.iloc[1]
-            
-            label1_1, label1_2 = edge1
-            label2_1, label2_2 = edge2
-            
-            neighbor1_label = label1_2 if label1_1 == label else label1_1
-            neighbor2_label = label2_2 if label2_1 == label else label2_1
-            
-            neighbor1_centroid = cells_df.loc[cells_df['label'] == neighbor1_label, ['centroid-0', 'centroid-1']].values[0]
-            neighbor2_centroid = cells_df.loc[cells_df['label'] == neighbor2_label, ['centroid-0', 'centroid-1']].values[0]
-            
-            if edge_data1['radial_file'] == edge_data2['radial_file']:
-                cells_df.at[idx, 'radial_file'] = edge_data1['radial_file']
-            else: cells_df.at[idx, 'radial_file'] = 0
-            
-            if neighbor1_centroid[1] < label_centroid[1] and neighbor2_centroid[1] > label_centroid[1]:
-                # Proper left and right neighbors
-                cells_df.at[idx, 'left_neighbor'] = neighbor1_label
-                cells_df.at[idx, 'left_wall_thickness'] = edge_data1['wall_thickness']
-                cells_df.at[idx, 'left_angle'] = edge_data1['angle']
-                cells_df.at[idx, 'right_neighbor'] = neighbor2_label
-                cells_df.at[idx, 'right_wall_thickness'] = edge_data2['wall_thickness']
-                cells_df.at[idx, 'right_angle'] = edge_data2['angle']
-            
-            elif neighbor1_centroid[1] > label_centroid[1] and neighbor2_centroid[1] < label_centroid[1]:
-                # Proper left and right neighbors, swapped order
-                cells_df.at[idx, 'left_neighbor'] = neighbor2_label
-                cells_df.at[idx, 'left_wall_thickness'] = edge_data2['wall_thickness']
-                cells_df.at[idx, 'left_angle'] = edge_data2['angle']
-                cells_df.at[idx, 'right_neighbor'] = neighbor1_label
-                cells_df.at[idx, 'right_wall_thickness'] = edge_data1['wall_thickness']
-                cells_df.at[idx, 'right_angle'] = edge_data1['angle']
-        
-        else:
-            # More than two neighbors
-            cells_df.at[idx, 'classification'] = 'cross'
-    
-    return cells_df
-    
 ###################################################################
 
 # This function returns a graph with only adjacencies that go forward
@@ -885,10 +786,6 @@ def get_starting_nodes(candidates, graph, cell_data):
 ############################################################################
 # A function that assigns radial files using a search through a dict-based
 # graph that contains only edges going from left to right
-# For consistency with assign_radial_files it performs modifications on
-# the DataFrame of adjacencies (edge_df) even though the search is done
-# on the cell DataFrame. This will be simplified if this method of finding
-# radial files is retained
 def assign_radial_files(cell_df, edge_df):
     # We reassign the wall classification column of edge_df as this
     # is what we would have as input if we go through with this new
@@ -934,20 +831,67 @@ def assign_radial_files(cell_df, edge_df):
         prune_graph(fwd_graph, visited)
         starting_nodes = get_starting_nodes(list(fwd_graph.keys()), fwd_graph, cell_df)
 
-    # Assigning the radial files and file rank into the input edge DataFrame
-    edge_df["radial_file"] = None
-    edge_df["file_rank"] = None
+    # Assigning the radial files and file rank into the input cell DataFrame
+    # Also assigning left and right neighbors as well as tangential wall thickness
+    cell_df.set_index(cell_df["label"], inplace = True, drop = False)
+
+    cell_df['classification'] = None
+    cell_df["radial_file"] = None
+    cell_df["file_rank"] = None
+
+    cell_df['left_neighbor'] = 0
+    cell_df['left_wall_thickness'] = 0.0
+    cell_df['left_angle'] = 0.0
+
+    cell_df['right_neighbor'] = 0
+    cell_df['right_wall_thickness'] = 0.0
+    cell_df['right_angle'] = 0.0
+
 
     for i in range(len(radial_files)):
-        for j in range(len(radial_files[i]) - 1):
-            current_edge = tuple(sorted([radial_files[i][j], radial_files[i][j + 1]]))
-            edge_df.at[current_edge, "radial_file"] = i + 1
-            edge_df.at[current_edge, "file_rank"] = j + 1
-            # All edges that are part of a radial file are considered tangential
-            # for use in downstream functions
-            edge_df.at[current_edge, "wall_classification"] = "tangential"
+        # Isolated cells are not processed further as they cannot be assigned wall thickness
+        if len(radial_files[i]) == 1:
+            cell_df.at[radial_files[i][0], 'classification'] = 'isolated'
+            cell_df.at[radial_files[i][0], 'radial_file'] = i + 1
+            cell_df.at[radial_files[i][0], 'file_rank'] = 1
+            continue
 
-    return(edge_df)
+        # Otherwise we go on with processing the full radial file path
+        for j in range(len(radial_files[i])):
+
+            # Extracting the file index
+            cell_idx = radial_files[i][j]
+
+            # Setting the radial file and the rank in it
+            cell_df.at[cell_idx, "radial_file"] = i + 1
+            cell_df.at[cell_idx, "file_rank"] = j + 1
+            cell_df.at[cell_idx, 'classification'] = 'extremity' if (j == 0 or j == (len(radial_files[i]) - 1)) else 'regular'
+
+            # The case when we are not at the beginning of the file
+            # In this case there is a left neighbor
+            if j > 0:
+                left_neighbor = radial_files[i][j - 1]
+                cell_df.at[cell_idx, 'left_neighbor'] = left_neighbor
+                left_edge = tuple(sorted([cell_idx, left_neighbor]))
+                
+                cell_df.at[cell_idx, 'left_angle'] = edge_df.at[left_edge, 'angle']
+                cell_df.at[cell_idx, 'left_wall_thickness'] = edge_df.at[left_edge, 'wall_thickness']
+
+            # The case when we are not at the end of the file
+            # In this case there is a right neighbor
+            if j < (len(radial_files[i]) - 1):
+                right_neighbor = radial_files[i][j + 1]
+                cell_df.at[cell_idx, 'right_neighbor'] = right_neighbor
+                right_edge = tuple(sorted([cell_idx, right_neighbor]))
+                
+                cell_df.at[cell_idx, 'right_angle'] = edge_df.at[right_edge, 'angle']
+                cell_df.at[cell_idx, 'right_wall_thickness'] = edge_df.at[right_edge, 'wall_thickness']
+
+                # All edges that are part of a radial file are considered tangential
+                # for use in downstream functions
+                edge_df.at[right_edge, "wall_classification"] = 'tangential'
+
+    return cell_df, edge_df
 
 ######################################################################################
 # Measure radial and tangential diameters relative to the cell angle
