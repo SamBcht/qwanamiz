@@ -40,7 +40,8 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001, ncores = 1):
+def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
+                       convergence_threshold = 0.001, angle_tolerance = 5, ncores = 1):
 
     start = datetime.datetime.now()
 
@@ -191,7 +192,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Edge classification and filtering
     print("Edge classification")
 
-    qwanamiz.classify_edges(adjacency, tolerance = 15)
+    qwanamiz.classify_edges(adjacency, tolerance = angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -293,6 +294,11 @@ if __name__ == '__main__':
                                   Lower values result in more precise results but slower convergence.
                                   Defaults to 0.001.""")
 
+    parser.add_argument("--angle-tolerance", dest = "angle", type = float, default = 5,
+                        help = """The tolerance (in degrees) around the lower and upper bounds found by the
+                                  directionality algorithm in determining which cell adjacencies are tangential and
+                                  which are radial. A higher value means potentially longer, but inexact, radial files.""")
+
     parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
                         help = """The number of processes to launch for multiprocessing for computing wall thickness.
                         Defaults to 1 (no multiprocessing).""")
@@ -335,6 +341,7 @@ if __name__ == '__main__':
                                                                                                                                                             dir_nrows = args.nrows,
                                                                                                                                                             dir_ncols = args.ncols,
                                                                                                                                                             convergence_threshold = args.vmthreshold,
+                                                                                                                                                            angle_tolerance = args.angle,
                                                                                                                                                             ncores = args.ncores)
         
         print('save outputs')

@@ -441,16 +441,12 @@ def classify_edges(df, tolerance = 5):
     
     # Extracting some variables from the DataFrame for coding convenience
     angle = np.radians(df["angle"])
-    tolerance = np.radians(tolerance)
-    lb = df["lower_bound"]
-    ub = df["upper_bound"]
+    lb = df["lower_bound"] - np.radians(tolerance)
+    ub = df["upper_bound"] + np.radians(tolerance)
 
-    # Using np.where twice to classify the edges in a vectorized way
-    classes = np.where(np.logical_and(angle >= lb - tolerance, angle <= ub + tolerance), "indoubt", "radial")
-    classes = np.where(np.logical_and(angle >= lb, angle <= ub), "tangential", classes)
+    # Using np.where to classify the edges in a vectorized way
+    df["wall_classification"] = np.where(np.logical_and(angle >= lb, angle <= ub), 'tangential', 'radial')
 
-    df["wall_classification"] = classes
-               
     return df
 
 ############################################################################
@@ -501,196 +497,6 @@ def find_neighbors(complete_df, edges, graph, colname = 'neighbors'):
         neighbors.discard(edge)
         complete_df.at[edge, colname] = list(neighbors)
 
-    return complete_df
-
-############################################################################
-def refine_neighbors(complete_df):
-    
-    # Filter starting edges as tangential having 1 or less neighbor
-    starting_edge = complete_df[complete_df['wall_classification'] == 'tangential']
-    starting_edge = starting_edge[starting_edge['neighbors'].apply(lambda x: len(x) <= 1)]
-    
-    starting_edge['ext_label'] = None
-    for start, start_data in starting_edge.iterrows():
-        ext1, ext2 = start
-        start_neigh = start_data['neighbors']
-        
-        if len(start_neigh) == 1:
-            if (ext1 not in start_neigh[0]):
-                starting_edge.at[start, 'ext_label'] = ext1
-            elif (ext2 not in start_neigh[0]):
-                starting_edge.at[start, 'ext_label'] = ext2
-    
-    # Filter tangential edges with more than one neighbor
-    tan_edge = complete_df[complete_df['wall_classification'] == 'tangential']
-    tan_edge = tan_edge[tan_edge['neighbors'].apply(lambda x: len(x) > 1)]
-        
-    # Filter ambiguous edges and initialize columns for reclassification
-    ambiguous_edge = complete_df.copy()[complete_df['wall_classification'] == 'indoubt']
-
-    # Filling the "neighbor" column with neighbors to starting edges
-    find_neighbors(complete_df = ambiguous_edge,
-                   edges = ambiguous_edge.index,
-                   graph = df_to_graph(starting_edge),
-                   colname = "neighbors")
-
-    # Filling the "amb_neighbors" column with neighbors to other ambiguous edges
-    find_neighbors(complete_df = ambiguous_edge,
-                   edges = ambiguous_edge.index,
-                   graph = df_to_graph(ambiguous_edge),
-                   colname = "amb_neighbors")
-
-    ambiguous_edge['situation'] = None
-
-    # Finding the situation for each ambiguous edge
-    for edge, edge_data in ambiguous_edge.iterrows():
-        label1, label2 = edge
-        
-        # Assign the neighbors to the 'neighbors' column
-        neighbors = edge_data["neighbors"]
-        amb_neighbors = edge_data["amb_neighbors"]
-
-        # Connection between two starting points of 2 radial_files
-        if len(neighbors) == 2 and len(amb_neighbors) == 0:
-            ext_label1 = starting_edge.at[neighbors[0], 'ext_label']
-            ext_label2 = starting_edge.at[neighbors[1], 'ext_label']
-            if (ext_label1 in edge) and (ext_label2 in edge):
-                ambiguous_edge.at[edge, 'situation'] = 'bridge'
-            elif (ext_label1 in edge) and (ext_label2 is None):
-                ambiguous_edge.at[edge, 'situation'] = 'bridge'
-            elif (ext_label2 in edge) and (ext_label1 is None):
-                ambiguous_edge.at[edge, 'situation'] = 'bridge'
-            else:
-                ambiguous_edge.at[edge, 'situation'] = 'unknown'
-        
-        # End of a file
-        elif len(neighbors) == 1 and len(amb_neighbors) == 0:
-            if starting_edge.at[neighbors[0], 'ext_label'] in edge:
-                end1, end2 = edge
-                if end1 == starting_edge.at[neighbors[0], 'ext_label']:
-                    end_connex = end2
-                else: end_connex = end1
-                end_neighb = tan_edge[
-                    (tan_edge.index.get_level_values('label1') == end_connex) |
-                    (tan_edge.index.get_level_values('label2') == end_connex)
-                    ].index
-                if len(list(end_neighb)) > 0:
-                    ambiguous_edge.at[edge, 'situation'] = 'end_bifurc'
-                else:
-                    ambiguous_edge.at[edge, 'situation'] = 'bridge_end'
-            else: ambiguous_edge.at[edge, 'situation'] = 'false_end'
-                
-            
-        # Start of a long connection (2 or more bridges)
-        elif len(neighbors) == 1 and len(amb_neighbors) == 1:
-            ambiguous_edge.at[edge, 'situation'] = 'connex'
-            
-        # Bifurcation
-        elif (len(neighbors) == 2 and len(amb_neighbors) == 1):
-            ambiguous_edge.at[edge, 'situation'] = 'cross'
-            
-        # Bifurcation
-        elif (len(neighbors) == 1 and len(amb_neighbors) >= 2):
-            ambiguous_edge.at[edge, 'situation'] = 'cross2'
-            
-        # Start of a long connection (2 or more bridges)
-        elif (len(neighbors) == 0 and len(amb_neighbors) == 0):
-            ambiguous_edge.at[edge, 'situation'] = 'isolated'
-            
-        elif (len(neighbors) == 0 and len(amb_neighbors) == 2):
-            ambiguous_edge.at[edge, 'situation'] = 'in_connex'
-
-    for edge, edge_data in ambiguous_edge.iterrows():
-        # label1, label2 = edge
-        neighbors = ambiguous_edge.at[edge, 'neighbors']
-        amb_neighbors = ambiguous_edge.at[edge, 'amb_neighbors']
-        
-        if ambiguous_edge.at[edge, 'situation'] == 'connex':
-            
-            ext_neigh = starting_edge.at[neighbors[0], 'ext_label']
-            ext_amb = ambiguous_edge.at[amb_neighbors[0], 'neighbors']
-            
-            if ambiguous_edge.at[amb_neighbors[0], 'situation'] == 'connex':
-                
-                if (ext_neigh != starting_edge.at[ext_amb[0], 'ext_label']) and (ext_neigh in edge) and (starting_edge.at[ext_amb[0], 'ext_label'] in amb_neighbors[0]):
-                    ambiguous_edge.at[edge, 'situation'] = 'db_bridge'
-                    ambiguous_edge.at[amb_neighbors[0], 'situation'] = 'db_bridge'
-                
-                elif (ext_neigh == starting_edge.at[ext_amb[0], 'ext_label']) and (ext_neigh in edge) and (starting_edge.at[ext_amb[0], 'ext_label'] in amb_neighbors[0]):
-                    ambiguous_edge.at[edge, 'situation'] = 'bifurcation'
-                    ambiguous_edge.at[amb_neighbors[0], 'situation'] = 'bifurcation'
-                
-        elif ambiguous_edge.at[edge, 'situation'] == 'in_connex':
-
-            if (ambiguous_edge.at[amb_neighbors[0], 'situation'] == 'connex') and (ambiguous_edge.at[amb_neighbors[1], 'situation'] == 'connex'):
-                ambiguous_edge.at[edge, 'situation'] = 'mid_bridge'
-                ambiguous_edge.at[amb_neighbors[0], 'situation'] = 'long_bridge'
-                ambiguous_edge.at[amb_neighbors[1], 'situation'] = 'long_bridge'
-                
-            elif (ambiguous_edge.at[amb_neighbors[0], 'situation'] == 'connex') and (ambiguous_edge.at[amb_neighbors[1], 'situation'] == 'in_connex'):
-                ambiguous_edge.at[edge, 'situation'] = 'connex'
-                ambiguous_edge.at[amb_neighbors[0], 'situation'] = 'long_bridge'
-                
-            elif (ambiguous_edge.at[amb_neighbors[1], 'situation'] == 'connex') and (ambiguous_edge.at[amb_neighbors[0], 'situation'] == 'in_connex'):
-                ambiguous_edge.at[edge, 'situation'] = 'connex'
-                ambiguous_edge.at[amb_neighbors[1], 'situation'] = 'long_bridge'
-            
-        elif ambiguous_edge.at[edge, 'situation'] == 'cross':
-            
-            if ambiguous_edge.at[amb_neighbors[0], 'situation'] == 'connex':
-                # probably a bridge if amb_neighbor is 'connex'
-                ext_neigh1 = starting_edge.at[neighbors[0], 'ext_label']
-                ext_neigh2 = starting_edge.at[neighbors[1], 'ext_label']
-                
-                if ext_neigh1 in edge and ext_neigh2 in edge:
-                    ambiguous_edge.at[edge, 'situation'] = 'bridge'
-            # inside bifurcation if amb_neighbor is also 'cross'
-    
-    for index,row in ambiguous_edge.iterrows():
-        if ambiguous_edge.at[index, 'situation'] is not None:
-            complete_df.at[index, 'wall_classification'] = ambiguous_edge.at[index, 'situation']
-    
-    return complete_df
-###################################################################################
-# Update neighbors after refining
-def update_neighbors(complete_df):
-    
-    # Filter the DataFrame
-    edges_df = complete_df.copy()[
-        (complete_df['wall_classification'] == 'tangential') |
-        (complete_df['wall_classification'].str.contains('bridge'))
-    ]
-    
-    # Initialize the 'neighbors' column with empty lists where it is None
-    edges_df['neighbors'] = edges_df['neighbors'].apply(lambda x: x if isinstance(x, list) else [])
-
-
-    for edge, edge_data in edges_df.iterrows():
-        label1, label2 = edge
-        
-        if edges_df.at[edge, 'wall_classification'] != 'tangential':
-            # Find all edges that share a common label with the current edge
-            neighbors = edges_df[(edges_df.index.get_level_values('label1') == label1) |
-                                 (edges_df.index.get_level_values('label2') == label1) |
-                                 (edges_df.index.get_level_values('label1') == label2) |
-                                 (edges_df.index.get_level_values('label2') == label2)].index
-
-            # Remove the current edge from its own neighbor list
-            neighbors = neighbors.drop(edge)
-            
-            # Assign the neighbors to the 'neighbors' column
-            edges_df.at[edge, 'neighbors'] = list(neighbors)
-            
-            # Update the neighbors list of each neighbor
-            for neighbor in neighbors:
-                edges_df.at[neighbor, 'neighbors'].append(edge)
-                
-    # Remove duplicates from neighbors list
-    edges_df['neighbors'] = edges_df['neighbors'].apply(lambda x: list(set(x)))
-    
-    for index,row in edges_df.iterrows():
-        complete_df.at[index, 'neighbors'] = edges_df.at[index, 'neighbors']
-    
     return complete_df
 
 ###################################################################
@@ -790,11 +596,9 @@ def assign_radial_files(cell_df, edge_df):
     # We reassign the wall classification column of edge_df as this
     # is what we would have as input if we go through with this new
     # method
-    edge_copy = edge_df.copy()
-    classify_edges(edge_copy, tolerance = 15)
-    edge_copy = edge_copy[np.isin(edge_copy["wall_classification"], ["tangential", "indoubt"])]
+    tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
 
-    fwd_graph = get_forward_graph(edge_copy)
+    fwd_graph = get_forward_graph(tangential_edges)
 
     # We identify starting nodes as edges for which no cell points to
     starting_nodes = get_starting_nodes(cell_df["label"], fwd_graph, cell_df)
@@ -815,7 +619,7 @@ def assign_radial_files(cell_df, edge_df):
             previous_node = None
 
             while current_node is not None and current_node in fwd_graph:
-                current_node = get_next_node(fwd_graph, current_node, previous_node, edge_copy, visited)
+                current_node = get_next_node(fwd_graph, current_node, previous_node, tangential_edges, visited)
 
                 # Storing a variable for the previous node, deleting it from the graph, and adding it to the visited set
                 previous_node = radial_files[current_file - 1][-1]
