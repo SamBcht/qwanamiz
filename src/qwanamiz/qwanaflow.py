@@ -91,10 +91,16 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                 'orientation',
                 'perimeter_crofton',
                 'image',
-                'bbox')))
+                'bbox',
+                'solidity')))
     
     regionprops_df['SampleId'] = sampleID
 
+    ## Splitting merged cells using watershed segmentation
+    #  This step needs to return updated cell measurements (regionprops_df)
+    #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
+    labeled_image, regionprops_df, watershed_result = qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
+                                                                             area_threshold = 500, solidity_threshold = 0.95)
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
     # e.g. background pixels. Return an image where each back ground pixel takes

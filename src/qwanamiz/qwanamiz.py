@@ -7,8 +7,12 @@ Created on Mon Jun 10 13:32:21 2024
 
 import numpy as np
 import skimage.measure
+from skimage import measure, segmentation
 import pandas as pd
 from skimage.draw import line
+from skimage.filters import gaussian
+from scipy.ndimage import distance_transform_edt
+from skimage.feature import peak_local_max
 from scipy.stats import circmean
 import matplotlib.pyplot as plt
 #from tools import histogram
@@ -17,6 +21,66 @@ from scipy.stats import vonmises
 from multiprocessing import Pool
 from functools import partial
 ##########################################################################
+
+# Split merged cells that have not been properly recognized as distinct at the image binarization stage
+def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solidity_threshold = 0.95):
+
+    # We identify potentially merged lumens based on area and solidity
+    merged_candidates = cell_df[(cell_df['area'] > area_threshold) & (cell_df['solidity'] < solidity_threshold)]
+
+    # Create an empty mask of the same shape as labeled_image
+    merged_mask = np.zeros_like(labeled_image, dtype = np.uint8)
+
+    # Mark the selected regions in the mask
+    for label in merged_candidates['label']:
+        merged_mask[labeled_image == label] = 1
+
+    # Compute the distance transform on the mask
+    distance = gaussian(distance_transform_edt(merged_mask), sigma = 2)
+
+    # Detect local maxima using skimage's peak_local_max
+    # min_distance may need to be set as a tunable parameter
+    coordinates = peak_local_max(distance, min_distance = 15)
+
+    # Create a marker image where each local maximum has a unique label
+    markers = np.zeros_like(distance, dtype = np.int32)
+    
+    for i, (r, c) in enumerate(coordinates, start = 1):  
+        markers[r, c] = i
+
+    # Apply watershed using the enhanced markers
+    watershed_result = segmentation.watershed(-distance, markers, mask = merged_mask, watershed_line = True)
+
+    # Identify modified labels
+    modified_labels = set(merged_candidates["label"])
+
+    # Mask where we apply the new segmentation; this array is true where labels should be modified
+    #mask_modified = np.isin(labeled_image, list(modified_labels))
+
+    # Offset new labels (to ensure there is no conflict with the previous labels)
+    watershed_result[watershed_result > 0] += labeled_image.max()
+
+    # Replace only the modified regions
+    labeled_image[merged_mask == 1] = watershed_result[merged_mask == 1]
+
+    # Compute region properties **only for the newly segmented regions**
+    new_cell_df = pd.DataFrame(measure.regionprops_table(
+        watershed_result,
+        spacing = scale,
+        properties = (
+            "label", "area", "major_axis_length", "minor_axis_length",
+            "centroid", "orientation", "perimeter_crofton", "solidity"
+        ),
+    ))
+
+    # Remove old entries
+    cell_df = cell_df[~cell_df["label"].isin(modified_labels)]
+
+    # Add new segmented regions
+    cell_df = pd.concat([cell_df, new_cell_df], ignore_index = True)
+
+    return labeled_image, cell_df, watershed_result
+
 # Simili expand_labels function to avoid calculation of the distance map a second time
 def expand_cells(label_image, distances, indices, distance = 1, spacing = 1,):
     
