@@ -262,7 +262,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     print("successfully run")
     
-    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, rays_ducts_map, rays_ducts_table, nb_rows, nb_cols
+    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, watershed_result, rays_ducts_map, rays_ducts_table, nb_rows, nb_cols
 
 
 def get_basename(input_file, remove = '.png'):
@@ -341,7 +341,7 @@ if __name__ == '__main__':
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, rays_and_ducts, rd_table, nrows, ncols = batch_measurements(img_path, 
+        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, watershed_result, rays_and_ducts, rd_table, nrows, ncols = batch_measurements(img_path, 
                                                                                                                                                             sampleID = base_name,
                                                                                                                                                             pixel_size = args.pixel,
                                                                                                                                                             dir_nrows = args.nrows,
@@ -359,6 +359,7 @@ if __name__ == '__main__':
         np.savez_compressed(output_path, dmap = distance_map, 
                             explabs = expanded_labels, 
                             labs = labeled_image,
+                            watershed = watershed_result,
                             rd_map = rays_and_ducts)
         #np.save(output_path, distance_map)
         

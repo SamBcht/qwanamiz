@@ -49,6 +49,11 @@ def qwa_napari_view(img_path, cells_path):
                       name = 'Rays & Resin Ducts', 
                       scale = [pix_to_um, pix_to_um])
 
+    # Add the watershed result image
+    viewer.add_labels(images['watershed'],
+                      name = 'Watershed segmentation',
+                      scale = [pix_to_um, pix_to_um])
+
     # Add centroids as points to the viewer directly from the DataFrame
     viewer.add_points(cells[['centroid-0', 'centroid-1']], 
                       name = 'Centroids', 
