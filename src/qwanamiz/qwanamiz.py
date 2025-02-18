@@ -739,6 +739,13 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                 if current_node is not None:
                     radial_files[current_file - 1].append(current_node)
 
+            # Making sure that the last node added will not be visited again
+            last_node = radial_files[current_file - 1][-1]
+            visited.add(last_node)
+
+            if last_node in fwd_graph:
+                del fwd_graph[last_node]
+
             current_file += 1
 
         prune_graph(fwd_graph, visited)
