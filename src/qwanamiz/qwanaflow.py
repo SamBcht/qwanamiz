@@ -41,7 +41,7 @@ import qwanamiz
 #from scipy.stats import vonmises
 
 def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
-                       convergence_threshold = 0.001, angle_tolerance = 5, ncores = 1):
+                       convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
 
     start = datetime.datetime.now()
 
@@ -209,7 +209,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Radial files grouping
     print("Radial files detection")
     
-    regionprops_df, adjacency = qwanamiz.assign_radial_files(regionprops_df, adjacency)
+    regionprops_df, adjacency = qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -305,6 +305,13 @@ if __name__ == '__main__':
                                   directionality algorithm in determining which cell adjacencies are tangential and
                                   which are radial. A higher value means potentially longer, but inexact, radial files.""")
 
+    parser.add_argument("--stitch-angle-tolerance", dest = "stitch_angle", type = float, default = 20,
+                        help = """The tolerance (in degrees) around the lower and upper bounds found by the
+                                  directionality algorithm in determining which cell adjacencies are tangential and
+                                  which are radial. This angle is applied after the initial radial file assignment
+                                  in stitching together radial files and should therefore use a more permissive
+                                  angle threshold.""")
+
     parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
                         help = """The number of processes to launch for multiprocessing for computing wall thickness.
                         Defaults to 1 (no multiprocessing).""")
@@ -348,6 +355,7 @@ if __name__ == '__main__':
                                                                                                                                                             dir_ncols = args.ncols,
                                                                                                                                                             convergence_threshold = args.vmthreshold,
                                                                                                                                                             angle_tolerance = args.angle,
+                                                                                                                                                            stitch_angle_tolerance = args.stitch_angle,
                                                                                                                                                             ncores = args.ncores)
         
         print('save outputs')

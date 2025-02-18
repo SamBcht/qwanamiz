@@ -657,7 +657,7 @@ def get_starting_nodes(candidates, graph, cell_data):
 # radial_files: of list of lists containing the edges that are part of radial files
 # edge_df: a DataFrame containing information on the edges in the dataset
 # angle_tolerance: a angle difference which is allowed aray from the lower and upper bounds to consider adjacencies
-def join_files(radial_files, edge_df, angle_tolerance = 15):
+def join_files(radial_files, edge_df, angle_tolerance = 20):
     # We start by building the graph of possible adjacencies from the edge_df and angle tolerance
     edge_df = classify_edges(edge_df, tolerance = angle_tolerance)
     tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
@@ -701,7 +701,7 @@ def join_files(radial_files, edge_df, angle_tolerance = 15):
 ############################################################################
 # A function that assigns radial files using a search through a dict-based
 # graph that contains only edges going from left to right
-def assign_radial_files(cell_df, edge_df):
+def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
 
     # We extract tangential edges from the edge DataFrame
     tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
@@ -747,7 +747,7 @@ def assign_radial_files(cell_df, edge_df):
     # We use a less stringent angle threshold to join radial files together
     radial_files = join_files(radial_files = radial_files,
                               edge_df = edge_df,
-                              angle_tolerance = 15)
+                              angle_tolerance = stitch_angle_tolerance)
 
     # Assigning the radial files and file rank into the input cell DataFrame
     # Also assigning left and right neighbors as well as tangential wall thickness
