@@ -35,7 +35,7 @@ import napari
 
 #png_test = np.load(img_path)
 
-png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F08-1M2-Sc6_segmented.png'
+png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F13-1M1-Sc1_segmented.png'
 
 prediction = skimage.io.imread(png_path)
 
@@ -197,7 +197,10 @@ adjacency, vm_parameters = qwanamiz.directionnality(
     adjacency,
     image_height = img_height, 
     image_width = img_width,
-    spacing = pix_to_um)
+    spacing = pix_to_um,
+    num_rows = nb_rows,
+    num_cols = nb_cols,
+    convergence_threshold = 0.001)
 
 angle_plot = qwanamiz.plot_angles(params = vm_parameters,
                                   num_rows = nb_rows,

@@ -212,7 +212,7 @@ def directionnality(adj_df,
                     num_cols = 8,
                     # Threshold for acceptable difference between mu and the peak angle
                     mu_threshold = 5,  # in degrees. Adjust this value based on your needs
-                    max_iterations = 10,  # Maximum number of iterations to avoid infinite looping
+                    max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
                     convergence_threshold = 0.001,
                     k_threshold = 50):
     
@@ -276,11 +276,22 @@ def directionnality(adj_df,
                     break
 
                 iterations += 1
-
+            
             # Calculate the bounds of the interval
             lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
-            upper_bound = vonmises.ppf(0.995, kappa, loc=mu)
+            upper_bound = vonmises.ppf(0.995, kappa, loc=mu)    
             
+            # If max_iterations is reached, find the closest mu to max_peak_angle
+            if iterations == max_iterations:
+                closest_index = np.argmin(np.abs(np.degrees(m[1, :]) - max_peak_angle))
+                max_index = closest_index
+                mu = m[1, max_index]
+                kappa = m[2, max_index]
+                lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+                upper_bound = vonmises.ppf(0.9, kappa, loc=mu)    
+
+
+
             # Save the parameters for this subsample
             subsample_params[f'{i+1}_{j+1}'] = {
                 'vonmisses_params': m,

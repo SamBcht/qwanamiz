@@ -164,4 +164,3 @@ if __name__ == '__main__':
     
     qwa_napari_view(img_path = imgs, 
                     cells_path = cells_df)
-
