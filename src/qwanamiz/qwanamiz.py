@@ -653,13 +653,57 @@ def get_starting_nodes(candidates, graph, cell_data):
 
     return starting_nodes[np.argsort(cell_subset["centroid-1"])]
 
+# A function that takes a set of radial files and joins them together if they meet some angle threshold
+# radial_files: of list of lists containing the edges that are part of radial files
+# edge_df: a DataFrame containing information on the edges in the dataset
+# angle_tolerance: a angle difference which is allowed aray from the lower and upper bounds to consider adjacencies
+def join_files(radial_files, edge_df, angle_tolerance = 15):
+    # We start by building the graph of possible adjacencies from the edge_df and angle tolerance
+    edge_df = classify_edges(edge_df, tolerance = angle_tolerance)
+    tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
+    fwd_graph = get_forward_graph(tangential_edges)
+
+    # We loop over the radial files as long as we haven't reached the end
+    i = 0
+
+    while i < len(radial_files):
+        # The idea is to try and connect the last cell of the file to the beginning of another file
+        last_cell = radial_files[i][-1]
+
+        # If the last cell has no neighbors then it is not worth processing it
+        if last_cell not in fwd_graph:
+            i += 1
+            continue
+
+        # Otherwise we identify the cells that start radial files and restrict our search for neighbors to these
+        first_cells = [x[0] for x in radial_files]
+        fwd_graph[last_cell] = [x for x in fwd_graph[last_cell] if x in first_cells]
+
+        # Getting the next cell, if any
+        previous_node = radial_files[i][-2] if len(radial_files[i]) > 1 else None
+        next_node = get_next_node(fwd_graph, last_cell, previous_node, edge_df, visited = set())
+
+        # If there was a cell to connect to then we need to:
+        # 1- Find which radial file this connects to
+        # 2- Concatenate that list to the current one (+ operator)
+        # 2- Remove that radial file from the list
+        # Otherwise we increment i and go to the next radial file
+        if next_node is not None:
+            file_index = first_cells.index(next_node)
+            radial_files[i] += radial_files[file_index]
+            radial_files.pop(file_index)
+        else:
+            i += 1
+
+    return radial_files
+
+
 ############################################################################
 # A function that assigns radial files using a search through a dict-based
 # graph that contains only edges going from left to right
 def assign_radial_files(cell_df, edge_df):
-    # We reassign the wall classification column of edge_df as this
-    # is what we would have as input if we go through with this new
-    # method
+
+    # We extract tangential edges from the edge DataFrame
     tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
 
     fwd_graph = get_forward_graph(tangential_edges)
@@ -682,6 +726,7 @@ def assign_radial_files(cell_df, edge_df):
             current_node = i
             previous_node = None
 
+            # We increment the current radial file as long as we do not meet a dead-end
             while current_node is not None and current_node in fwd_graph:
                 current_node = get_next_node(fwd_graph, current_node, previous_node, tangential_edges, visited)
 
@@ -698,6 +743,11 @@ def assign_radial_files(cell_df, edge_df):
 
         prune_graph(fwd_graph, visited)
         starting_nodes = get_starting_nodes(list(fwd_graph.keys()), fwd_graph, cell_df)
+
+    # We use a less stringent angle threshold to join radial files together
+    radial_files = join_files(radial_files = radial_files,
+                              edge_df = edge_df,
+                              angle_tolerance = 15)
 
     # Assigning the radial files and file rank into the input cell DataFrame
     # Also assigning left and right neighbors as well as tangential wall thickness
