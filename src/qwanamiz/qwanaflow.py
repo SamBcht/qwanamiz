@@ -40,7 +40,8 @@ import qwanamiz
 #from scipy.optimize import fsolve
 #from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8, convergence_threshold = 0.001, ncores = 1):
+def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
+                       convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
 
     start = datetime.datetime.now()
 
@@ -90,10 +91,16 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                 'orientation',
                 'perimeter_crofton',
                 'image',
-                'bbox')))
+                'bbox',
+                'solidity')))
     
     regionprops_df['SampleId'] = sampleID
 
+    ## Splitting merged cells using watershed segmentation
+    #  This step needs to return updated cell measurements (regionprops_df)
+    #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
+    labeled_image, regionprops_df, watershed_result = qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
+                                                                             area_threshold = 500, solidity_threshold = 0.95)
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
     # e.g. background pixels. Return an image where each back ground pixel takes
@@ -191,8 +198,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Edge classification and filtering
     print("Edge classification")
 
-
-    qwanamiz.classify_edges(adjacency, tolerance = 15)
+    qwanamiz.classify_edges(adjacency, tolerance = angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -201,23 +207,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     ###################################################################################
     # Radial files grouping
-    print("neighbor mapping and radial files detection")
+    print("Radial files detection")
     
-    # Edges classification refining
-    ## We need a DataFrame that contains only tangential adjacencies
-    tangential_df = adjacency[adjacency["wall_classification"] == "tangential"]
-
-    # Adding a "neighbors" column with all tangential neighbors
-    qwanamiz.find_neighbors(complete_df = adjacency,
-                            edges = tangential_df.index,
-                            graph = qwanamiz.df_to_graph(tangential_df))
-
-    qwanamiz.refine_neighbors(adjacency)
-
-    # Assign radial files to the edges
-    qwanamiz.update_neighbors(adjacency)
-
-    qwanamiz.assign_radial_files(adjacency)
+    regionprops_df, adjacency = qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -246,7 +238,6 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     print(f'runtime : {endTime - start}')
 
     print("labels and edges correspondance")
-    qwanamiz.get_cell_walls(regionprops_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -271,7 +262,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     print("successfully run")
     
-    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, rays_ducts_map, rays_ducts_table, nb_rows, nb_cols
+    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, watershed_result, rays_ducts_map, rays_ducts_table, nb_rows, nb_cols
 
 
 def get_basename(input_file, remove = '.png'):
@@ -309,6 +300,18 @@ if __name__ == '__main__':
                                   Lower values result in more precise results but slower convergence.
                                   Defaults to 0.001.""")
 
+    parser.add_argument("--angle-tolerance", dest = "angle", type = float, default = 5,
+                        help = """The tolerance (in degrees) around the lower and upper bounds found by the
+                                  directionality algorithm in determining which cell adjacencies are tangential and
+                                  which are radial. A higher value means potentially longer, but inexact, radial files.""")
+
+    parser.add_argument("--stitch-angle-tolerance", dest = "stitch_angle", type = float, default = 20,
+                        help = """The tolerance (in degrees) around the lower and upper bounds found by the
+                                  directionality algorithm in determining which cell adjacencies are tangential and
+                                  which are radial. This angle is applied after the initial radial file assignment
+                                  in stitching together radial files and should therefore use a more permissive
+                                  angle threshold.""")
+
     parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
                         help = """The number of processes to launch for multiprocessing for computing wall thickness.
                         Defaults to 1 (no multiprocessing).""")
@@ -345,12 +348,14 @@ if __name__ == '__main__':
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, rays_and_ducts, rd_table, nrows, ncols = batch_measurements(img_path, 
+        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, watershed_result, rays_and_ducts, rd_table, nrows, ncols = batch_measurements(img_path, 
                                                                                                                                                             sampleID = base_name,
                                                                                                                                                             pixel_size = args.pixel,
                                                                                                                                                             dir_nrows = args.nrows,
                                                                                                                                                             dir_ncols = args.ncols,
                                                                                                                                                             convergence_threshold = args.vmthreshold,
+                                                                                                                                                            angle_tolerance = args.angle,
+                                                                                                                                                            stitch_angle_tolerance = args.stitch_angle,
                                                                                                                                                             ncores = args.ncores)
         
         print('save outputs')
@@ -362,6 +367,7 @@ if __name__ == '__main__':
         np.savez_compressed(output_path, dmap = distance_map, 
                             explabs = expanded_labels, 
                             labs = labeled_image,
+                            watershed = watershed_result,
                             rd_map = rays_and_ducts)
         #np.save(output_path, distance_map)
         
