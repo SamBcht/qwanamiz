@@ -865,7 +865,7 @@ def measure_diameters(complete_df, spacing = 1):
             angle_rad = np.deg2rad(row['left_angle']) if row['right_angle'] == 0 else np.deg2rad(row['right_angle'])
             
         elif row['classification'] == 'regular':
-            angle_rad = circmean(np.deg2rad(np.array([row['left_angle'], row['right_angle']])))
+            angle_rad = circmean(np.deg2rad(np.array([row['left_angle'], row['right_angle']])), low = -np.pi / 2, high = np.pi / 2)
 
         # Create a binary mask for the current object
         binary_mask = row['image']
