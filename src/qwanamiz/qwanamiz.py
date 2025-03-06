@@ -1008,17 +1008,61 @@ def angle_difference(a, b):
     return min(diff, 180 - diff)  # Handle angle wrapping
 
 # Function to find the edge with angle closest to the perpendicular angle
-def closest_edge(edges, perpendicular_angle):
-    if not edges:
-        return None
-    # Find the index of the closest edge (edges are tuples, so access angle via edge[1]['angle'])
-    closest_edge_tuple = min(edges, key=lambda x: angle_difference(x[1]['angle'], perpendicular_angle))
-    return closest_edge_tuple[0]  # Return the index of the closest edge        
+# cell: the cell for which we want to find the up/down neighbor closest to perpendicular
+# neighbors: a list of cell labels to test as neighbors
+# edge_df: a pandas DataFrame of adjancencies between cells, used to query the angle between cell centroids
+# angle: the average angle of the focal cell relative to its left and right neighbors (i.e. the direction of the radial file)
+# pep_angle: the angle that is perpendicular relative to the focal cell angle
+def closest_cell(cell, neighbors, edge_df, angle, perp_angle):
+    # If there is only one neighbor then we return it
+    if len(neighbors) == 1:
+        return neighbors[0]
+
+    # Otherwise we loop over the possible neighbors to find the one with the least difference to the perpendicular angle
+    least_diff = np.inf
+
+    for i in neighbors:
+        edge = tuple(sorted([cell, i]))
+        edge_angle = edge_df.at[edge, 'angle']
+        diff = angle_difference(edge_angle, perp_angle)
+
+        if diff < least_diff:
+            least_diff = diff
+            closest_neighbor = i
+
+    # We return the closest neighbor
+    return closest_neighbor
+
+# This function returns a graph with only adjacencies that go to cells
+# located upwards or downwards from a given cell. This graph is then
+# used to query for up or down neighbors
+# df: a pandas DataFrame of adjacencies
+# direction: "up" for a graph of adjacencies towards upwards cell or "down" otherwise
+def get_updown_graph(df, direction):
+    # We want to re-index the DataFrame such that the first label is the up/down cell
+    df = df.copy()
+    y1 = np.array([i[0] for i in df["centroid1"]])
+    y2 = np.array([i[0] for i in df["centroid2"]])
+    label1 = df.index.get_level_values("label1")
+    label2 = df.index.get_level_values("label2")
+
+    df["up_cell"]  = np.where(y2 > y1, label1, label2)
+    df["down_cell"] = np.where(y2 > y1, label2, label1)
+
+    new_index = ["down_cell", "up_cell"] if direction == "up" else ["up_cell", "down_cell"]
+    df.set_index(new_index, inplace = True)
+
+    updown_graph = df_to_graph(df, bidirectional = False)
+
+    return(updown_graph)
 
 # Attribute the correct up and down radial wall measurements to each tracheid
 def get_radial_walls(cells_df, walls_df):
     
+    # Generate graphs that contain adjacencies towards the upward or downward direction
     edges_df = walls_df[walls_df['wall_classification'] == 'radial']
+    up_graph = get_updown_graph(edges_df, direction = "up")
+    down_graph = get_updown_graph(edges_df, direction = "down")
     
     # Initialize new columns
     cells_df['up_neighbor'] = 0
@@ -1028,58 +1072,33 @@ def get_radial_walls(cells_df, walls_df):
     
     # Iterate over each row in cells_df
     for idx, row in cells_df.iterrows():
-        
-        # Skip rows where left or right wall thickness is None or 0
+
         if row['classification'] == 'isolated' or (row['right_wall_thickness'] in [None, 0] and row['left_wall_thickness'] in [None, 0]):
             continue
-        
+
+        # Extract the label for this cell
         label = row['label']
-        label_centroid = (row['centroid-0'], row['centroid-1'])
 
         # Calculate perpendicular angle to the cell's orientation
-        angle_deg = row['mean_angle']
-            
         # Wrap perpendicular angle to the range -90 to 90
+        angle_deg = row['mean_angle']
         perpendicular_angle = angle_deg + (90 if angle_deg < 0 else -90)
         
-        # Filter edges_df for rows where the label is either label1 or label2
-        filtered_edges = edges_df[(edges_df.index.get_level_values('label1') == label) |
-                                  (edges_df.index.get_level_values('label2') == label)]
+        # Assigning the upwards neighbor and wall data if the cell has any
+        if label in up_graph:
+            up_neighbor = closest_cell(cell = label, neighbors = up_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
+            up_edge = tuple(sorted([label, up_neighbor]))
+            cells_df.at[idx, 'up_neighbor'] = up_neighbor
+            cells_df.at[idx, 'up_wall_thickness'] = walls_df.at[up_edge, 'wall_thickness']
+            walls_df.at[up_edge, 'wall_classification'] = 'radial_sel'
         
-        # Initialize lists for up and down edges
-        up_edges = []
-        down_edges = []
-        
-        # Iterate over each filtered edge
-        for edge_idx, edge_row in filtered_edges.iterrows():
-            
-            # Classify as 'up' or 'down' based on the y-coordinate comparison (centroid-0 is y)
-            if edge_row['center'][0] < label_centroid[0]:
-                up_edges.append((edge_idx, edge_row))
-                
-            elif edge_row['center'][0] > label_centroid[0]:
-                down_edges.append((edge_idx, edge_row))
-                
-            # Find the closest up edge and down edge
-        closest_up_edge = closest_edge(up_edges, perpendicular_angle)
-        closest_down_edge = closest_edge(down_edges, perpendicular_angle)
-        
-        # Assign the neighbors and wall thicknesses based on the closest edges
-        if closest_up_edge is not None:
-            up_label1, up_label2 = closest_up_edge
-            up_neighbor = up_label2 if up_label1 == label else up_label1
-            up_thick = walls_df.at[closest_up_edge, 'wall_thickness']
-            cells_df.at[idx, 'up_neighbor'] = up_neighbor  # Set up neighbor
-            cells_df.at[idx, 'up_wall_thickness'] = up_thick
-            walls_df.at[closest_up_edge, 'wall_classification'] = 'radial_sel' # Set up wall thickness
-
-        if closest_down_edge is not None:
-            down_label1, down_label2 = closest_down_edge
-            down_neighbor = down_label2 if down_label1 == label else down_label1
-            down_thick = walls_df.at[closest_down_edge, 'wall_thickness']
-            cells_df.at[idx, 'down_neighbor'] = down_neighbor  # Set down neighbor
-            cells_df.at[idx, 'down_wall_thickness'] = down_thick  # Set down wall thickness
-            walls_df.at[closest_down_edge, 'wall_classification'] = 'radial_sel'
+        # Assigning the downwards neighbor and wall data if the cell has any
+        if label in down_graph:
+            down_neighbor = closest_cell(cell = label, neighbors = down_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
+            down_edge = tuple(sorted([label, down_neighbor]))
+            cells_df.at[idx, 'down_neighbor'] = down_neighbor
+            cells_df.at[idx, 'down_wall_thickness'] = walls_df.at[down_edge, 'wall_thickness']
+            walls_df.at[down_edge, 'wall_classification'] = 'radial_sel'
         
     return cells_df, walls_df
 
