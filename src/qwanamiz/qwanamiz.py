@@ -1002,12 +1002,23 @@ def calculate_diameter(label_image, centroid, angle, bbox, spacing = 1):
 
 ################################################
 
+# Adjust the comparison to handle angles between -90 and 90
+def angle_difference(a, b):
+    diff = abs(a - b)
+    return min(diff, 180 - diff)  # Handle angle wrapping
+
+# Function to find the edge with angle closest to the perpendicular angle
+def closest_edge(edges, perpendicular_angle):
+    if not edges:
+        return None
+    # Find the index of the closest edge (edges are tuples, so access angle via edge[1]['angle'])
+    closest_edge_tuple = min(edges, key=lambda x: angle_difference(x[1]['angle'], perpendicular_angle))
+    return closest_edge_tuple[0]  # Return the index of the closest edge        
+
 # Attribute the correct up and down radial wall measurements to each tracheid
 def get_radial_walls(cells_df, walls_df):
     
-    edges_df = walls_df[
-        (walls_df['wall_classification'] == 'radial')
-    ]
+    edges_df = walls_df[walls_df['wall_classification'] == 'radial']
     
     # Initialize new columns
     cells_df['up_neighbor'] = 0
@@ -1015,19 +1026,6 @@ def get_radial_walls(cells_df, walls_df):
     cells_df['down_neighbor'] = 0
     cells_df['down_wall_thickness'] = 0.0
     
-    # Adjust the comparison to handle angles between -90 and 90
-    def angle_difference(a, b):
-        diff = abs(a - b)
-        return min(diff, 180 - diff)  # Handle angle wrapping
-    
-    # Function to find the edge with angle closest to the perpendicular angle
-    def closest_edge(edges, perpendicular_angle):
-        if not edges:
-            return None
-        # Find the index of the closest edge (edges are tuples, so access angle via edge[1]['angle'])
-        closest_edge_tuple = min(edges, key=lambda x: angle_difference(x[1]['angle'], perpendicular_angle))
-        return closest_edge_tuple[0]  # Return the index of the closest edge        
-
     # Iterate over each row in cells_df
     for idx, row in cells_df.iterrows():
         
@@ -1037,20 +1035,12 @@ def get_radial_walls(cells_df, walls_df):
         
         label = row['label']
         label_centroid = (row['centroid-0'], row['centroid-1'])
+
         # Calculate perpendicular angle to the cell's orientation
         angle_deg = row['mean_angle']
-        if angle_deg > 90:
-            angle_deg -= 180
-        elif angle_deg < -90:
-            angle_deg += 180
             
-        perpendicular_angle = (angle_deg + 90)
         # Wrap perpendicular angle to the range -90 to 90
-        if perpendicular_angle > 90:
-            perpendicular_angle -= 180
-        elif perpendicular_angle < -90:
-            perpendicular_angle += 180
-        
+        perpendicular_angle = angle_deg + (90 if angle_deg < 0 else -90)
         
         # Filter edges_df for rows where the label is either label1 or label2
         filtered_edges = edges_df[(edges_df.index.get_level_values('label1') == label) |
@@ -1074,9 +1064,6 @@ def get_radial_walls(cells_df, walls_df):
         closest_up_edge = closest_edge(up_edges, perpendicular_angle)
         closest_down_edge = closest_edge(down_edges, perpendicular_angle)
         
-    #return closest_up_edge, closest_down_edge
-        
-                
         # Assign the neighbors and wall thicknesses based on the closest edges
         if closest_up_edge is not None:
             up_label1, up_label2 = closest_up_edge
@@ -1094,8 +1081,6 @@ def get_radial_walls(cells_df, walls_df):
             cells_df.at[idx, 'down_wall_thickness'] = down_thick  # Set down wall thickness
             walls_df.at[closest_down_edge, 'wall_classification'] = 'radial_sel'
         
-        
-
     return cells_df, walls_df
 
 ###############################################################################
