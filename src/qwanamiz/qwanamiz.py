@@ -69,8 +69,8 @@ def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solid
         spacing = scale,
         properties = (
             "label", "area", "major_axis_length", "minor_axis_length",
-            "centroid", "orientation", "perimeter_crofton", "solidity"
-        ),
+            "centroid", "orientation", "perimeter_crofton",
+            "image", "bbox", "solidity"),
     ))
 
     # Remove old entries
