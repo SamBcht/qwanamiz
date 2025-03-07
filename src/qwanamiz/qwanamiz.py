@@ -486,29 +486,91 @@ def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
 
     return max_thickness
 
-def measure_wallthickness(adj_df, dist_map, scan_width = 10, scale = 1, nprocesses = 1):
+def measure_wallthickness(cell_df, adj_df, dist_map, scan_width = 10, scale = 1, nprocesses = 1):
 
-    # Get the centroids coordinates in pixels
-    adj_df['pix_centroid1'] = adj_df['centroid1'].apply(lambda x: (x[0] / scale, x[1] / scale))
-    adj_df['pix_centroid2'] = adj_df['centroid2'].apply(lambda x: (x[0] / scale, x[1] / scale))
+    # Initializing the columns for wall thickness
+    cell_df['left_wall_thickness'] = 0.0
+    cell_df['right_wall_thickness'] = 0.0
+    cell_df['down_wall_thickness'] = 0.0
+    cell_df['up_wall_thickness'] = 0.0
+
+    # We only need to measure cell walls for adjacencies that are found in the dataset
+    # as radial file adjacencies or radial adjacencies
+    # We therefore need to identify edges corresponding to these and then compute cell wall thickness only on these
+    wall_set = set()
+
+    # Also creating dictionaries with the edges corresponding to each label
+    right_edges = dict()
+    left_edges = dict()
+    up_edges = dict()
+    down_edges = dict()
+
+    for idx, row in cell_df.iterrows():
+        label = row['label']
+
+        # Checking if the cell has a neighbor to the right
+        if row['right_neighbor'] != 0:
+            right_edge = tuple(sorted([label, row['right_neighbor']]))
+            wall_set.add(right_edge)
+            right_edges[label] = right_edge
+
+        # Checking if the cell has a neighbor to the left
+        if row['left_neighbor'] != 0:
+            left_edge = tuple(sorted([label, row['left_neighbor']]))
+            wall_set.add(left_edge)
+            left_edges[label] = left_edge
+
+        # Checking if the cell has an upwards neighbor
+        if row['up_neighbor'] != 0:
+            up_edge = tuple(sorted([label, row['up_neighbor']]))
+            wall_set.add(up_edge)
+            up_edges[label] = up_edge
+
+        # Checking if the cell has an downwards neighbor
+        if row['down_neighbor'] != 0:
+            down_edge = tuple(sorted([label, row['down_neighbor']]))
+            wall_set.add(down_edge)
+            down_edges[label] = down_edge
+
+    # Subsetting the adjacency data frame to the walls that we do need to compute
+    wall_df = adj_df.copy()[[x in wall_set for x in adj_df.index.to_list()]]
+
+    # Get the centroids' coordinates in pixels
+    wall_df['pix_centroid1'] = wall_df['centroid1'].apply(lambda x: (x[0] / scale, x[1] / scale))
+    wall_df['pix_centroid2'] = wall_df['centroid2'].apply(lambda x: (x[0] / scale, x[1] / scale))
 
     # The case for multiprocessing
     if(nprocesses > 1):
         with Pool(processes = nprocesses) as p:
             multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, pixelwidth = scan_width, scaling = scale)
-            adj_df['wall_thickness'] = p.map(multi_thickness, [row for index,row in adj_df.iterrows()])
+            wall_df['wall_thickness'] = p.map(multi_thickness, [row for index,row in wall_df.iterrows()])
     
     # Otherwise with only one process
     else:
-        adj_df['wall_thickness'] = adj_df.apply(
+        wall_df['wall_thickness'] = wall_df.apply(
                 lambda row: thickness_between_centroids(row,
                                                         dist_map = dist_map,
                                                         pixelwidth = scan_width,
                                                         scaling = scale),
                 axis=1)
 
+    # We need to fill the cell DataFrame back with the computed values
+    for idx, row in cell_df.iterrows():
+        label = row['label']
+
+        if label in right_edges:
+            cell_df.at[idx, 'right_wall_thickness'] = wall_df.at[right_edges[label], 'wall_thickness']
+
+        if label in left_edges:
+            cell_df.at[idx, 'left_wall_thickness'] = wall_df.at[left_edges[label], 'wall_thickness']
+
+        if label in up_edges:
+            cell_df.at[idx, 'up_wall_thickness'] = wall_df.at[up_edges[label], 'wall_thickness']
+
+        if label in down_edges:
+            cell_df.at[idx, 'down_wall_thickness'] = wall_df.at[down_edges[label], 'wall_thickness']
     
-    return adj_df
+    return cell_df
 
 #########################################################################
 # Classify cell walls between radial and tangential
@@ -747,11 +809,9 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
     cell_df["file_rank"] = None
 
     cell_df['left_neighbor'] = 0
-    cell_df['left_wall_thickness'] = 0.0
     cell_df['left_angle'] = 0.0
 
     cell_df['right_neighbor'] = 0
-    cell_df['right_wall_thickness'] = 0.0
     cell_df['right_angle'] = 0.0
 
 
@@ -782,7 +842,6 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                 left_edge = tuple(sorted([cell_idx, left_neighbor]))
                 
                 cell_df.at[cell_idx, 'left_angle'] = edge_df.at[left_edge, 'angle']
-                cell_df.at[cell_idx, 'left_wall_thickness'] = edge_df.at[left_edge, 'wall_thickness']
 
             # The case when we are not at the end of the file
             # In this case there is a right neighbor
@@ -792,7 +851,6 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                 right_edge = tuple(sorted([cell_idx, right_neighbor]))
                 
                 cell_df.at[cell_idx, 'right_angle'] = edge_df.at[right_edge, 'angle']
-                cell_df.at[cell_idx, 'right_wall_thickness'] = edge_df.at[right_edge, 'wall_thickness']
 
                 # All edges that are part of a radial file are considered tangential
                 # for use in downstream functions
@@ -1037,14 +1095,12 @@ def get_radial_walls(cells_df, walls_df):
     
     # Initialize new columns
     cells_df['up_neighbor'] = 0
-    cells_df['up_wall_thickness'] = 0.0
     cells_df['down_neighbor'] = 0
-    cells_df['down_wall_thickness'] = 0.0
     
     # Iterate over each row in cells_df
     for idx, row in cells_df.iterrows():
 
-        if row['classification'] == 'isolated' or (row['right_wall_thickness'] in [None, 0] and row['left_wall_thickness'] in [None, 0]):
+        if row['classification'] == 'isolated' or row['radial_file'] is None:
             continue
 
         # Extract the label for this cell
@@ -1060,7 +1116,6 @@ def get_radial_walls(cells_df, walls_df):
             up_neighbor = closest_cell(cell = label, neighbors = up_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
             up_edge = tuple(sorted([label, up_neighbor]))
             cells_df.at[idx, 'up_neighbor'] = up_neighbor
-            cells_df.at[idx, 'up_wall_thickness'] = walls_df.at[up_edge, 'wall_thickness']
             walls_df.at[up_edge, 'wall_classification'] = 'radial_sel'
         
         # Assigning the downwards neighbor and wall data if the cell has any
@@ -1068,7 +1123,6 @@ def get_radial_walls(cells_df, walls_df):
             down_neighbor = closest_cell(cell = label, neighbors = down_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
             down_edge = tuple(sorted([label, down_neighbor]))
             cells_df.at[idx, 'down_neighbor'] = down_neighbor
-            cells_df.at[idx, 'down_wall_thickness'] = walls_df.at[down_edge, 'wall_thickness']
             walls_df.at[down_edge, 'wall_classification'] = 'radial_sel'
         
     return cells_df, walls_df
