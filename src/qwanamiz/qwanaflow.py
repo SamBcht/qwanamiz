@@ -183,15 +183,6 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
-    ######################################################################################
-    # Compute cell wall thickness between centroids of adjacent cells
-    print("Wall thickness measurements")
-    adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, scale = pix_to_um, scan_width = 20, nprocesses = ncores)
-         
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
     ############################################################################
 
     ################################################################################
@@ -244,9 +235,24 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     print("Measure lumen diameters")
     qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
+
+    endTime = datetime.datetime.now()
+    print(f'runtime : {endTime - start}')
     
     print("Get radial walls")
     qwanamiz.get_radial_walls(regionprops_df, adjacency)
+
+    endTime = datetime.datetime.now()
+    print(f'runtime : {endTime - start}')
+
+    ######################################################################################
+    # Compute cell wall thickness between centroids of adjacent cells
+    print("Wall thickness measurements")
+    regionprops_df = qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, scale = pix_to_um, scan_width = 20, nprocesses = ncores)
+
+    endTime = datetime.datetime.now()
+    print(f'runtime : {endTime - start}')
+
     
     regionprops_df = regionprops_df.drop(
         columns = [
