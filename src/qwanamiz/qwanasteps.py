@@ -35,7 +35,7 @@ import napari
 
 #png_test = np.load(img_path)
 
-png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F13-1M1-Sc1_segmented.png'
+png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F20-1M1-Sc4_segmented.png'
 
 prediction = skimage.io.imread(png_path)
 
@@ -74,10 +74,6 @@ viewer.add_image([prediction, prediction[::2, ::2]],
 # prediction.ndim = 2
 labeled_image = skimage.measure.label(prediction)
 
-# Add the labeled image
-viewer.add_labels([labeled_image, labeled_image[::2, ::2]], 
-                  name = 'Lumens', 
-                  scale = [pix_to_um, pix_to_um])
 
 ## CELL LUMEN MEASUREMENTS : the function 'regionprops_table measure the lumen 
 # traits listed in properties. Return a pandas dataframe with measurements
@@ -97,7 +93,20 @@ regionprops_df = pd.DataFrame(
             'orientation',
             'perimeter_crofton',
             'image',
-            'bbox')))
+            'bbox',
+            'solidity')))
+
+
+## Splitting merged cells using watershed segmentation
+#  This step needs to return updated cell measurements (regionprops_df)
+#  and labeled_image. It also returns an array that contains the result of the watershed segmentation
+labeled_image, regionprops_df, watershed_result = qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
+                                                                         area_threshold = 500, solidity_threshold = 0.95)
+
+# Add the labeled image
+viewer.add_labels([labeled_image, labeled_image[::2, ::2]], 
+                  name = 'Lumens', 
+                  scale = [pix_to_um, pix_to_um])
 
 
 ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
@@ -219,7 +228,7 @@ angle_plot = qwanamiz.plot_angles(params = vm_parameters,
 
 startTime = datetime.datetime.now()
 
-adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, scan_width = 20, scale = pix_to_um)
+adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, scan_width = 10, scale = pix_to_um)
 
 endTime = datetime.datetime.now()
 print(f'runtime : {endTime - startTime}')     
@@ -237,7 +246,7 @@ print(f'runtime : {endTime - startTime}')
 # Edges not in the interval but in a 15 degrees tolerance around
 # are classified as in_doubt
 # Other edges are classified as radial (for radial walls)
-qwanamiz.classify_edges(adjacency, tolerance = 15)
+qwanamiz.classify_edges(adjacency, tolerance = 5)
 
 # Add lines as shapes to the viewer
 lines = []
@@ -265,107 +274,53 @@ viewer.add_shapes(lines,
 
 ###################################################################################
 
-###################################################################################
-#### EDGE CLASSIFICATION ON CONNECTIVITY
-
-# Count the total number of neighbors of each cell
-regionprops_df = qwanamiz.count_neighbors(regionprops_df, adjacency)
-
-## Refining of edges classification based on their neighborhood caracteristics
-# The following functions aim at improving the continuity in the
-# successive edges of the same radial files by examining the connectivity
-# (number & types of neighbors) of in_doubt edges
-# A decision tree is used to reclassify or not the edges in radial files
-qwanamiz.find_neighbors(adjacency) 
-
-qwanamiz.refine_neighbors(adjacency)
-
-qwanamiz.update_neighbors(adjacency)
-
-# Final classification after refining
-# Prepare the lines and colors for visualization
-lines = []
-colors = []
-unique_situation = adjacency['wall_classification'].unique()
-
-# Create a colormap
-cmap = plt.get_cmap('tab20', len(unique_situation))
-color_map = {rf: cmap(i) for i, rf in enumerate(unique_situation)}
-
-# Prepare the lines and corresponding colors
-for edge, edge_data in adjacency.iterrows():
-    coords1 = edge_data['centroid1']
-    coords2 = edge_data['centroid2']
-    situation = edge_data['wall_classification']
-    
-    # Append line coordinates and color to respective lists
-    lines.append([coords1, coords2])
-    colors.append(color_map[situation])
-
-
-# Add lines as shapes to the viewer
-viewer.add_shapes(lines, 
-                  shape_type='line', 
-                  edge_color=colors, 
-                  edge_width=3, 
-                  name='Classified edges')
-
-# Create an image for the legend
-legend_texts = [f"{situation}" for situation in unique_situation]
-legend_colors = [color_map[situation] for situation in unique_situation]
-
-fig, ax = plt.subplots(figsize=(2, len(unique_situation) * 0.5))
-for i, (text, color) in enumerate(zip(legend_texts, legend_colors)):
-    ax.text(0.1, 1 - (i + 1) / (len(unique_situation) + 1), text, fontsize=12, color=color, ha='left', va='center')
-ax.axis('off')
-
-# Save the figure as an image
-fig.canvas.draw()
-legend_image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
-legend_image = legend_image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-plt.show(fig)
-###########################################################################
 
 ###########################################################################
 #### RADIAL FILES ASSIGNMENT
 
+# Radial files grouping
+start = datetime.datetime.now()
+print("Radial files detection")
 
-# A walking algorithm is implemented to find the straightest 
-# & longest horizontal path possible along neighbor edges
-qwanamiz.assign_radial_files(adjacency)
+regionprops_df, adjacency = qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = 20)
 
-## Radial files layer
+endTime = datetime.datetime.now()
+print(f'runtime : {endTime - start}')
+
+######################################################################
+
+## RADIAL FILES LAYER
 # Prepare the lines and colors for visualization
-# Filter the DataFrame
-final_df = adjacency.dropna(subset=['radial_file'])
-    #(edges['radial_file'] != 'nan')]
 lines = []
 colors = []
-unique_radial_files = final_df['radial_file'].unique()
+unique_radial_files = regionprops_df['radial_file'].dropna().unique()
+unique_radial_files = unique_radial_files[unique_radial_files != 0]
 
 # Create a colormap
 cmap = plt.get_cmap('tab20', len(unique_radial_files))
 color_map = {rf: cmap(i) for i, rf in enumerate(unique_radial_files)}
 
 # Prepare the lines and corresponding colors
-for edge, edge_data in final_df.iterrows():
-    coords1 = edge_data['centroid1']
-    coords2 = edge_data['centroid2']
-    radial_file_id = edge_data['radial_file']
+for i in unique_radial_files:
+    radial_file_df = regionprops_df[regionprops_df["radial_file"] == i]
+
+    if radial_file_df.shape[0] == 1:
+        continue
+
+    radial_file_df = radial_file_df.sort_values("centroid-1")
+    coords = list(zip(radial_file_df["centroid-0"], radial_file_df["centroid-1"]))
     
     # Append line coordinates and color to respective lists
-    lines.append([coords1, coords2])
-    colors.append(color_map[radial_file_id])
+    lines.append(coords)
+    colors.append(color_map[i])
 
 
 # Add lines as shapes to the viewer
 viewer.add_shapes(lines, 
-                  shape_type = 'line', 
-                  edge_color = colors, 
-                  edge_width = 3, 
-                  name = 'Radial Files')
-
+                  shape_type='path', 
+                  edge_color=colors, 
+                  edge_width=3, 
+                  name='Radial Files')
 ######################################################################
 #### FIND POTENTIAL RAYS & RESIN DUCTS
 
@@ -402,7 +357,7 @@ regionprops_df = qwanamiz.adjacent_type_column(regionprops_df,
 #### MAP CELLS AND EDGES & MEASURE DIAMETERS
 
 ## Retrieve information of each indivual cell from the adjacency dataframe
-qwanamiz.get_cell_walls(regionprops_df, adjacency)
+#qwanamiz.get_cell_walls(regionprops_df, adjacency)
 
 ## Measure tangential & radial diameters adjusted by the 
 # tracheid angle

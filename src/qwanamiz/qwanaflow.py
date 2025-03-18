@@ -248,11 +248,13 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
     print("Wall thickness measurements")
-    regionprops_df = qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, scale = pix_to_um, scan_width = 20, nprocesses = ncores)
+    regionprops_df = qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, scale = pix_to_um, scan_width = 10, nprocesses = ncores)
+    
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
+    regionprops_df['SampleId'] = sampleID
     
     regionprops_df = regionprops_df.drop(
         columns = [
