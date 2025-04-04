@@ -458,6 +458,13 @@ def plot_angles(params, num_rows, num_cols):
 #########################################################################
 # Cell Wall Measurements
 def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
+    
+    # Use automatically computed pixelwidth if available in row
+    if pixelwidth == "auto" and "pixelwidth_dynamic" in row:
+        pixelwidth = int(row["pixelwidth_dynamic"])
+    elif pixelwidth is int:
+        pixelwidth = pixelwidth
+    
     # Define profile line between centroids
     mid_line = skimage.measure.profile_line(
         dist_map,
@@ -486,7 +493,7 @@ def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
 
     return max_thickness
 
-def measure_wallthickness(cell_df, adj_df, dist_map, scan_width = 10, scale = 1, nprocesses = 1):
+def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width = 10, scale = 1, nprocesses = 1):
 
     # Initializing the columns for wall thickness
     cell_df['left_wall_thickness'] = 0.0
@@ -538,6 +545,32 @@ def measure_wallthickness(cell_df, adj_df, dist_map, scan_width = 10, scale = 1,
     # Get the centroids' coordinates in pixels
     wall_df['pix_centroid1'] = wall_df['centroid1'].apply(lambda x: (x[0] / scale, x[1] / scale))
     wall_df['pix_centroid2'] = wall_df['centroid2'].apply(lambda x: (x[0] / scale, x[1] / scale))
+    
+    # Calculate the width of the profile line automatically based on cell diameters
+    if auto_pixelwidth:
+        # Fetch diameters for each label
+        diameter_rad = cell_df.set_index('label')['diameter_rad']
+        diameter_tan = cell_df.set_index('label')['diameter_tan']
+
+        # Use adjacency index to assign diameter values
+        wall_df['diameter1_rad'] = wall_df.index.map(lambda x: diameter_rad.get(x[0], 0))
+        wall_df['diameter2_rad'] = wall_df.index.map(lambda x: diameter_rad.get(x[1], 0))
+        wall_df['diameter1_tan'] = wall_df.index.map(lambda x: diameter_tan.get(x[0], 0))
+        wall_df['diameter2_tan'] = wall_df.index.map(lambda x: diameter_tan.get(x[1], 0))
+
+        # Determine pixelwidth based on direction
+        def determine_pixelwidth(row):
+            if row['wall_classification'] == 'radial_sel':
+                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])
+            elif row['wall_classification'] == 'tangential':
+                avg_diameter = 0.5 * (row['diameter1_tan'] + row['diameter2_tan'])
+            else:
+                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])  # Fallback
+            return int(np.ceil((scan_width/100) * (avg_diameter / scale)))  # convert to pixels and round up
+
+        wall_df['pixelwidth_dynamic'] = wall_df.apply(determine_pixelwidth, axis=1)
+        
+        scan_width = "auto"
 
     # The case for multiprocessing
     if(nprocesses > 1):
@@ -1271,3 +1304,21 @@ def adjacent_type_column(complete_df,
     complete_df.loc[complete_df['label'].isin(unk_adjacent), 'adj_type'] = 3
 
     return complete_df
+
+
+
+def morks_index(cell_df):
+    """
+    Classify cells as earlywood or latewood based on Mork's index.
+
+    Parameters:
+    cell_df (pd.DataFrame): Dataframe with 'WallThickness' and 'LumenLength' columns.
+
+    Returns:
+    pd.DataFrame: The same dataframe with an added 'woodzone' column.
+    """
+    cell_df = cell_df.copy()  # Avoid modifying original dataframe
+    cell_df["woodzone"] = np.where(
+        (cell_df["WallThickness"] * 4 >= cell_df["diameter_rad"]), "latewood", "earlywood"
+    )
+    return cell_df

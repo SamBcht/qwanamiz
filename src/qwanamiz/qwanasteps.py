@@ -35,7 +35,9 @@ import napari
 
 #png_test = np.load(img_path)
 
-png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F20-1M1-Sc4_segmented.png'
+sampleID = "L20_F33-1M2-Sc7"
+
+png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F33-1M2-Sc7_segmented.png'
 
 prediction = skimage.io.imread(png_path)
 
@@ -217,22 +219,6 @@ angle_plot = qwanamiz.plot_angles(params = vm_parameters,
 
 ######################################################################################
 
-######################################################################################
-## CELL WALL THICKNESS MEASUREMENTS
-
-# RUNNING TIME IMPROVEMENT :
-# ((This step could be moved further and 
-# applied only to the edges we are interested in))
-
-# Compute cell wall thickness between centroids of adjacent cells
-
-startTime = datetime.datetime.now()
-
-adjacency = qwanamiz.measure_wallthickness(adjacency, distance_map, scan_width = 10, scale = pix_to_um)
-
-endTime = datetime.datetime.now()
-print(f'runtime : {endTime - startTime}')     
-############################################################################
 
 ################################################################################
 #### EDGE CLASSIFICATION ON DIRECTIONNALITY
@@ -419,9 +405,61 @@ viewer.add_shapes(diameters_tan,
 qwanamiz.get_radial_walls(regionprops_df, adjacency)
 #########################################################################
 
+######################################################################################
+## CELL WALL THICKNESS MEASUREMENTS
+
+
+# Compute cell wall thickness between centroids of adjacent cells
+
+startTime = datetime.datetime.now()
+
+regionprops_df = qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, auto_pixelwidth=True, scan_width = 75, scale = pix_to_um)
+
+endTime = datetime.datetime.now()
+print(f'runtime : {endTime - startTime}')
+
+
+regionprops_df['SampleId'] = sampleID
+
+regionprops_df = regionprops_df.drop(
+    columns = [
+        'image',
+        'bbox-0',
+        'bbox-1',
+        'bbox-2',
+        'bbox-3'])
+
+regionprops_df["WallThickness"] = regionprops_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis=1, skipna=True)
+
+
+# Filter "isolated" cells and those without radial_file
+filtered_data = regionprops_df[(regionprops_df['classification'] == 'isolated') | (regionprops_df['radial_file'].isna())]
+
+celldata = regionprops_df.copy()
+# Remove "isolated" cells and those without radial_file from the main dataframe
+celldata = celldata.dropna(subset=['radial_file'])
+
+# Filter out "isolated" cells
+celldata = celldata[celldata['classification'] != 'isolated']
+
+celldata = qwanamiz.morks_index(celldata)
+
+
+############################################################################
+
 #########################################################################
 #### SAVE THE FINAL DATAFRAME
 
 ## The final dataframe should be formatted to keep only useful information
-output_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F02-1M2-Sc5_cellstest.csv'
-regionprops_df.to_csv(output_path, index=False)
+output_folder = "C:/Users/sambo/Desktop/QWAnamiz_store/qwanamiz_dev"
+
+celldata.to_csv(f"{output_folder}/{sampleID}_cells.csv", index=False)
+
+adjacency.to_csv(f"{output_folder}/{sampleID}_adjacency.csv", index=True)
+
+filtered_data.to_csv(f"{output_folder}/{sampleID}_filtered.csv", index=False)
+
+np.savez_compressed(f"{output_folder}/{sampleID}_imgs.npz",
+                    bw_img = prediction,
+                    explabs = expanded_labels, 
+                    labs = labeled_image)
