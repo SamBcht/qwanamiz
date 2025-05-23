@@ -566,7 +566,12 @@ def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, sc
                 avg_diameter = 0.5 * (row['diameter1_tan'] + row['diameter2_tan'])
             else:
                 avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])  # Fallback
-            return int(np.ceil((scan_width/100) * (avg_diameter / scale)))  # convert to pixels and round up
+                
+            if not np.isnan(avg_diameter):
+                return int(np.ceil((scan_width/100) * (avg_diameter / scale)))  # convert to pixels and round up
+            
+            else:
+                return 1
 
         wall_df['pixelwidth_dynamic'] = wall_df.apply(determine_pixelwidth, axis=1)
         

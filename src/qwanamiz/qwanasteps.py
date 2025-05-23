@@ -35,9 +35,9 @@ import napari
 
 #png_test = np.load(img_path)
 
-sampleID = "L20_F33-1M2-Sc7"
+sampleID = "L20_F07-1M1-Sc1"
 
-png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F33-1M2-Sc7_segmented.png'
+png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/input/L20_F07-1M1-Sc1_segmented.png'
 
 prediction = skimage.io.imread(png_path)
 
