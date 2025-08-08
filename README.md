@@ -130,6 +130,38 @@ options:
   -h, --help  show this help message and exit
 ```
 
+# QWAnarings
+
+The output of `qwanaflow.py` can be further processed to identify tree-ring boundaries
+from the cells and adjacency graph using the `qwanarings.py` command-line tool:
+
+```
+python qwanarings.py --help
+
+usage: qwanarings.py [-h] [--prefix PREFIX] [--pixel-size PIXEL]
+
+options:
+  -h, --help          show this help message and exit
+  --prefix PREFIX     The prefix of the files to use for the analysis. Suffixes '_imgs.npz', '_cells.csv'
+                      and '_adjacency.csv' will be added to that prefix to obtain the input files.
+  --pixel-size PIXEL  Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.
+```
+
+The results can be visualized using the `ringview.py` command-line tool:
+
+```
+python ringview.py --help
+
+usage: ringview.py [-h] [--prefix PREFIX] [--pixel-size PIXEL]
+
+options:
+  -h, --help          show this help message and exit
+  --prefix PREFIX     The prefix of the files to use for the analysis. Suffixes '_imgs.npz', '_cells.csv',
+                      '_adjacency.csv', and '_ring_imgs.npz' will be added to that prefix to obtain the
+                      input files.
+  --pixel-size PIXEL  Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.
+```
+
 ## Contributing
 
 Interested in contributing? Check out the contributing guidelines. Please note
