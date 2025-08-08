@@ -21,6 +21,7 @@ import skimage.util
 
 import networkx as nx
 
+import os
 import datetime
 from collections import defaultdict
 import argparse
@@ -375,4 +376,10 @@ if __name__ == '__main__':
     regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
     print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
     print("Valid regions :", regions_topdown)
+
+    # Saving the images of interest to file for later retrieval by ringview.py
+    output_path = f"{args.prefix}_ring_imgs"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    np.savez_compressed(output_path,
+                        new_boundaries = new_boundaries)
 
