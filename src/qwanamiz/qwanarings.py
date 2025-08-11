@@ -6,27 +6,19 @@ Created on Sun Mar 23 14:40:54 2025
 @author: sambo
 """
 
-import numpy as np
-import pandas as pd
-import skimage.io
-import skimage.measure
-import skimage.color
-import skimage.metrics
-
-from scipy.ndimage import distance_transform_edt
-import matplotlib.pyplot as plt
-
-import skimage.graph
-import skimage.util
-
-import networkx as nx
-
+# Generic python imports
 import os
 import datetime
 from collections import defaultdict
 import argparse
+import pickle
 
-# Import qwanamiz-specific functions
+# Application library imports
+import numpy as np
+import pandas as pd
+import networkx as nx
+
+# qwanamiz-specific imports
 import qwanamiz
 import rings_functions
 
@@ -39,6 +31,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
+
+    parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 5,
+                        help = """The minimum number of cells in a ring-boundary region to consider it. Defaults to 5.""")
 
     args = parser.parse_args()
 
@@ -61,55 +56,19 @@ if __name__ == '__main__':
     # Get lastcells in rings based on diameter and woodzone cell features
     lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
 
-    # Create an empty mask with the same shape as expanded_labels
-    lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-    rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-    left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
-
     # Create a mask where pixels belong to lastcells or their right_neighbors
-    lastcells_mask[np.isin(expanded_labels, lastcells_labels)] = True
+    rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
     rightcells_mask[np.isin(expanded_labels, rightcells_labels)] = True
-    left_neighbors_mask[np.isin(expanded_labels, leftcells_labels)] = True
 
     ###############################################################################
     # Now we can filter the cell and adjacency dataframes based on cell classification
     # This allow us to filter the edges (adjacencies) and nodes (cells) involved in
     # a ring transition
-    lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
-
-    # Filter using MultiIndex levels
-    adjacency_lastcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(lastcells_labels) &
-        adjacency.index.get_level_values("label2").isin(lastcells_labels)
-    ].copy()
-
 
     # Keep only cells whose label is in right_neighbor_labels
     rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
     # Extract the lastcell labels as a set
     rightcells_labels = set(rightcells_df["label"])
-
-    # Filter using MultiIndex levels
-    adjacency_rightcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(rightcells_labels) &
-        adjacency.index.get_level_values("label2").isin(rightcells_labels)
-    ].copy()
-
-    # Now we extract edges between a lastcell and its precise right neighbor
-    # Step 1: Create set of lastcell-right_neighbor pairs (ignoring NaNs)
-    pairs = {
-        frozenset((row["label"], row["right_neighbor"]))
-        for _, row in lastcells_df.iterrows()
-        if pd.notna(row["right_neighbor"])
-    }
-
-    # Step 2: Filter adjacency DataFrame where the index (label1, label2) is in pairs
-    adjacency_neighbors = adjacency[
-        adjacency.index.to_frame().apply(
-            lambda row: frozenset((row["label1"], row["label2"])) in pairs,
-            axis=1
-        )
-    ].copy()
 
     ###############################################################################
     #### RING BOUNDARY GRAPH & CONNECTED COMPONENTS ####
@@ -194,12 +153,6 @@ if __name__ == '__main__':
 
     print("Regions with multiple lastcells in the same radial_file:", problematic_regions)
 
-    # Step 1: Create an empty mask
-    problematic_mask = np.zeros_like(boundary_labeled, dtype=bool)
-
-    # Step 2: Set pixels belonging to problematic regions to True
-    problematic_mask[np.isin(boundary_labeled, problematic_regions)] = True
-
     # Here we can define a function to correct the problematic regions based on
     # the subgraph of the region. The idea would be to find the minimum edges to 
     # remove to resolve the problem
@@ -228,15 +181,6 @@ if __name__ == '__main__':
 
     # We also keep the remaining cells for further use
     common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = rings_functions.get_extremity_neighbors(up_extremities, down_extremities, celldata)
-
-    # Create the mask for the common neighbors
-    common_neighbors_mask = np.isin(expanded_labels, list(common_neighbors))
-
-    # Extract unique labels from the pairs
-    paired_labels = set(label for pair in up_down_pairs for label in pair)
-
-    # Create the mask for these labels
-    up_down_pairs_mask = np.isin(expanded_labels, list(paired_labels)).astype(np.float32)
 
     ###############################################################################
     #### INTEGRATION OF NEW CELLS
@@ -275,9 +219,6 @@ if __name__ == '__main__':
     # We find in the remaining cells adjacent to extremities the ones that show
     # characteristics of ring transition
     labels_to_integrate = rings_functions.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
-
-    integration_mask = np.zeros_like(expanded_labels, dtype=bool)
-    integration_mask[np.isin(expanded_labels, list(labels_to_integrate))] = True
 
     # Cells retained for integration are the ones with their direct left neighbor
     # showing a X times lower diameter
@@ -345,6 +286,10 @@ if __name__ == '__main__':
 
     cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
 
+    # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+    cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
+    new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+
     # Find the extrmities of the new ring segments
     up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
 
@@ -360,17 +305,14 @@ if __name__ == '__main__':
                                                                                                                              border_margin = 75, 
                                                                                                                              pix_to_um = pix_to_um)
 
-    # Create an empty mask the same shape as expanded_labels
-    border_mask = np.zeros_like(expanded_labels, dtype=bool)
-
-    # Mark upward border cells with 1, downward border cells with 2
-    border_mask[np.isin(expanded_labels, list(all_border_cells))] = True
-
     # Result
     print("Upper border regions (left to right):", upper_region_sequence)
     print("Lower border regions (left to right):", lower_region_sequence)
     print("Matching upper regions :", matched_up)
     print("Matching lower regions :", matched_down)
+
+    # Identifying true ring boundaries from the upper and lower sequences
+    ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, upper_region_sequence, lower_region_sequence)
 
     # Intersection: regions that have both an upward and a downward border cell
     regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
@@ -382,4 +324,8 @@ if __name__ == '__main__':
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     np.savez_compressed(output_path,
                         new_boundaries = new_boundaries)
+
+    # Saving native python objects by serializing with pickle
+    with open(f'{args.prefix}_rings.pkl', 'wb') as file:
+        pickle.dump(ring_lines, file)
 

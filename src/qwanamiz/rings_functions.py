@@ -864,4 +864,35 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     
     return all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified
 
+# A function that filters the dictionaries linking region IDs to cell IDs by removing
+# regions with less than mincells cells
+def filter_boundaries(cell_to_region, region_to_cell, mincells = 5):
+    # We define a set of regions that have < mincells cells
+    region_to_cell = {key: value for key, value in region_to_cell.items() if len(value) >= mincells}
+
+    # We use those regions to filter the cell_to_region dictionary
+    cell_to_region = {key: value for key, value in cell_to_region.items() if value in region_to_cell.keys()}
+
+    return cell_to_region, region_to_cell
+
+# A function that identifies the cells forming true ring boundaries
+# cells: a DataFrame of cells found at ring boundaries
+# region_to_cells: a dictionary with keys corresponding to boundary regions and values being the cells in those regions
+# upper_sequence: a list (sorted by x-coordinates) with the order of boundary regions touching the top of the image
+# lower_sequence: a list (sorted by x-coordinates) with the order of boundary regions touching the bottom of the image
+# return value: a dictionary with region IDs as keys and an list of cells in those region order by y-coordinates
+def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
+    # Sorting the cells DataFrame by y-coordinate to guarantee the right order in output
+    sorted_cells = cells.sort_values(by = 'centroid-0')
+
+    # First we identify ring boundaries that are found in both the lower and upper sequence
+    ring_regions = set(upper_sequence) & set(lower_sequence)
+
+    # We loop over those regions to create the output dictionary
+    rings = {}
+
+    for region in ring_regions:
+        rings[region] = sorted_cells[sorted_cells["label"].isin(region_to_cells[region])]["label"].to_list()
+
+    return rings
 
