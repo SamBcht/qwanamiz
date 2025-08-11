@@ -64,55 +64,19 @@ if __name__ == '__main__':
     # Get lastcells in rings based on diameter and woodzone cell features
     lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
 
-    # Create an empty mask with the same shape as expanded_labels
-    lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-    rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-    left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
-
     # Create a mask where pixels belong to lastcells or their right_neighbors
-    lastcells_mask[np.isin(expanded_labels, lastcells_labels)] = True
+    rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
     rightcells_mask[np.isin(expanded_labels, rightcells_labels)] = True
-    left_neighbors_mask[np.isin(expanded_labels, leftcells_labels)] = True
 
     ###############################################################################
     # Now we can filter the cell and adjacency dataframes based on cell classification
     # This allow us to filter the edges (adjacencies) and nodes (cells) involved in
     # a ring transition
-    lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
-
-    # Filter using MultiIndex levels
-    adjacency_lastcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(lastcells_labels) &
-        adjacency.index.get_level_values("label2").isin(lastcells_labels)
-    ].copy()
-
 
     # Keep only cells whose label is in right_neighbor_labels
     rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
     # Extract the lastcell labels as a set
     rightcells_labels = set(rightcells_df["label"])
-
-    # Filter using MultiIndex levels
-    adjacency_rightcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(rightcells_labels) &
-        adjacency.index.get_level_values("label2").isin(rightcells_labels)
-    ].copy()
-
-    # Now we extract edges between a lastcell and its precise right neighbor
-    # Step 1: Create set of lastcell-right_neighbor pairs (ignoring NaNs)
-    pairs = {
-        frozenset((row["label"], row["right_neighbor"]))
-        for _, row in lastcells_df.iterrows()
-        if pd.notna(row["right_neighbor"])
-    }
-
-    # Step 2: Filter adjacency DataFrame where the index (label1, label2) is in pairs
-    adjacency_neighbors = adjacency[
-        adjacency.index.to_frame().apply(
-            lambda row: frozenset((row["label1"], row["label2"])) in pairs,
-            axis=1
-        )
-    ].copy()
 
     ###############################################################################
     #### RING BOUNDARY GRAPH & CONNECTED COMPONENTS ####
@@ -197,12 +161,6 @@ if __name__ == '__main__':
 
     print("Regions with multiple lastcells in the same radial_file:", problematic_regions)
 
-    # Step 1: Create an empty mask
-    problematic_mask = np.zeros_like(boundary_labeled, dtype=bool)
-
-    # Step 2: Set pixels belonging to problematic regions to True
-    problematic_mask[np.isin(boundary_labeled, problematic_regions)] = True
-
     # Here we can define a function to correct the problematic regions based on
     # the subgraph of the region. The idea would be to find the minimum edges to 
     # remove to resolve the problem
@@ -231,15 +189,6 @@ if __name__ == '__main__':
 
     # We also keep the remaining cells for further use
     common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = rings_functions.get_extremity_neighbors(up_extremities, down_extremities, celldata)
-
-    # Create the mask for the common neighbors
-    common_neighbors_mask = np.isin(expanded_labels, list(common_neighbors))
-
-    # Extract unique labels from the pairs
-    paired_labels = set(label for pair in up_down_pairs for label in pair)
-
-    # Create the mask for these labels
-    up_down_pairs_mask = np.isin(expanded_labels, list(paired_labels)).astype(np.float32)
 
     ###############################################################################
     #### INTEGRATION OF NEW CELLS
@@ -278,9 +227,6 @@ if __name__ == '__main__':
     # We find in the remaining cells adjacent to extremities the ones that show
     # characteristics of ring transition
     labels_to_integrate = rings_functions.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
-
-    integration_mask = np.zeros_like(expanded_labels, dtype=bool)
-    integration_mask[np.isin(expanded_labels, list(labels_to_integrate))] = True
 
     # Cells retained for integration are the ones with their direct left neighbor
     # showing a X times lower diameter
@@ -366,12 +312,6 @@ if __name__ == '__main__':
                                                                                                                              image_width = expanded_labels.shape[1], 
                                                                                                                              border_margin = 75, 
                                                                                                                              pix_to_um = pix_to_um)
-
-    # Create an empty mask the same shape as expanded_labels
-    border_mask = np.zeros_like(expanded_labels, dtype=bool)
-
-    # Mark upward border cells with 1, downward border cells with 2
-    border_mask[np.isin(expanded_labels, list(all_border_cells))] = True
 
     # Result
     print("Upper border regions (left to right):", upper_region_sequence)
