@@ -40,6 +40,9 @@ if __name__ == '__main__':
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
+    parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 5,
+                        help = """The minimum number of cells in a ring-boundary region to consider it. Defaults to 5.""")
+
     args = parser.parse_args()
 
     # Reading the input data
@@ -344,6 +347,10 @@ if __name__ == '__main__':
     new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, final_boundaries, expanded_labels)
 
     cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+
+    # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+    cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
+    new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
 
     # Find the extrmities of the new ring segments
     up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)

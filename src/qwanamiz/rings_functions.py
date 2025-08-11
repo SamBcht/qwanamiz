@@ -864,4 +864,12 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     
     return all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified
 
+def filter_boundaries(cell_to_region, region_to_cell, mincells = 5):
+    # We define a set of regions that have < mincells cells
+    region_to_cell = {key: value for key, value in region_to_cell.items() if len(value) >= mincells}
+
+    # We use those regions to filter the cell_to_region dictionary
+    cell_to_region = {key: value for key, value in cell_to_region.items() if value in region_to_cell.keys()}
+
+    return cell_to_region, region_to_cell
 
