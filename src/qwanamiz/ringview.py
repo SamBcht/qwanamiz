@@ -1,4 +1,9 @@
+# Generic python imports
 import argparse
+import pickle
+
+# Application library imports
+import pandas as pd
 import numpy as np
 import napari
 
@@ -16,8 +21,14 @@ if __name__ == '__main__':
 
     pix_to_um = args.pixel
 
+    cells = pd.read_csv(f"{args.prefix}_cells.csv")
+    cells.set_index('label', inplace = True, drop = False)
+
     qwanamiz_images = np.load(f"{args.prefix}_imgs.npz")
     ring_images = np.load(f"{args.prefix}_ring_imgs.npz")
+
+    with open(f"{args.prefix}_rings.pkl", "rb") as file:
+        rings = pickle.load(file)
 
     viewer = napari.Viewer()
 
@@ -29,6 +40,23 @@ if __name__ == '__main__':
 
     # Drawing the set of boundaries found by qwanarings.py
     viewer.add_labels(ring_images['new_boundaries'], name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+
+    # DRAWING THE TREE-RING BOUNDARIES FOUND BY qwanarings.py
+    # Prepare the lines visualization
+    lines = []
+
+    # Prepare the lines
+    for i,region in enumerate(rings):
+        region_cells = cells.loc[rings[region]]
+        coords = list(zip(region_cells["centroid-0"], region_cells["centroid-1"]))
+        lines.append(coords)
+
+    # Add lines as shapes to the viewer
+    viewer.add_shapes(lines,
+                      shape_type='path',
+                      edge_color='black',
+                      edge_width=10,
+                      name='Ring boundaries')
 
     # Enable napari to remain open after the script reaches the end
     napari.run()

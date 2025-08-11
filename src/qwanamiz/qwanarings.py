@@ -11,6 +11,7 @@ import os
 import datetime
 from collections import defaultdict
 import argparse
+import pickle
 
 # Application library imports
 import numpy as np
@@ -310,6 +311,9 @@ if __name__ == '__main__':
     print("Matching upper regions :", matched_up)
     print("Matching lower regions :", matched_down)
 
+    # Identifying true ring boundaries from the upper and lower sequences
+    ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, upper_region_sequence, lower_region_sequence)
+
     # Intersection: regions that have both an upward and a downward border cell
     regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
     print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
@@ -320,4 +324,8 @@ if __name__ == '__main__':
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     np.savez_compressed(output_path,
                         new_boundaries = new_boundaries)
+
+    # Saving native python objects by serializing with pickle
+    with open(f'{args.prefix}_rings.pkl', 'wb') as file:
+        pickle.dump(ring_lines, file)
 
