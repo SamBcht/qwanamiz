@@ -6,27 +6,18 @@ Created on Sun Mar 23 14:40:54 2025
 @author: sambo
 """
 
-import numpy as np
-import pandas as pd
-import skimage.io
-import skimage.measure
-import skimage.color
-import skimage.metrics
-
-from scipy.ndimage import distance_transform_edt
-import matplotlib.pyplot as plt
-
-import skimage.graph
-import skimage.util
-
-import networkx as nx
-
+# Generic python imports
 import os
 import datetime
 from collections import defaultdict
 import argparse
 
-# Import qwanamiz-specific functions
+# Application library imports
+import numpy as np
+import pandas as pd
+import networkx as nx
+
+# qwanamiz-specific imports
 import qwanamiz
 import rings_functions
 
