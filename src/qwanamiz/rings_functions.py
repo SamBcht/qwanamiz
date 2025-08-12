@@ -894,5 +894,31 @@ def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
     for region in ring_regions:
         rings[region] = sorted_cells[sorted_cells["label"].isin(region_to_cells[region])]["label"].to_list()
 
+    # We then need to find spots in-between ring boundaries with unlinked boundaries
+
+    # These lists define the indexes where the well-formed boundaries are found in the upper and lower sequence
+    upper_indices = [index for index,value in enumerate(upper_sequence) if value in rings]
+    lower_indices = [index for index,value in enumerate(lower_sequence) if value in rings]
+
+    # Then we find how many "free spots" are in between every index, but we need to insert a virtual index -1 to account for the beginning of the image
+    upper_indices.insert(0, -1)
+    lower_indices.insert(0, -1)
+
+    # Next we find the differences between neighboring indices (-1 because we want the number of intervening boundaries)
+    lower_diff = [b - a - 1 for a, b in zip(lower_indices, lower_indices[1:])]
+    upper_diff = [b - a - 1 for a, b in zip(upper_indices, upper_indices[1:])]
+
+    # This leads us to identifying indices where unassigned boundaries match
+    matching_indices = np.where([a == b and a != 0 for a,b in zip(lower_diff, upper_diff)])[0].tolist()
+
+    # Then we loop over the matching indices to add them to the rings dictionary
+    for index in matching_indices:
+        for n in range(lower_diff[index]):
+            upper_value = upper_sequence[upper_indices[index] + 1 + n]
+            lower_value = lower_sequence[lower_indices[index] + 1 + n]
+            # We assign the value of the upper sequence to the ring region
+            rings[upper_value] = sorted_cells[sorted_cells["label"].isin(region_to_cells[upper_value])]["label"].to_list()
+            rings[upper_value] += sorted_cells[sorted_cells["label"].isin(region_to_cells[lower_value])]["label"].to_list()
+
     return rings
 
