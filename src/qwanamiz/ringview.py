@@ -30,6 +30,9 @@ if __name__ == '__main__':
     with open(f"{args.prefix}_rings.pkl", "rb") as file:
         rings = pickle.load(file)
 
+    with open(f"{args.prefix}_polygons.pkl", "rb") as file:
+        polygons = pickle.load(file)
+
     viewer = napari.Viewer()
 
     # Drawing the binarized image
@@ -57,6 +60,13 @@ if __name__ == '__main__':
                       edge_color='black',
                       edge_width=10,
                       name='Ring boundaries')
+
+    viewer.add_shapes(polygons,
+                      shape_type='polygon',
+                      edge_color='black',
+                      face_color=[['red', 'green', 'blue', 'coral', 'black'][i % 5] for i in range(len(polygons))],
+                      opacity = 0.3,
+                      name='Tree-ring polygons')
 
     # Enable napari to remain open after the script reaches the end
     napari.run()

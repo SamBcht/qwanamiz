@@ -922,3 +922,52 @@ def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
 
     return rings
 
+# This function draws polygons from the ring boundaries so that they can be used
+# for assigning cells to tree rings
+# cells: a pandas DataFrame with information on the cells present in the dataset
+# ring_lines: a dictionary with keys representing boundary region IDs and values as lists with cell labels in the right order for drawing ring lines
+# upper_sequence: a list with the order of the region IDs along the upper border of the picture. All keys in ring lines should be in that list.
+# image_height: the height of the image, in micrometers
+# return value: a list of numpy arrays with one 2D array per element representing each polygon. The polygons are in left-to-right order.
+def draw_polygons(cells, ring_lines, upper_sequence, image_height):
+    # The output is a list of 2D arrays that will hold the coordinates of the polygons
+    polygons = list()
+
+    # Creating a copy because we want to use the label as index
+    cell_copy = cells.copy()
+    cell_copy.set_index("label", inplace = True)
+
+    # We subset the upper sequence to only those regions that are proper ring boundaries
+    sequence = [i for i in upper_sequence if i in ring_lines]
+
+    for index, region in enumerate(sequence):
+        # Extracting the cells in that region
+        # Using the labels in ring_lines already extracts them in sorted y-coordinates
+        i_cells = cell_copy.loc[ring_lines[region]]
+
+        # Extracting the x- and y-coordinates of the current boundary region
+        xcoords = i_cells["centroid-1"].tolist()
+        ycoords = i_cells["centroid-0"].tolist()
+        coords = np.array(list(zip(ycoords, xcoords)))
+
+        # Adding the x- and y-coordinates of the previous boundary region
+        # if this is not the first region
+        if index > 0:
+            # We flip the coordinates of the second array to ensure proper polygon
+            i_polygon = np.concatenate([coords, np.flip(prev_coords, axis = 0)])
+        else:
+            # Otherwise we need to add the corners of the image
+            corners = np.array([[image_height, 0], [0, 0]])
+            i_polygon = np.concatenate([coords, corners])
+
+        # We need to wrap back to the first vertex for a true polygon
+        i_polygon = np.concatenate([i_polygon, i_polygon[0:1, :]])
+
+        # Assigning that polygon to the list of polygons
+        polygons.append(i_polygon)
+        
+        # Setting the previous coordinates to the current ones before restarting the loop
+        prev_coords = coords
+
+    return polygons
+

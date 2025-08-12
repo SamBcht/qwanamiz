@@ -314,6 +314,9 @@ if __name__ == '__main__':
     # Identifying true ring boundaries from the upper and lower sequences
     ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, upper_region_sequence, lower_region_sequence)
 
+    # Getting polygon coordinates defining tree rings from the ring lines
+    ring_polygons = rings_functions.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = upper_region_sequence, image_height = expanded_labels.shape[0] * pix_to_um)
+
     # Intersection: regions that have both an upward and a downward border cell
     regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
     print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
@@ -328,4 +331,7 @@ if __name__ == '__main__':
     # Saving native python objects by serializing with pickle
     with open(f'{args.prefix}_rings.pkl', 'wb') as file:
         pickle.dump(ring_lines, file)
+
+    with open(f'{args.prefix}_polygons.pkl', 'wb') as file:
+        pickle.dump(ring_polygons, file)
 
