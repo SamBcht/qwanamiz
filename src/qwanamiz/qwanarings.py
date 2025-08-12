@@ -323,6 +323,12 @@ if __name__ == '__main__':
     # Assigning rings to years based on the polygon coordinates
     celldata = rings_functions.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
 
+    # Create an image of cell assignment for display
+    celltemp = celldata.copy()
+    celltemp.set_index('label', inplace = True)
+    year_dict = celltemp['year'].to_dict()
+    year_image = np.vectorize(year_dict.get)(expanded_labels)
+
     # Intersection: regions that have both an upward and a downward border cell
     regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
     print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
@@ -332,7 +338,8 @@ if __name__ == '__main__':
     output_path = f"{args.prefix}_ring_imgs"
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     np.savez_compressed(output_path,
-                        new_boundaries = new_boundaries)
+                        new_boundaries = new_boundaries,
+                        year_image = year_image)
 
     # Saving native python objects by serializing with pickle
     with open(f'{args.prefix}_rings.pkl', 'wb') as file:

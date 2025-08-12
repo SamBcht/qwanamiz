@@ -975,7 +975,7 @@ def draw_polygons(cells, ring_lines, upper_sequence, image_height):
 # cells: a pandas DataFrame of cell metadata
 # polygons: a list of polygons, such as returned by draw_polygons
 # year0: the year of the first ring
-# magic_shift: a small value subtracted from the cell coordinates to make sure that cells are assigned to the right year. Defaults to 0.001
+# magic_shift: a small value added to the cell coordinates to make sure that cells are assigned to the right year. Defaults to 0.001
 # threshold_sum: the angle sum value above which a cell is considered to be part of the ring (defaults to 6, theoretical expectation = 2*pi)
 # return value: a DataFrame similar to the cells input but with an added column 'year' for the year when a cell was formed
 def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum = 6):
@@ -995,7 +995,7 @@ def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum 
         cell_indices = np.where((cells['centroid-0'] >= bbox[0]) & (cells['centroid-0'] <= bbox[1]) & (cells['centroid-1'] >= bbox[2]) & (cells['centroid-1'] <= bbox[3]))[0]
 
         # We introduce a small shift to the left in x-coordinates because we want the cells to be included in the current ring
-        xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) - magic_shift
+        xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) + magic_shift
         ycoords = np.array(cells.loc[cell_indices]['centroid-0'].tolist())
 
         # We need to get vectors that point from each cell to each vertex of the polygon

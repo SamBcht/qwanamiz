@@ -61,12 +61,17 @@ if __name__ == '__main__':
                       edge_width=10,
                       name='Ring boundaries')
 
+    # And ring polygons
     viewer.add_shapes(polygons,
                       shape_type='polygon',
                       edge_color='black',
                       face_color=[['red', 'green', 'blue', 'coral', 'black'][i % 5] for i in range(len(polygons))],
                       opacity = 0.3,
                       name='Tree-ring polygons')
+
+    # Add the cells with their year identifier
+    # Creating the year as an integer in the first place should be done, for now I haven't understood how
+    viewer.add_labels(ring_images['year_image'].astype(int), name="Tree-ring year", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
     # Enable napari to remain open after the script reaches the end
     napari.run()
