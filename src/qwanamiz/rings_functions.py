@@ -971,3 +971,52 @@ def draw_polygons(cells, ring_lines, upper_sequence, image_height):
 
     return polygons
 
+# A function that takes metadata about cells as well as ring polygons and assigns years to cells
+# cells: a pandas DataFrame of cell metadata
+# polygons: a list of polygons, such as returned by draw_polygons
+# year0: the year of the first ring
+# magic_shift: a small value subtracted from the cell coordinates to make sure that cells are assigned to the right year. Defaults to 0.001
+# threshold_sum: the angle sum value above which a cell is considered to be part of the ring (defaults to 6, theoretical expectation = 2*pi)
+# return value: a DataFrame similar to the cells input but with an added column 'year' for the year when a cell was formed
+def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum = 6):
+
+    # We create a new 'year' column for the year that a cell was formed
+    cells['year'] = np.nan
+
+    # An index for the polygon being considered
+    for i in range(len(polygons)):
+        i_polygon = polygons[i]
+
+        # A bounding box for the polygon
+        # y1, y2, x1, x2
+        bbox = [np.min(i_polygon[:, 0]), np.max(i_polygon[:, 0]), np.min(i_polygon[:, 1]), np.max(i_polygon[:, 1])]
+
+        # We subset the cells that are within the bounding box so we only need to test those
+        cell_indices = np.where((cells['centroid-0'] >= bbox[0]) & (cells['centroid-0'] <= bbox[1]) & (cells['centroid-1'] >= bbox[2]) & (cells['centroid-1'] <= bbox[3]))[0]
+
+        # We introduce a small shift to the left in x-coordinates because we want the cells to be included in the current ring
+        xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) - magic_shift
+        ycoords = np.array(cells.loc[cell_indices]['centroid-0'].tolist())
+
+        # We need to get vectors that point from each cell to each vertex of the polygon
+        # because we need to find the sum of angles linking each cell to each edge
+        # x1: x-component of vector from cell to vertex 1
+        x1 = np.subtract.outer(xcoords, i_polygon[:, 1])
+        # y1: y-component of vector from cell to vertex 1
+        y1 = np.subtract.outer(ycoords, i_polygon[:, 0])
+        # x2: x-component of vector from cell to vertex 2
+        x2 = np.concatenate([x1[:, 1:], x1[:,:1]], axis = 1)
+        # y2: y-component of vector from cell to vertex 2
+        y2 = np.concatenate([y1[:, 1:], y1[:,:1]], axis = 1)
+
+        # Compute the angles using np.arctan2
+        # See https://math.stackexchange.com/questions/317874/calculate-the-angle-between-two-vectors
+        angles = np.arctan2(x1 * y2 - y1 * x2, x1 * x2 + y1 * y2)
+        angle_sum = np.sum(angles, axis = 1)
+        polygon_indices = cell_indices[angle_sum > threshold_sum]
+
+        # We consider a cell with an angle sum > 6 to be part of that polygon
+        cells.loc[polygon_indices, 'year'] = i + year0
+
+    return cells
+

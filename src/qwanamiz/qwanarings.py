@@ -35,6 +35,9 @@ if __name__ == '__main__':
     parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 5,
                         help = """The minimum number of cells in a ring-boundary region to consider it. Defaults to 5.""")
 
+    parser.add_argument("--first-year", dest = "firstyear", type = int, default = 0,
+                        help = """The calendar year when the first ring was formed, used for assigning cells to years. Defaults to 0 (year unknown).""")
+
     args = parser.parse_args()
 
     # Reading the input data
@@ -317,6 +320,9 @@ if __name__ == '__main__':
     # Getting polygon coordinates defining tree rings from the ring lines
     ring_polygons = rings_functions.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = upper_region_sequence, image_height = expanded_labels.shape[0] * pix_to_um)
 
+    # Assigning rings to years based on the polygon coordinates
+    celldata = rings_functions.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
+
     # Intersection: regions that have both an upward and a downward border cell
     regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
     print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
@@ -334,4 +340,7 @@ if __name__ == '__main__':
 
     with open(f'{args.prefix}_polygons.pkl', 'wb') as file:
         pickle.dump(ring_polygons, file)
+
+    # Saving the updated DataFrame of cells as a .csv file
+    celldata.to_csv(f"{args.prefix}_ringcells.csv", index = False)
 
