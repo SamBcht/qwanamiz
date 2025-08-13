@@ -894,5 +894,129 @@ def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
     for region in ring_regions:
         rings[region] = sorted_cells[sorted_cells["label"].isin(region_to_cells[region])]["label"].to_list()
 
+    # We then need to find spots in-between ring boundaries with unlinked boundaries
+
+    # These lists define the indexes where the well-formed boundaries are found in the upper and lower sequence
+    upper_indices = [index for index,value in enumerate(upper_sequence) if value in rings]
+    lower_indices = [index for index,value in enumerate(lower_sequence) if value in rings]
+
+    # Then we find how many "free spots" are in between every index, but we need to insert a virtual index -1 to account for the beginning of the image
+    upper_indices.insert(0, -1)
+    lower_indices.insert(0, -1)
+
+    # Next we find the differences between neighboring indices (-1 because we want the number of intervening boundaries)
+    lower_diff = [b - a - 1 for a, b in zip(lower_indices, lower_indices[1:])]
+    upper_diff = [b - a - 1 for a, b in zip(upper_indices, upper_indices[1:])]
+
+    # This leads us to identifying indices where unassigned boundaries match
+    matching_indices = np.where([a == b and a != 0 for a,b in zip(lower_diff, upper_diff)])[0].tolist()
+
+    # Then we loop over the matching indices to add them to the rings dictionary
+    for index in matching_indices:
+        for n in range(lower_diff[index]):
+            upper_value = upper_sequence[upper_indices[index] + 1 + n]
+            lower_value = lower_sequence[lower_indices[index] + 1 + n]
+            # We assign the value of the upper sequence to the ring region
+            rings[upper_value] = sorted_cells[sorted_cells["label"].isin(region_to_cells[upper_value])]["label"].to_list()
+            rings[upper_value] += sorted_cells[sorted_cells["label"].isin(region_to_cells[lower_value])]["label"].to_list()
+
     return rings
+
+# This function draws polygons from the ring boundaries so that they can be used
+# for assigning cells to tree rings
+# cells: a pandas DataFrame with information on the cells present in the dataset
+# ring_lines: a dictionary with keys representing boundary region IDs and values as lists with cell labels in the right order for drawing ring lines
+# upper_sequence: a list with the order of the region IDs along the upper border of the picture. All keys in ring lines should be in that list.
+# image_height: the height of the image, in micrometers
+# return value: a list of numpy arrays with one 2D array per element representing each polygon. The polygons are in left-to-right order.
+def draw_polygons(cells, ring_lines, upper_sequence, image_height):
+    # The output is a list of 2D arrays that will hold the coordinates of the polygons
+    polygons = list()
+
+    # Creating a copy because we want to use the label as index
+    cell_copy = cells.copy()
+    cell_copy.set_index("label", inplace = True)
+
+    # We subset the upper sequence to only those regions that are proper ring boundaries
+    sequence = [i for i in upper_sequence if i in ring_lines]
+
+    for index, region in enumerate(sequence):
+        # Extracting the cells in that region
+        # Using the labels in ring_lines already extracts them in sorted y-coordinates
+        i_cells = cell_copy.loc[ring_lines[region]]
+
+        # Extracting the x- and y-coordinates of the current boundary region
+        xcoords = i_cells["centroid-1"].tolist()
+        ycoords = i_cells["centroid-0"].tolist()
+        coords = np.array(list(zip(ycoords, xcoords)))
+
+        # Adding the x- and y-coordinates of the previous boundary region
+        # if this is not the first region
+        if index > 0:
+            # We flip the coordinates of the second array to ensure proper polygon
+            i_polygon = np.concatenate([coords, np.flip(prev_coords, axis = 0)])
+        else:
+            # Otherwise we need to add the corners of the image
+            corners = np.array([[image_height, 0], [0, 0]])
+            i_polygon = np.concatenate([coords, corners])
+
+        # We need to wrap back to the first vertex for a true polygon
+        i_polygon = np.concatenate([i_polygon, i_polygon[0:1, :]])
+
+        # Assigning that polygon to the list of polygons
+        polygons.append(i_polygon)
+        
+        # Setting the previous coordinates to the current ones before restarting the loop
+        prev_coords = coords
+
+    return polygons
+
+# A function that takes metadata about cells as well as ring polygons and assigns years to cells
+# cells: a pandas DataFrame of cell metadata
+# polygons: a list of polygons, such as returned by draw_polygons
+# year0: the year of the first ring
+# magic_shift: a small value added to the cell coordinates to make sure that cells are assigned to the right year. Defaults to 0.001
+# threshold_sum: the angle sum value above which a cell is considered to be part of the ring (defaults to 6, theoretical expectation = 2*pi)
+# return value: a DataFrame similar to the cells input but with an added column 'year' for the year when a cell was formed
+def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum = 6):
+
+    # We create a new 'year' column for the year that a cell was formed
+    cells['year'] = np.nan
+
+    # An index for the polygon being considered
+    for i in range(len(polygons)):
+        i_polygon = polygons[i]
+
+        # A bounding box for the polygon
+        # y1, y2, x1, x2
+        bbox = [np.min(i_polygon[:, 0]), np.max(i_polygon[:, 0]), np.min(i_polygon[:, 1]), np.max(i_polygon[:, 1])]
+
+        # We subset the cells that are within the bounding box so we only need to test those
+        cell_indices = np.where((cells['centroid-0'] >= bbox[0]) & (cells['centroid-0'] <= bbox[1]) & (cells['centroid-1'] >= bbox[2]) & (cells['centroid-1'] <= bbox[3]))[0]
+
+        # We introduce a small shift to the left in x-coordinates because we want the cells to be included in the current ring
+        xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) + magic_shift
+        ycoords = np.array(cells.loc[cell_indices]['centroid-0'].tolist())
+
+        # We need to get vectors that point from each cell to each vertex of the polygon
+        # because we need to find the sum of angles linking each cell to each edge
+        # x1: x-component of vector from cell to vertex 1
+        x1 = np.subtract.outer(xcoords, i_polygon[:, 1])
+        # y1: y-component of vector from cell to vertex 1
+        y1 = np.subtract.outer(ycoords, i_polygon[:, 0])
+        # x2: x-component of vector from cell to vertex 2
+        x2 = np.concatenate([x1[:, 1:], x1[:,:1]], axis = 1)
+        # y2: y-component of vector from cell to vertex 2
+        y2 = np.concatenate([y1[:, 1:], y1[:,:1]], axis = 1)
+
+        # Compute the angles using np.arctan2
+        # See https://math.stackexchange.com/questions/317874/calculate-the-angle-between-two-vectors
+        angles = np.arctan2(x1 * y2 - y1 * x2, x1 * x2 + y1 * y2)
+        angle_sum = np.sum(angles, axis = 1)
+        polygon_indices = cell_indices[angle_sum > threshold_sum]
+
+        # We consider a cell with an angle sum > 6 to be part of that polygon
+        cells.loc[polygon_indices, 'year'] = i + year0
+
+    return cells
 
