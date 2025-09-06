@@ -5,13 +5,13 @@ Created on Thu Jun 12 18:10:42 2025
 @author: sambo
 """
 import networkx as nx
-
+import rings_functions
 
 ##############################################################################
 # Detection of tree-ring transitions by comparing successive cells properties
 # (radial diameter and early-latewood classification)
 # Get lastcells in rings based on diameter and woodzone cell features
-lastcells_labels, rightcells_labels, leftcells_labels = get_lastcells(celldata, adjacency)
+lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
 
 # Create an empty mask with the same shape as expanded_labels
 lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
@@ -51,8 +51,8 @@ adjacency_lastcells = adjacency[
 lines = []
 
 for index, row in adjacency_lastcells.iterrows():
-    coords1 = parse_centroid(row['centroid1'])
-    coords2 = parse_centroid(row['centroid2'])
+    coords1 = rings_functions.parse_centroid(row['centroid1'])
+    coords2 = rings_functions.parse_centroid(row['centroid2'])
     
     # Append line coordinates and color to respective lists
     lines.append([coords1, coords2])
@@ -77,8 +77,8 @@ adjacency_rightcells = adjacency[
 lines = []
 
 for index, row in adjacency_rightcells.iterrows():
-    coords1 = parse_centroid(row['centroid1'])
-    coords2 = parse_centroid(row['centroid2'])
+    coords1 = rings_functions.parse_centroid(row['centroid1'])
+    coords2 = rings_functions.parse_centroid(row['centroid2'])
     
     # Append line coordinates and color to respective lists
     lines.append([coords1, coords2])
@@ -108,8 +108,8 @@ adjacency_neighbors = adjacency[
 # Step 3: Visualize the edges as lines
 lines = []
 for _, row in adjacency_neighbors.iterrows():
-    coords1 = parse_centroid(row['centroid1'])
-    coords2 = parse_centroid(row['centroid2'])
+    coords1 = rings_functions.parse_centroid(row['centroid1'])
+    coords2 = rings_functions.parse_centroid(row['centroid2'])
     lines.append([coords1, coords2])
 
 viewer.add_shapes(
@@ -140,7 +140,7 @@ viewer.add_shapes(
 # See Common Neighbors & Up-Down Pairs sections of the script
 
 # Now we can construct the graph using previously filtered nodes and edges
-graph = boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels)
+graph = rings_functions.boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels)
 
 # Find connected components (as sets of nodes)
 # This will group all cells that are connected by a path along retained edges
@@ -182,7 +182,7 @@ viewer.add_labels(boundary_labeled, name="Final Boundary Corrected", scale=[pix_
 # Now we will work mostly with rightcells
 # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
 # unwanted groupings by using a single line of cells
-right_to_region, region_to_right = map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
+right_to_region, region_to_right = rings_functions.map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
 
 
 ###### FIND PROBLEMATIC BOUNDARY REGIONS
@@ -224,12 +224,12 @@ viewer.add_image(problematic_mask, name="Problematic Regions", opacity=0.5, colo
 # ring boundary
 
 # We update the boundary_labeled image image to keep only rightcells
-rightcells_boundary = update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
+rightcells_boundary = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
 
 viewer.add_labels(rightcells_boundary, name="Rightcells Boundary", scale=[pix_to_um, pix_to_um])
 
 #### Now we find the most up- and downward cells in each ring boundary segments
-up_extremities, down_extremities = get_extremities(region_to_right, rightcells_df)
+up_extremities, down_extremities = rings_functions.get_extremities(region_to_right, rightcells_df)
 
 # Visualize
 upward_points = []
@@ -270,7 +270,7 @@ if len(downward_points) > 0:
 # another segment
 
 # We also keep the remaining cells for further use
-common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = get_extremity_neighbors(up_extremities, down_extremities, celldata)
+common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = rings_functions.get_extremity_neighbors(up_extremities, down_extremities, celldata)
 
 
 # Create the mask for the common neighbors
@@ -303,7 +303,7 @@ viewer.add_image(up_down_pairs_mask, name="Up-Down Pairs", opacity=0.5, colormap
 # as well as the label of the extremity ring segment
 
 # We start by integrating common neighbors and merge ring segments accordingly
-updated_boundaries = integrate_commons(upward_neighbors, 
+updated_boundaries = rings_functions.integrate_commons(upward_neighbors, 
                                        downward_neighbors, 
                                        common_neighbors, 
                                        rightcells_boundary, 
@@ -313,7 +313,7 @@ updated_boundaries = integrate_commons(upward_neighbors,
 
 # We then integrate up and down pairs and also merge regions accordingly
 # An update of the cell_to_region mapping is done internally
-final_boundaries = integrate_updown(upward_neighbors, 
+final_boundaries = rings_functions.integrate_updown(upward_neighbors, 
                                        downward_neighbors, 
                                        up_down_pairs, 
                                        updated_boundaries, 
@@ -322,13 +322,13 @@ final_boundaries = integrate_updown(upward_neighbors,
 viewer.add_labels(final_boundaries, name="Final Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # We update the mapping of cells to their boundary region
-cell_to_region, region_to_cells = map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+cell_to_region, region_to_cells = rings_functions.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
 ###############################################################################
 #### INTEGRATION OF CELLS AT THE EXTREMITIES
 
 # We find in the remaining cells adjacent to extremities the ones that show
 # characteristics of ring transition
-labels_to_integrate = get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
+labels_to_integrate = rings_functions.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
 
 integration_mask = np.zeros_like(expanded_labels, dtype=bool)
 integration_mask[np.isin(expanded_labels, list(labels_to_integrate))] = True
@@ -339,7 +339,7 @@ viewer.add_image(integration_mask, name="Integrated cells", opacity=0.5, colorma
 # Cells retained for integration are the ones with their direct left neighbor
 # showing a X times lower diameter
 # or a transition between earlywood and latewood
-boundaries = integrate_candidates(final_boundaries, 
+boundaries = rings_functions.integrate_candidates(final_boundaries, 
                                   expanded_labels, 
                                   labels_to_integrate, 
                                   cell_to_region, 
@@ -361,11 +361,11 @@ new_rows = celldata[celldata["label"].isin(integrated_labels)].copy()
 # Step 2: Append to rightcells_df (without duplicate labels)
 rightcells_df = pd.concat([rightcells_df, new_rows]).drop_duplicates(subset="label")
 
-cell_to_region, region_to_cells = map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
+cell_to_region, region_to_cells = rings_functions.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
 
 
 # Find the extrmities of the new ring segments
-up_extremities, down_extremities = get_extremities(region_to_cells, rightcells_df)
+up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
 
 # Visualize
 upward_points = []
@@ -400,7 +400,7 @@ if len(downward_points) > 0:
 # Possibility to filter the dataframe to restrict the research
 
 # The function return a list of tuples with labels of the CONNECTED CELLS
-connected_regions = get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
+connected_regions = rings_functions.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
 
 
 # Visualisation with lines
@@ -429,14 +429,14 @@ viewer.add_shapes(
     name='Connected Regions'
 )
 
-final_boundaries, new_cell_to_region = merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
+final_boundaries, new_cell_to_region = rings_functions.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
 
 viewer.add_labels(final_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
-cell_to_region, region_to_cells = map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+cell_to_region, region_to_cells = rings_functions.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
 
 # Find the extrmities of the new ring segments
-up_extremities, down_extremities = get_extremities(region_to_cells, rightcells_df)
+up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
 
 upward_points = []
 downward_points = []
@@ -466,14 +466,14 @@ if len(downward_points) > 0:
 # This function allows to get a list of regions containing at least one cell of
 # the same radial file. Can be used to avoid merging of boundary segments belonging
 # to different files
-incompatible_region_pairs = incompatible_regions(celldata, cell_to_region)
+incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_to_region)
 
 # Finally, we find each up_extremity's nearest down_extremity and vice versa.
 # We keep pairs of up and down that are mutually the nearest for each other
 # When a region has only one cell that is thus both the up and down extremity,
 # nearest extremities are the same point and they are excluded from the merging
 # This avoid merging potential region falsely identified as boundary
-nearest_extremity = get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+nearest_extremity = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
 
 # This step could be repeat iteratively to add new connections
 # But we will still have non connected regions where
@@ -488,19 +488,24 @@ for up_label, down_label in nearest_extremity:
 
 viewer.add_shapes(lines, shape_type='line', edge_color='chartreuse', name='Mutual Nearest Pairs', edge_width=3)
 
-new_boundaries, new_cell_to_region = merge_by_cells(nearest_extremity, cell_to_region, final_boundaries, expanded_labels)
+new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, final_boundaries, expanded_labels)
+
+
+cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+
+# At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
 
 viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
-cell_to_region, region_to_cells = map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
-
 # Find the extrmities of the new ring segments
-up_extremities, down_extremities = get_extremities(region_to_cells, rightcells_df)
+up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
 
 ###############################################################################
 # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
 
-all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = get_border_cells(rightcells_df, 
+all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = rings_functions.get_border_cells(rightcells_df, 
                                                                                                                          cell_to_region, 
                                                                                                                          up_extremities,
                                                                                                                          down_extremities,
@@ -525,12 +530,213 @@ print("Upper border regions (left to right):", upper_region_sequence)
 print("Lower border regions (left to right):", lower_region_sequence)
 print("Matching upper regions :", matched_up)
 print("Matching lower regions :", matched_down)
-
+print("Unmatched :", unjustified)
 # Intersection: regions that have both an upward and a downward border cell
-regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
+regions_topdown = (set(upper_region_sequence) | set(matched_down)) & (set(lower_region_sequence) | set(matched_up))
 print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
 print("Valid regions :", regions_topdown)
 
+# Identifying true ring boundaries from the upper and lower sequences
+ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, upper_region_sequence, lower_region_sequence)
+
+lines = []
+
+# Make sure celldata is indexed by label
+cells_indexed = celldata.set_index("label")
+
+# Prepare the lines
+for region, labels in ring_lines.items():
+    if not labels:  # skip empty lists
+        continue
+    region_cells = cells_indexed.loc[labels]
+    coords = list(zip(region_cells["centroid-0"], region_cells["centroid-1"]))
+    lines.append(coords)
+
+# Add lines as shapes to the viewer
+viewer.add_shapes(
+    lines,
+    shape_type="path",
+    edge_color="red",   # or try "region" for per-region colors
+    edge_width=2,
+    name="Ring boundaries"
+)
+
+
+
+
+def get_region_sequences(new_boundaries, n_lines=10):
+    """
+    Scan horizontal lines across the image and extract ordered region sequences.
+
+    Parameters
+    ----------
+    new_boundaries : np.ndarray
+        2D array where each pixel has a region ID (0 = background).
+    n_lines : int
+        Number of horizontal probing lines between top and bottom.
+
+    Returns
+    -------
+    y_positions : list of int
+        Vertical positions (rows) where sequences were sampled.
+    sequences : list of list[int]
+        Region ID sequences (ordered left→right, without duplicates).
+    """
+    height, width = new_boundaries.shape
+    step = height // (n_lines + 1)
+
+    sequences = []
+    y_positions = []
+
+    for i in range(1, n_lines + 1):
+        y = i * step
+        row_regions = new_boundaries[y, :]
+
+        # Keep order, remove background (0) and duplicates
+        seq = []
+        seen = set()
+        for region in row_regions:
+            if region == 0:
+                continue
+            if region not in seen:
+                seq.append(int(region))  # cast to int for consistency
+                seen.add(region)
+
+        sequences.append(seq)
+        y_positions.append(y)
+
+    return y_positions, sequences
+
+y_positions, sequences = get_region_sequences(new_boundaries, n_lines=10)
+
+
+def align_region_sequences(sequences, gap_value=None, upper_seq=None, lower_seq=None):
+    """
+    Align multiple region sequences, ensuring no region changes position.
+    If a region appears in different positions across sequences -> flag as conflict.
+    
+    Parameters:
+    - sequences: list of sequences to align
+    - gap_value: value to insert for missing regions
+    - upper_seq: optional sequence to add at top
+    - lower_seq: optional sequence to add at bottom
+    """
+    # Step 1: establish a reference order using the first sequence
+    reference = sequences[0]
+    all_regions = list(reference)  # copy
+    
+    # Step 2: insert new regions into reference order when encountered in others
+    for seq in sequences[1:]:
+        for i, region in enumerate(seq):
+            if region not in all_regions:
+                # try to insert based on neighbors if possible
+                prev_r = seq[i-1] if i > 0 else None
+                next_r = seq[i+1] if i < len(seq)-1 else None
+                
+                if prev_r in all_regions:
+                    insert_idx = all_regions.index(prev_r) + 1
+                elif next_r in all_regions:
+                    insert_idx = all_regions.index(next_r)
+                else:
+                    insert_idx = len(all_regions)
+                all_regions.insert(insert_idx, region)
+
+    # Step 3: build aligned sequences
+    aligned = []
+    conflicts = []
+    for seq in sequences:
+        aligned_seq = []
+        seq_positions = {r: i for i, r in enumerate(seq)}
+        for idx, region in enumerate(all_regions):
+            if region in seq_positions:
+                # check position consistency (relative order only)
+                pos = seq_positions[region]
+                # if region order is inconsistent -> conflict
+                if seq[pos] != region:
+                    conflicts.append((region, seq))
+                aligned_seq.append(region)
+            else:
+                aligned_seq.append(gap_value)
+        aligned.append(aligned_seq)
+        
+    if upper_seq is not None:
+        aligned.insert(0, [region if region in upper_seq else gap_value for region in all_regions])
+    
+    # Step 5: add lower_seq at the bottom
+    if lower_seq is not None:
+        aligned.append([region if region in lower_seq else gap_value for region in all_regions])
+       
+
+    return aligned, all_regions, conflicts
+
+aligned, regions, conflicts = align_region_sequences(sequences, upper_seq=upper_region_sequence, lower_seq=lower_region_sequence)
+
+for row in aligned:
+    print(row)
+
+print("Conflicts:", conflicts)
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import ListedColormap
+
+def plot_alignment(aligned, region_order, names=None):
+    """
+    Visualize alignment as a matrix with a unique color per region.
+    
+    Parameters:
+    - aligned: list of lists, each sublist is a sequence of regions (None for gaps)
+    - region_order: list of all regions in the alignment
+    - names: optional list of sequence names
+    """
+    if names is None:
+        names = [f"Seq{i+1}" for i in range(len(aligned))]
+
+    n_seq = len(aligned)
+    n_cols = len(region_order)
+
+    # Map each region to an integer
+    region_to_int = {region: i+1 for i, region in enumerate(region_order)}
+    
+    # Build integer matrix
+    data = np.zeros((n_seq, n_cols), dtype=int)
+    for i, row in enumerate(aligned):
+        for j, region in enumerate(row):
+            if region is not None:
+                data[i, j] = region_to_int[region]
+
+    # Create a colormap: 0 (gaps) will be white, regions get unique colors
+    n_regions = len(region_order)
+    cmap_colors = plt.cm.gist_ncar(np.linspace(0, 1, n_regions))
+    
+    # Shuffle colors
+    rng = np.random.default_rng(4)
+    shuffled_indices = rng.permutation(n_regions)
+    shuffled_colors = cmap_colors[shuffled_indices]
+    cmap = ListedColormap(np.vstack(([1,1,1,1], shuffled_colors)))  # 0 = white
+
+    fig, ax = plt.subplots(figsize=(n_cols*0.5, n_seq*0.5))
+    im = ax.imshow(data, cmap=cmap, aspect='auto')
+
+    # Add region IDs as text
+    for i in range(n_seq):
+        for j in range(n_cols):
+            val = data[i, j]
+            if val != 0:
+                region_id = region_order[val-1]
+                ax.text(j, i, str(region_id), ha='center', va='center', fontsize=7, color='black')
+
+    ax.set_yticks(range(n_seq))
+    ax.set_yticklabels(names)
+    ax.set_xticks(range(n_cols))
+    ax.set_xticklabels(region_order, rotation=90)
+    ax.set_xlim(-0.5, n_cols-0.5)
+    ax.set_ylim(n_seq-0.5, -0.5)  # invert y-axis
+    plt.tight_layout()
+    plt.show()
+
+
+plot_alignment(aligned, regions, names=None)
 ##### RENDU LA !!!!! #####
 
 ### regions top-down should accurately define a valid tree-ring boundary
