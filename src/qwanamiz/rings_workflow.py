@@ -536,6 +536,81 @@ regions_topdown = (set(upper_region_sequence) | set(matched_down)) & (set(lower_
 print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
 print("Valid regions :", regions_topdown)
 
+#import numpy as np
+
+def find_merge_candidates_from_sequences(upper_sequence, lower_sequence, matched_up=None, matched_down=None):
+    """
+    Identify candidate regions to merge based on index differences 
+    between upper and lower sequences. Regions already in matched_up 
+    or matched_down are removed from their respective sequences.
+    
+    Parameters
+    ----------
+    upper_sequence : list[int]
+        Regions touching the top of the image (sorted by x).
+    lower_sequence : list[int]
+        Regions touching the bottom of the image (sorted by x).
+    matched_up : set[int], optional
+        Set of region IDs already matched from upper sequence.
+    matched_down : set[int], optional
+        Set of region IDs already matched from lower sequence.
+    
+    Returns
+    -------
+    merge_candidates : list[tuple[int,int]]
+        Candidate (upper_region, lower_region) pairs.
+    corrected_upper : list[int]
+        Upper sequence after removing matched regions.
+    corrected_lower : list[int]
+        Lower sequence after removing matched regions.
+    """
+
+    if matched_up is None:
+        matched_up = set()
+    if matched_down is None:
+        matched_down = set()
+
+    # --- Step 1: remove matched regions ---
+    corrected_upper = [r for r in upper_sequence if r not in matched_up]
+    corrected_lower = [r for r in lower_sequence if r not in matched_down]
+
+    # --- Step 2: Find regions appearing in both sequences (anchors) ---
+    anchors = set(corrected_upper) & set(corrected_lower)
+
+    upper_indices = [i for i, val in enumerate(corrected_upper) if val in anchors]
+    lower_indices = [i for i, val in enumerate(corrected_lower) if val in anchors]
+
+    # Add virtual index at start
+    upper_indices.insert(0, -1)
+    lower_indices.insert(0, -1)
+
+    upper_diff = [b - a - 1 for a, b in zip(upper_indices, upper_indices[1:])]
+    lower_diff = [b - a - 1 for a, b in zip(lower_indices, lower_indices[1:])]
+
+    matching_indices = np.where([a == b and a != 0 for a, b in zip(lower_diff, upper_diff)])[0].tolist()
+
+    # --- Step 3: Collect candidate pairs between anchors ---
+    merge_candidates = []
+    for idx in matching_indices:
+        for n in range(lower_diff[idx]):
+            up_val = corrected_upper[upper_indices[idx] + 1 + n]
+            down_val = corrected_lower[lower_indices[idx] + 1 + n]
+            merge_candidates.append((up_val, down_val))
+
+    return merge_candidates, corrected_upper, corrected_lower
+
+
+
+candidates, cu, cl = find_merge_candidates_from_sequences(
+    upper_region_sequence, lower_region_sequence, matched_up, matched_down
+)
+
+print("Corrected upper:", cu)
+print("Corrected lower:", cl)
+print("Merge candidates:", candidates)
+
+
+
 # Identifying true ring boundaries from the upper and lower sequences
 ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, upper_region_sequence, lower_region_sequence)
 
@@ -564,9 +639,10 @@ viewer.add_shapes(
 
 
 
-def get_region_sequences(new_boundaries, n_lines=10):
+def get_region_sequences(new_boundaries, n_lines=10, matched_up=None, matched_down=None):
     """
     Scan horizontal lines across the image and extract ordered region sequences.
+    Regions in matched_up or matched_down are removed from the sequences.
 
     Parameters
     ----------
@@ -574,6 +650,10 @@ def get_region_sequences(new_boundaries, n_lines=10):
         2D array where each pixel has a region ID (0 = background).
     n_lines : int
         Number of horizontal probing lines between top and bottom.
+    matched_up : set[int], optional
+        Regions to exclude from the sequences (upper matches).
+    matched_down : set[int], optional
+        Regions to exclude from the sequences (lower matches).
 
     Returns
     -------
@@ -582,6 +662,12 @@ def get_region_sequences(new_boundaries, n_lines=10):
     sequences : list of list[int]
         Region ID sequences (ordered left→right, without duplicates).
     """
+    if matched_up is None:
+        matched_up = set()
+    if matched_down is None:
+        matched_down = set()
+    excluded = matched_up | matched_down
+
     height, width = new_boundaries.shape
     step = height // (n_lines + 1)
 
@@ -592,11 +678,11 @@ def get_region_sequences(new_boundaries, n_lines=10):
         y = i * step
         row_regions = new_boundaries[y, :]
 
-        # Keep order, remove background (0) and duplicates
+        # Keep order, remove background (0), duplicates, and excluded regions
         seq = []
         seen = set()
         for region in row_regions:
-            if region == 0:
+            if region == 0 or region in excluded:
                 continue
             if region not in seen:
                 seq.append(int(region))  # cast to int for consistency
@@ -607,8 +693,43 @@ def get_region_sequences(new_boundaries, n_lines=10):
 
     return y_positions, sequences
 
-y_positions, sequences = get_region_sequences(new_boundaries, n_lines=10)
+y_positions, sequences = get_region_sequences(new_boundaries, n_lines=10, matched_up=matched_up, matched_down=matched_down)
 
+def validate_merge_candidates(sequences, merge_candidates):
+    """
+    Check that regions in merge candidate pairs do not appear together
+    in any sequence. Returns only valid candidates.
+
+    Parameters
+    ----------
+    sequences : list of list[int]
+        The aligned or raw region sequences.
+    merge_candidates : list of tuple[int, int]
+        Candidate pairs (upper_region, lower_region) to potentially merge.
+
+    Returns
+    -------
+    valid_candidates : list of tuple[int, int]
+        Subset of merge_candidates that are safe to merge.
+    invalid_candidates : list of tuple[int, int]
+        Candidate pairs that cannot be merged because they appear together.
+    """
+    valid_candidates = []
+    invalid_candidates = []
+
+    for up, down in merge_candidates:
+        conflict = any(up in seq and down in seq for seq in sequences)
+        if conflict:
+            invalid_candidates.append((up, down))
+        else:
+            valid_candidates.append((up, down))
+
+    return valid_candidates, invalid_candidates
+
+valid_pairs, invalid_pairs = validate_merge_candidates(sequences, candidates)
+
+print("Valid to merge:", valid_pairs)
+print("Cannot merge:", invalid_pairs)
 
 def align_region_sequences(sequences, gap_value=None, upper_seq=None, lower_seq=None):
     """
@@ -669,7 +790,47 @@ def align_region_sequences(sequences, gap_value=None, upper_seq=None, lower_seq=
 
     return aligned, all_regions, conflicts
 
-aligned, regions, conflicts = align_region_sequences(sequences, upper_seq=upper_region_sequence, lower_seq=lower_region_sequence)
+aligned, regions, conflicts = align_region_sequences(sequences, upper_seq=cu, lower_seq=cl)
+
+def check_sequence_order_per_line(aligned_sequences, y_positions, new_boundaries):
+    """
+    Check that regions in each aligned sequence are ordered left-to-right
+    based on x-coordinates at each y-position (line).
+    
+    Parameters
+    ----------
+    aligned_sequences : list of list[int]
+        Aligned sequences of region IDs.
+    y_positions : list[int]
+        Row indices corresponding to each line.
+    new_boundaries : np.ndarray
+        2D array with region labels (0 = background).
+    """
+    for line_idx, (seq, y) in enumerate(zip(aligned_sequences, y_positions)):
+        misordered = []
+        prev_x = None
+        prev_region = None
+
+        for region in seq:
+            # get all x positions of this region in this line
+            xs = np.where(new_boundaries[y, :] == region)[0]
+            if len(xs) == 0:
+                continue
+            x = xs.mean()  # mean x of this region along the line
+            if prev_x is not None and x < prev_x:
+                misordered.append((prev_region, prev_x, region, x))
+            prev_x = x
+            prev_region = region
+
+        if misordered:
+            print(f"⚠️ Line {line_idx} (y={y}) is NOT ordered left-to-right:")
+            for a, xa, b, xb in misordered:
+                print(f"   {a} (x={xa:.2f}) comes before {b} (x={xb:.2f})")
+        else:
+            print(f"✅ Line {line_idx} (y={y}) is correctly ordered left-to-right")
+
+check_sequence_order_per_line(aligned, y_positions, new_boundaries)
+
 
 for row in aligned:
     print(row)
@@ -737,6 +898,206 @@ def plot_alignment(aligned, region_order, names=None):
 
 
 plot_alignment(aligned, regions, names=None)
+
+
+from collections import Counter
+
+def fill_columns(aligned_matrix, merge_candidates=set(), min_fraction=0.7):
+    """
+    Fill None values in aligned matrix columns based on majority values.
+    
+    Parameters
+    ----------
+    aligned_matrix : list[list[int | None]]
+        Aligned sequences matrix (rows = sequences, columns = regions).
+    merge_candidates : set of tuples
+        Pairs of regions that may be merged, we avoid filling None with these.
+    min_fraction : float
+        Minimum fraction of occurrences for a value to fill None safely.
+    
+    Returns
+    -------
+    filled_matrix : list[list[int]]
+        New matrix with some None values filled where safe.
+    """
+    import copy
+    filled_matrix = copy.deepcopy(aligned_matrix)
+    n_rows = len(aligned_matrix)
+    n_cols = len(aligned_matrix[0])
+
+    for col_idx in range(n_cols):
+        col_vals = [filled_matrix[row][col_idx] for row in range(n_rows) if filled_matrix[row][col_idx] is not None]
+        
+        # Skip column if empty
+        if not col_vals:
+            continue
+        
+        # Remove values that appear in merge_candidates
+        candidate_values = set()
+        for pair in merge_candidates:
+            candidate_values.update(pair)
+        safe_vals = [v for v in col_vals if v not in candidate_values]
+
+        if not safe_vals:
+            continue
+
+        # Count occurrences
+        counts = Counter(safe_vals)
+        most_common_val, count = counts.most_common(1)[0]
+        fraction = count / len(col_vals)
+
+        if fraction >= min_fraction:
+            # Replace None with the most common safe value
+            for row in range(n_rows):
+                if filled_matrix[row][col_idx] is None:
+                    filled_matrix[row][col_idx] = most_common_val
+
+    return filled_matrix
+
+filled = fill_columns(aligned, candidates, 0.7)
+
+plot_alignment(filled, regions, names=None)
+
+
+def clean_and_validate_matrix(aligned_matrix, valid_pairs=set()):
+    """
+    Remove None values from rows, check row length consistency,
+    and validate column values with respect to valid merge pairs.
+    
+    Parameters
+    ----------
+    aligned_matrix : list[list[int | None]]
+        Aligned sequences matrix (rows = sequences, columns = regions).
+    valid_pairs : set of tuple(int, int)
+        Allowed pairs of region IDs that can coexist in the same column.
+    
+    Returns
+    -------
+    cleaned_matrix : list[list[int]]
+        Updated matrix without None values, validated for consistency.
+    
+    Raises
+    ------
+    ValueError : if row lengths differ after cleaning or if a column
+                 contains invalid multiple region IDs.
+    """
+    # Step 1: remove None from each row
+    cleaned = [[val for val in row if val is not None] for row in aligned_matrix]
+
+    # Step 2: check that all rows have same length
+    row_lengths = {len(r) for r in cleaned}
+    if len(row_lengths) != 1:
+        raise ValueError(f"Inconsistent row lengths after cleaning: {row_lengths}")
+
+    n_rows = len(cleaned)
+    n_cols = len(cleaned[0])
+
+    # Step 3: validate columns
+    for col_idx in range(n_cols):
+        col_vals = {cleaned[row][col_idx] for row in range(n_rows)}
+        
+        if len(col_vals) > 1:
+            # must correspond to a valid pair
+            pairs = {(a, b) for a in col_vals for b in col_vals if a != b}
+            valid = any(p in valid_pairs or (p[::-1] in valid_pairs) for p in pairs)
+            if not valid:
+                raise ValueError(
+                    f"Invalid column {col_idx}: contains {col_vals}, "
+                    f"which is not in valid_pairs"
+                )
+
+    return cleaned
+
+cleaned = clean_and_validate_matrix(filled, valid_pairs)
+
+
+def find_missing_regions(new_boundaries, aligned_matrix):
+    """
+    Check which regions in the labeled image are not represented in the matrix.
+    
+    Parameters
+    ----------
+    new_boundaries : np.ndarray
+        2D array where each pixel has a region ID (0 = background).
+    aligned_matrix : list[list[int]]
+        Final aligned matrix of region IDs (no None values).
+    
+    Returns
+    -------
+    missing : set of int
+        Region IDs that appear in the labeled image but not in the matrix.
+    """
+    # All regions in the labeled image (excluding background = 0)
+    image_regions = set(np.unique(new_boundaries)) - {0}
+    
+    # All regions in the matrix
+    matrix_regions = {val for row in aligned_matrix for val in row}
+    
+    # Missing = regions in image but not in matrix
+    missing = image_regions - matrix_regions
+    
+    return missing
+
+missing = find_missing_regions(new_boundaries, cleaned)
+print("Missing regions:", missing)
+
+
+    # Insert matched_up into lower sequence at the right relative position
+    for region in matched_up:
+        if region not in lower_region_sequence and region in upper_region_sequence:
+            idx = upper_region_sequence.index(region)
+
+        # Find the closest neighbor already present in lower_sequence
+            inserted = False
+        # Try to place before the next region that exists in lower
+            for next_region in upper_region_sequence[idx+1:]:
+                if next_region in lower_region_sequence:
+                    insert_idx = lower_region_sequence.index(next_region)
+                    lower_region_sequence.insert(insert_idx, region)
+                    inserted = True
+                    break
+        # If no "next" neighbor, append at the end
+            if not inserted:
+                lower_region_sequence.append(region)
+
+# Insert matched_down into upper sequence at the right relative position
+    for region in matched_down:
+        if region not in upper_region_sequence and region in lower_region_sequence:
+            idx = lower_region_sequence.index(region)
+
+            inserted = False
+            for next_region in lower_region_sequence[idx+1:]:
+                if next_region in upper_region_sequence:
+                    insert_idx = upper_region_sequence.index(next_region)
+                    upper_region_sequence.insert(insert_idx, region)
+                    inserted = True
+                    break
+            if not inserted:
+                upper_region_sequence.append(region)
+
+    # ---- ORDER CHECK ----
+    def check_sequence_order(sequence, region_coords, name="sequence"):
+        misordered = []
+        for a, b in zip(sequence, sequence[1:]):
+            xa = region_coords.get(a, None)
+            xb = region_coords.get(b, None)
+            if xa is not None and xb is not None and xa > xb:
+                misordered.append((a, xa, b, xb))
+        if misordered:
+            print(f"⚠️ {name} is NOT ordered left-to-right:")
+            for a, xa, b, xb in misordered:
+                xa_str = f"{xa:.2f}" if xa is not None else "NA"
+                xb_str = f"{xb:.2f}" if xb is not None else "NA"
+                print(f"   {a} (x={xa_str}) comes before {b} (x={xb_str})")
+        else:
+            print(f"✅ {name} is correctly ordered left-to-right.")
+
+    # Run check for both sequences
+    upper_x = dict(zip(upper_region_coords["region"], upper_region_coords["centroid-1"]))
+    lower_x = dict(zip(lower_region_coords["region"], lower_region_coords["centroid-1"]))
+    check_sequence_order(upper_region_sequence, upper_x, name="Upper")
+    check_sequence_order(lower_region_sequence, lower_x, name="Lower")
+
 ##### RENDU LA !!!!! #####
 
 ### regions top-down should accurately define a valid tree-ring boundary

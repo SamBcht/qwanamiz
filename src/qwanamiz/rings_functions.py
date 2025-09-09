@@ -793,6 +793,10 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     right_border_cells_up = upward_df[upward_df["centroid-1"] >= (image_width - border_margin) * pix_to_um]["label"]
     right_border_cells_down = downward_df[downward_df["centroid-1"] >= (image_width - border_margin) * pix_to_um]["label"]
     right_border_cells = set(right_border_cells_up).union(right_border_cells_down)
+    
+    # ---- FIX: remove cells that are already vertical borders (corner cases) ----
+    left_border_cells -= (upward_border_cells | downward_border_cells)
+    right_border_cells -= (upward_border_cells | downward_border_cells)
 
     # Optional: Combine all border cell sets
     vertical_border_cells = upward_border_cells.union(downward_border_cells)
@@ -844,7 +848,7 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     # --- Upper border: group by region and find min x-coordinate ---
     upper_region_coords = (
         upward_border_df.groupby("region")["centroid-1"]
-        .min()
+        .mean()
         .reset_index()
         .sort_values("centroid-1")
     )
@@ -855,7 +859,7 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
 
     lower_region_coords = (
         downward_border_df.groupby("region")["centroid-1"]
-        .min()
+        .mean()
         .reset_index()
         .sort_values("centroid-1")
     )
@@ -866,41 +870,7 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     matched_up = {int(r) for r in matched_up}
     matched_down = {int(r) for r in matched_down}
 
-    # Insert matched_up into lower sequence at the right relative position
-    for region in matched_up:
-        if region not in lower_region_sequence and region in upper_region_sequence:
-            idx = upper_region_sequence.index(region)
 
-        # Find the closest neighbor already present in lower_sequence
-            inserted = False
-        # Try to place before the next region that exists in lower
-            for next_region in upper_region_sequence[idx+1:]:
-                if next_region in lower_region_sequence:
-                    insert_idx = lower_region_sequence.index(next_region)
-                    lower_region_sequence.insert(insert_idx, region)
-                    inserted = True
-                    break
-        # If no "next" neighbor, append at the end
-            if not inserted:
-                lower_region_sequence.append(region)
-
-
-# Insert matched_down into upper sequence at the right relative position
-    for region in matched_down:
-        if region not in upper_region_sequence and region in lower_region_sequence:
-            idx = lower_region_sequence.index(region)
-
-            inserted = False
-            for next_region in lower_region_sequence[idx+1:]:
-                if next_region in upper_region_sequence:
-                    insert_idx = upper_region_sequence.index(next_region)
-                    upper_region_sequence.insert(insert_idx, region)
-                    inserted = True
-                    break
-            if not inserted:
-                upper_region_sequence.append(region)
-
-    
     return all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified
 
 # A function that filters the dictionaries linking region IDs to cell IDs by removing
