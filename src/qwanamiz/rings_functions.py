@@ -369,82 +369,68 @@ def integrate_commons(upward_neighbors, downward_neighbors, common_neighbors, la
     # Step 1: Create an empty graph
     G = nx.Graph()
 
+    # Step 1a: define offset for common neighbors
+    offset = int(last_labeled.max()) + 1000
+    def encode_common(cn): return cn + offset
+    def decode_common(cn): return cn - offset
+
     # Step 2: Build the graph by connecting regions via common_neighbors
     for region, upward_data in upward_neighbors.items():
         up_neighbor = upward_data["up_neighbor"]
         if up_neighbor in common_neighbors:
-            G.add_edge(region, up_neighbor)
+            G.add_edge(region, encode_common(up_neighbor))
 
     for region, downward_data in downward_neighbors.items():
         down_neighbor = downward_data["down_neighbor"]
         if down_neighbor in common_neighbors:
-            G.add_edge(region, down_neighbor)
+            G.add_edge(region, encode_common(down_neighbor))
 
-    # Step 3: Find connected components (i.e., groups of regions that are connected through common neighbors)
+    # Step 3: Find connected components
     connected_components = list(nx.connected_components(G))
 
-    # Step 4: Create a copy of the cleaned_boundary_labeled mask to store updated labels
+    # Step 4: Copy mask
     updated_boundary_labeled = last_labeled.copy()
 
     # Initialize new label counter
-    new_label = np.max(last_labeled) + 1  # Start labeling from max+1 (to avoid overlap with existing labels)
+    new_label = int(last_labeled.max()) + 2
 
-    # Track original regions that do not merge
+    # Track regions
     all_regions = set(np.unique(last_labeled))
-    merged_regions = set()  # Regions that were merged
-
-    # Store the mapping: new_label → contributing common_neighbors
+    merged_regions = set()
     merged_region_mapping = {}
 
-    # Step 5: Iterate over each connected component
+    # Step 5: Merge components
     for component in connected_components:
-        if len(component) > 1:  # Only merge if there are multiple regions
-            # Assign a new label for this merged component
+        # Separate into regions + commons
+        regions_in_comp = [n for n in component if isinstance(n, (int, np.integer)) and n <= last_labeled.max()]
+        commons_in_comp = [decode_common(n) for n in component if n not in regions_in_comp]
+
+        if len(regions_in_comp) > 1:  # Only merge if multiple regions
             component_label = new_label
-            new_label += 1  # Increment for next merged component
+            new_label += 1
 
-            # Get common_neighbors linked to the regions in this component
-            contributing_common_neighbors = set()
-
-            for region in component:
-                if region in upward_neighbors and upward_neighbors[region]["up_neighbor"] in common_neighbors:
-                    contributing_common_neighbors.add(upward_neighbors[region]["up_neighbor"])
-                if region in downward_neighbors and downward_neighbors[region]["down_neighbor"] in common_neighbors:
-                    contributing_common_neighbors.add(downward_neighbors[region]["down_neighbor"])
-
-            # Store the mapping (merged label → original labels + common neighbors)
             merged_region_mapping[component_label] = {
-                "original_regions": list(component),  # Original merged regions
-                "common_neighbors": list(contributing_common_neighbors),  # Common neighbors used for merging
+                "original_regions": regions_in_comp,
+                "common_neighbors": commons_in_comp,
             }
 
-            # Mark merged regions
-            merged_regions.update(component)
+            merged_regions.update(regions_in_comp)
 
-            # Assign the new label to all regions in the current component
-            for region in component:
+            # Assign merged label
+            for region in regions_in_comp:
                 updated_boundary_labeled[last_labeled == region] = component_label
 
     # Step 6: Keep original labels for non-merged regions
     for region in all_regions - merged_regions:
         updated_boundary_labeled[last_labeled == region] = region
-        
-    ######## COMMON NEIGHBORS INTEGRATION
 
+    # Step 7: Integrate common neighbors
     new_boundary_labeled = updated_boundary_labeled.copy()
 
-    # Step 2: Track newly integrated cells
-    #newly_integrated_cells = set()
-
-    # Step 3: Iterate over merged regions and integrate common_neighbors
     for merged_label, mapping in merged_region_mapping.items():
-        common_neighbors_to_integrate = mapping["common_neighbors"]
-        
-        for common_neighbor in common_neighbors_to_integrate:
-            # Assign the common_neighbor the same label as the merged region
+        for common_neighbor in mapping["common_neighbors"]:
             new_boundary_labeled[expanded_labels == common_neighbor] = merged_label
-            #newly_integrated_cells.add(common_neighbor)
-            
+
     return new_boundary_labeled
 
 

@@ -309,7 +309,7 @@ updated_boundaries = rings_functions.integrate_commons(upward_neighbors,
                                        rightcells_boundary, 
                                        expanded_labels)
 
-#viewer.add_labels(updated_boundaries, name="Updated Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+viewer.add_labels(updated_boundaries, name="Updated Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # We then integrate up and down pairs and also merge regions accordingly
 # An update of the cell_to_region mapping is done internally
@@ -693,7 +693,7 @@ def get_region_sequences(new_boundaries, n_lines=10, matched_up=None, matched_do
 
     return y_positions, sequences
 
-y_positions, sequences = get_region_sequences(new_boundaries, n_lines=10, matched_up=matched_up, matched_down=matched_down)
+y_positions, sequences = get_region_sequences(new_boundaries, n_lines=20, matched_up=matched_up, matched_down=matched_down)
 
 def validate_merge_candidates(sequences, merge_candidates):
     """
@@ -731,66 +731,112 @@ valid_pairs, invalid_pairs = validate_merge_candidates(sequences, candidates)
 print("Valid to merge:", valid_pairs)
 print("Cannot merge:", invalid_pairs)
 
+from collections import Counter
+from collections import defaultdict, deque
+
+from collections import defaultdict, deque
+
 def align_region_sequences(sequences, gap_value=None, upper_seq=None, lower_seq=None):
     """
-    Align multiple region sequences, ensuring no region changes position.
-    If a region appears in different positions across sequences -> flag as conflict.
-    
-    Parameters:
-    - sequences: list of sequences to align
-    - gap_value: value to insert for missing regions
-    - upper_seq: optional sequence to add at top
-    - lower_seq: optional sequence to add at bottom
+    Align multiple region sequences while preserving left→right order in each sequence,
+    using upper_seq and lower_seq as references for top and bottom.
+
+    Parameters
+    ----------
+    sequences : list[list[int]]
+        Each list is a row sequence of region IDs.
+
+    gap_value : any
+        Value to fill when a region is missing in a row.
+
+    upper_seq : list[int], optional
+        Sequence of regions at the top of the image (enforced first row).
+
+    lower_seq : list[int], optional
+        Sequence of regions at the bottom of the image (enforced last row).
+
+    Returns
+    -------
+    aligned : list[list[int]]
+        Aligned sequences including upper and lower sequences if provided.
+    all_regions : list[int]
+        Final column order of regions.
     """
-    # Step 1: establish a reference order using the first sequence
-    reference = sequences[0]
-    all_regions = list(reference)  # copy
-    
-    # Step 2: insert new regions into reference order when encountered in others
-    for seq in sequences[1:]:
-        for i, region in enumerate(seq):
-            if region not in all_regions:
-                # try to insert based on neighbors if possible
-                prev_r = seq[i-1] if i > 0 else None
-                next_r = seq[i+1] if i < len(seq)-1 else None
-                
-                if prev_r in all_regions:
-                    insert_idx = all_regions.index(prev_r) + 1
-                elif next_r in all_regions:
-                    insert_idx = all_regions.index(next_r)
-                else:
-                    insert_idx = len(all_regions)
-                all_regions.insert(insert_idx, region)
+    # Step 1: Build a directed graph of precedence relationships
+    graph = defaultdict(set)
+    in_degree = defaultdict(int)
+    all_regions = set()
 
-    # Step 3: build aligned sequences
-    aligned = []
-    conflicts = []
+    # Include the sequences
     for seq in sequences:
-        aligned_seq = []
-        seq_positions = {r: i for i, r in enumerate(seq)}
-        for idx, region in enumerate(all_regions):
-            if region in seq_positions:
-                # check position consistency (relative order only)
-                pos = seq_positions[region]
-                # if region order is inconsistent -> conflict
-                if seq[pos] != region:
-                    conflicts.append((region, seq))
-                aligned_seq.append(region)
-            else:
-                aligned_seq.append(gap_value)
-        aligned.append(aligned_seq)
-        
+        for i, region in enumerate(seq):
+            all_regions.add(region)
+            for j in range(i+1, len(seq)):
+                next_region = seq[j]
+                if next_region not in graph[region]:
+                    graph[region].add(next_region)
+                    in_degree[next_region] += 1
+                in_degree.setdefault(region, 0)
+
+    # Include upper_seq as precedence constraints (if given)
     if upper_seq is not None:
-        aligned.insert(0, [region if region in upper_seq else gap_value for region in all_regions])
-    
-    # Step 5: add lower_seq at the bottom
+        for i, region in enumerate(upper_seq):
+            all_regions.add(region)
+            for j in range(i+1, len(upper_seq)):
+                next_region = upper_seq[j]
+                if next_region not in graph[region]:
+                    graph[region].add(next_region)
+                    in_degree[next_region] += 1
+                in_degree.setdefault(region, 0)
+
+    # Include lower_seq as precedence constraints (if given)
     if lower_seq is not None:
-        aligned.append([region if region in lower_seq else gap_value for region in all_regions])
-       
+        for i, region in enumerate(lower_seq):
+            all_regions.add(region)
+            for j in range(i+1, len(lower_seq)):
+                next_region = lower_seq[j]
+                if next_region not in graph[region]:
+                    graph[region].add(next_region)
+                    in_degree[next_region] += 1
+                in_degree.setdefault(region, 0)
 
-    return aligned, all_regions, conflicts
+    # Step 2: Topological sort to determine column order
+    queue = deque([r for r in all_regions if in_degree[r] == 0])
+    ordered_regions = []
 
-aligned, regions, conflicts = align_region_sequences(sequences, upper_seq=cu, lower_seq=cl)
+    while queue:
+        r = queue.popleft()
+        ordered_regions.append(r)
+        for nbr in graph[r]:
+            in_degree[nbr] -= 1
+            if in_degree[nbr] == 0:
+                queue.append(nbr)
+
+    # Step 3: Align sequences
+    aligned = []
+    
+    # Add upper_seq as the first row if given
+    if upper_seq is not None:
+        seq_set = set(upper_seq)
+        row = [r if r in seq_set else gap_value for r in ordered_regions]
+        aligned.append(row)
+
+    # Align main sequences
+    for seq in sequences:
+        seq_set = set(seq)
+        row = [r if r in seq_set else gap_value for r in ordered_regions]
+        aligned.append(row)
+
+    # Add lower_seq as the last row if given
+    if lower_seq is not None:
+        seq_set = set(lower_seq)
+        row = [r if r in seq_set else gap_value for r in ordered_regions]
+        aligned.append(row)
+
+    return aligned, ordered_regions
+
+
+aligned, regions = align_region_sequences(sequences, gap_value=None, upper_seq=cu, lower_seq=cl)
 
 def check_sequence_order_per_line(aligned_sequences, y_positions, new_boundaries):
     """
@@ -899,6 +945,111 @@ def plot_alignment(aligned, region_order, names=None):
 
 plot_alignment(aligned, regions, names=None)
 
+from collections import defaultdict, deque
+
+def align_region_sequences_with_merges(sequences, valid_pairs=None, gap_value=None, upper_seq=None, lower_seq=None):
+    """
+    Align region sequences, preserving left→right order, and allowing valid merge candidates
+    to occupy the same column.
+
+    Parameters
+    ----------
+    sequences : list[list[int]]
+        Each list is a row sequence of region IDs.
+    valid_pairs : set[tuple[int,int]], optional
+        Set of allowed merge candidate pairs, e.g. {(3,5), (7,8)}.
+        Both (a,b) and (b,a) are considered equivalent.
+    gap_value : any
+        Value to fill when a region is missing in a row.
+    upper_seq : list[int], optional
+        Sequence of regions at the top of the image (enforced first row).
+    lower_seq : list[int], optional
+        Sequence of regions at the bottom of the image (enforced last row).
+
+    Returns
+    -------
+    aligned : list[list[tuple|int]]
+        Aligned sequences. Each cell is either a single region ID or a tuple of merged IDs.
+    ordered_columns : list[tuple|int]
+        Final column representation (with merges).
+    """
+    if valid_pairs is None:
+        valid_pairs = set()
+
+    # Step 1: Collect all precedence constraints
+    graph = defaultdict(set)
+    in_degree = defaultdict(int)
+    all_regions = set()
+
+    def add_constraints(seq):
+        for i, region in enumerate(seq):
+            all_regions.add(region)
+            for j in range(i+1, len(seq)):
+                next_region = seq[j]
+                if next_region not in graph[region]:
+                    graph[region].add(next_region)
+                    in_degree[next_region] += 1
+                in_degree.setdefault(region, 0)
+
+    for seq in sequences:
+        add_constraints(seq)
+    if upper_seq is not None:
+        add_constraints(upper_seq)
+    if lower_seq is not None:
+        add_constraints(lower_seq)
+
+    # Step 2: Topological sort to get base order
+    queue = deque([r for r in all_regions if in_degree[r] == 0])
+    ordered_regions = []
+    while queue:
+        r = queue.popleft()
+        ordered_regions.append(r)
+        for nbr in graph[r]:
+            in_degree[nbr] -= 1
+            if in_degree[nbr] == 0:
+                queue.append(nbr)
+
+    # Step 3: Merge valid candidates in column representation
+    merged_columns = []
+    skip = set()
+    for i, r in enumerate(ordered_regions):
+        if r in skip:
+            continue
+        # look ahead to see if next can merge
+        if i+1 < len(ordered_regions):
+            nxt = ordered_regions[i+1]
+            if (r, nxt) in valid_pairs or (nxt, r) in valid_pairs:
+                merged_columns.append((r, nxt))
+                skip.add(nxt)
+                continue
+        merged_columns.append(r)
+
+    # Step 4: Align sequences
+    def build_row(seq):
+        seq_set = set(seq)
+        row = []
+        for col in merged_columns:
+            if isinstance(col, tuple):
+                # merged column: check if any are present
+                present = tuple(sorted([c for c in col if c in seq_set]))
+                row.append(present if present else gap_value)
+            else:
+                row.append(col if col in seq_set else gap_value)
+        return row
+
+    aligned = []
+    if upper_seq is not None:
+        aligned.append(build_row(upper_seq))
+    for seq in sequences:
+        aligned.append(build_row(seq))
+    if lower_seq is not None:
+        aligned.append(build_row(lower_seq))
+
+    return aligned, merged_columns
+
+aligned_m, regions_m = align_region_sequences_with_merges(sequences, valid_pairs=valid_pairs, gap_value=None, upper_seq=cu, lower_seq=cl)
+
+plot_alignment(aligned_m, regions_m, names=None)
 
 from collections import Counter
 
@@ -944,7 +1095,7 @@ def fill_columns(aligned_matrix, merge_candidates=set(), min_fraction=0.7):
         # Count occurrences
         counts = Counter(safe_vals)
         most_common_val, count = counts.most_common(1)[0]
-        fraction = count / len(col_vals)
+        fraction = count / n_rows
 
         if fraction >= min_fraction:
             # Replace None with the most common safe value
@@ -958,6 +1109,95 @@ filled = fill_columns(aligned, candidates, 0.7)
 
 plot_alignment(filled, regions, names=None)
 
+from typing import List, Tuple, Any, Union
+
+def remove_weak_columns(
+    aligned: List[List[Any]],
+    columns: List[Union[int, Tuple[int, ...]]],
+    merge_candidates: List[Tuple[int, int]],
+    gap_value=None,
+    min_complete_fraction: float = 1.0,
+    require_both_neighbors: bool = True,
+):
+    """
+    Remove columns that:
+      - have only a single distinct non-gap value across rows, AND
+      - are strictly between two 'strong' neighbor columns.
+
+    A "strong" column is:
+      - a merged column (tuple in `columns`), OR
+      - a column containing any member of `merge_candidates`, OR
+      - a column whose fraction of non-gap entries >= min_complete_fraction.
+    """
+    if not aligned or not columns:
+        return aligned, columns, {"removed_indices": [], "removed_columns": []}
+
+    n_rows = len(aligned)
+    n_cols = len(columns)
+    assert all(len(row) == n_cols for row in aligned), "All rows must have same length"
+
+    # Precompute stats per column
+    col_non_gap_counts = []
+    col_non_gap_sets = []
+    for j in range(n_cols):
+        non_gap_entries = [aligned[r][j] for r in range(n_rows) if aligned[r][j] != gap_value]
+        col_non_gap_counts.append(len(non_gap_entries))
+        col_non_gap_sets.append(set(non_gap_entries))
+
+    # Flatten merge candidates for easier lookup
+    merge_region_set = {r for pair in merge_candidates for r in pair}
+
+    def is_strong_col(idx):
+        col_def = columns[idx]
+        # merged column (tuple) is always strong
+        if isinstance(col_def, (tuple, list)):
+            return True
+        # any member of merge_candidates is strong
+        if col_def in merge_region_set:
+            return True
+        # otherwise check coverage
+        coverage = col_non_gap_counts[idx] / float(n_rows) if n_rows > 0 else 0.0
+        return coverage >= float(min_complete_fraction)
+
+    to_remove = [False] * n_cols
+    for j in range(n_cols):
+        if isinstance(columns[j], (tuple, list)):
+            continue
+        unique_sets = col_non_gap_sets[j]
+        if len(unique_sets) != 1 or col_non_gap_counts[j] == 0:
+            continue
+        left_idx, right_idx = j - 1, j + 1
+        if left_idx < 0 or right_idx >= n_cols:
+            continue
+        left_strong, right_strong = is_strong_col(left_idx), is_strong_col(right_idx)
+        cond = (left_strong and right_strong) if require_both_neighbors else (left_strong or right_strong)
+        if cond:
+            to_remove[j] = True
+
+    removed_indices = [i for i, rem in enumerate(to_remove) if rem]
+    removed_columns = [columns[i] for i in removed_indices]
+
+    if not removed_indices:
+        return aligned, columns, {"removed_indices": [], "removed_columns": []}
+
+    keep_mask = [not rem for rem in to_remove]
+    new_columns = [col for col, keep in zip(columns, keep_mask) if keep]
+    new_aligned = [[val for val, keep in zip(row, keep_mask) if keep] for row in aligned]
+
+    return new_aligned, new_columns, {
+        "removed_indices": removed_indices,
+        "removed_columns": removed_columns,
+    }
+
+
+aligned_clean, merged_columns_clean, info = remove_weak_columns(
+    filled,
+    regions,
+    merge_candidates=valid_pairs,
+    gap_value=None
+)
+
+plot_alignment(aligned_clean, merged_columns_clean, names=None)
 
 def clean_and_validate_matrix(aligned_matrix, valid_pairs=set()):
     """
