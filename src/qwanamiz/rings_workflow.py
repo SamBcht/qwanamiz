@@ -878,6 +878,73 @@ def check_sequence_order_per_line(aligned_sequences, y_positions, new_boundaries
 check_sequence_order_per_line(aligned, y_positions, new_boundaries)
 
 
+def get_x_positions_per_line(aligned_sequences, y_positions, new_boundaries, pix_to_um=1.0):
+    """
+    Compute x positions for each region per line from aligned sequences.
+    Automatically adds 75 µm offsets at top and bottom if needed.
+    
+    Parameters
+    ----------
+    aligned_sequences : list of list[int or None]
+        Aligned sequences of region IDs including upper/lower sequences if any.
+    y_positions : list[int]
+        Original y indices corresponding to the core lines (without upper/lower).
+    new_boundaries : np.ndarray
+        2D array with region labels (0 = background).
+    pix_to_um : float
+        Microns per pixel. Default=1.0.
+        
+    Returns
+    -------
+    x_positions_matrix : list[list[float or None]]
+        Same shape as aligned_sequences, x positions for each region in each line.
+    """
+    # --- detect if we have upper and lower sequences ---
+    n_rows = len(aligned_sequences)
+    n_y = len(y_positions)
+
+    # if we’re missing two y positions but have two extra sequences, add top and bottom automatically
+    if n_rows == n_y + 2:
+        height = new_boundaries.shape[0]
+        offset_px = int(round(75 / pix_to_um))
+        y_top = offset_px
+        y_bottom = height - offset_px
+        y_positions = [y_top] + y_positions + [y_bottom]
+
+    elif n_rows == n_y + 1:  # just one extra line
+        height = new_boundaries.shape[0]
+        offset_px = int(round(75 / pix_to_um))
+        # decide whether to add at top or bottom based on which one is missing
+        if y_positions[0] > offset_px:  # assume top missing
+            y_positions = [offset_px] + y_positions
+        else:  # assume bottom missing
+            y_positions = y_positions + [height - offset_px]
+
+    # --- now compute x positions ---
+    x_positions_matrix = []
+    for seq, y in zip(aligned_sequences, y_positions):
+        line_positions = []
+        for region in seq:
+            if region is None:
+                line_positions.append(None)
+                continue
+            xs = np.where(new_boundaries[y, :] == region)[0]
+            if len(xs) == 0:
+                line_positions.append(None)
+            else:
+                line_positions.append(xs.mean())  # mean x of this region along the line
+        x_positions_matrix.append(line_positions)
+
+    return x_positions_matrix
+
+x_positions_matrix = get_x_positions_per_line(
+    aligned,  # including upper and lower sequences
+    y_positions,        # only the original y_positions without borders
+    new_boundaries,
+    pix_to_um=pix_to_um
+)
+
+
 for row in aligned:
     print(row)
 
@@ -944,6 +1011,161 @@ def plot_alignment(aligned, region_order, names=None):
 
 
 plot_alignment(aligned, regions, names=None)
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
+def plot_alignment_with_xpos(aligned, x_positions_matrix, region_order, names=None):
+    """
+    Visualize alignment as a matrix with a unique color per region,
+    but display the x-position value inside each cell instead of the region ID.
+    
+    Parameters
+    ----------
+    aligned : list[list[int or None]]
+        Each sublist is a sequence of regions (None for gaps).
+    x_positions_matrix : list[list[float or None]]
+        Same shape as `aligned`, contains x positions of each region.
+    region_order : list[int]
+        List of all regions in the alignment (defines color mapping).
+    names : list[str], optional
+        Sequence names.
+    """
+    if names is None:
+        names = [f"Seq{i+1}" for i in range(len(aligned))]
+
+    n_seq = len(aligned)
+    n_cols = len(region_order)
+
+    # Map each region to an integer
+    region_to_int = {region: i+1 for i, region in enumerate(region_order)}
+
+    # Build integer matrix for colors
+    data = np.zeros((n_seq, n_cols), dtype=int)
+    for i, row in enumerate(aligned):
+        for j, region in enumerate(row):
+            if region is not None:
+                data[i, j] = region_to_int[region]
+
+    # Create a colormap: 0 (gaps) will be white, regions get unique colors
+    n_regions = len(region_order)
+    cmap_colors = plt.cm.gist_ncar(np.linspace(0, 1, n_regions))
+
+    rng = np.random.default_rng(4)
+    shuffled_indices = rng.permutation(n_regions)
+    shuffled_colors = cmap_colors[shuffled_indices]
+    cmap = ListedColormap(np.vstack(([1, 1, 1, 1], shuffled_colors)))  # 0 = white
+
+    fig, ax = plt.subplots(figsize=(n_cols * 0.5, n_seq * 0.5))
+    im = ax.imshow(data, cmap=cmap, aspect='auto')
+
+    # Add x-position text (rounded)
+    for i in range(n_seq):
+        for j in range(n_cols):
+            val = data[i, j]
+            xpos = x_positions_matrix[i][j] if i < len(x_positions_matrix) and j < len(x_positions_matrix[i]) else None
+            if val != 0 and xpos is not None:
+                ax.text(j, i, f"{xpos:.1f}", ha='center', va='center', fontsize=6, color='black')
+
+    ax.set_yticks(range(n_seq))
+    ax.set_yticklabels(names)
+    ax.set_xticks(range(n_cols))
+    ax.set_xticklabels(region_order, rotation=90)
+    ax.set_xlim(-0.5, n_cols - 0.5)
+    ax.set_ylim(n_seq - 0.5, -0.5)  # invert y-axis
+    plt.tight_layout()
+    plt.show()
+
+plot_alignment_with_xpos(aligned, x_positions_matrix, regions)
+
+
+def compute_gap_distances_matrix(x_positions_matrix):
+    """
+    Compute the horizontal distance from each cell to the next
+    non-None cell in the same line.
+
+    Parameters
+    ----------
+    x_positions_matrix : list of list[float or None]
+        x-coordinate of each region at each line/column.
+
+    Returns
+    -------
+    gap_matrix : list of list[float or None]
+        Same shape as input. Each cell contains:
+            distance to next non-None region on the right,
+            or None if no such region exists.
+    """
+    n_rows = len(x_positions_matrix)
+    n_cols = len(x_positions_matrix[0])
+
+    gap_matrix = []
+    for i in range(n_rows):
+        row_gaps = [None] * n_cols
+        x_row = x_positions_matrix[i]
+
+        for j in range(n_cols):
+            x_current = x_row[j]
+            if x_current is None:
+                continue
+            # find next non-None x to the right
+            for k in range(j+1, n_cols):
+                x_next = x_row[k]
+                if x_next is not None:
+                    row_gaps[j] = x_next - x_current
+                    break
+        gap_matrix.append(row_gaps)
+
+    return gap_matrix
+
+gap_matrix = compute_gap_distances_matrix(x_positions_matrix)
+
+plot_alignment_with_xpos(aligned, gap_matrix, regions)
+
+def compute_prev_gap_distances_matrix(x_positions_matrix):
+    """
+    Compute the horizontal distance from each cell to the previous
+    non-None cell in the same line (to the left).
+
+    Parameters
+    ----------
+    x_positions_matrix : list of list[float or None]
+        x-coordinate of each region at each line/column.
+
+    Returns
+    -------
+    prev_gap_matrix : list of list[float or None]
+        Same shape as input. Each cell contains:
+            distance to previous non-None region on the left,
+            or None if no such region exists.
+    """
+    n_rows = len(x_positions_matrix)
+    n_cols = len(x_positions_matrix[0])
+
+    prev_gap_matrix = []
+    for i in range(n_rows):
+        row_gaps = [None] * n_cols
+        x_row = x_positions_matrix[i]
+
+        for j in range(n_cols):
+            x_current = x_row[j]
+            if x_current is None:
+                continue
+            # find previous non-None x to the left
+            for k in range(j-1, -1, -1):  # go leftwards
+                x_prev = x_row[k]
+                if x_prev is not None:
+                    row_gaps[j] = x_current - x_prev
+                    break
+        prev_gap_matrix.append(row_gaps)
+
+    return prev_gap_matrix
+
+# usage
+prev_gap_matrix = compute_prev_gap_distances_matrix(x_positions_matrix)
+
+plot_alignment_with_xpos(aligned, prev_gap_matrix, regions)
 
 from collections import defaultdict, deque
 
@@ -1338,6 +1560,476 @@ print("Missing regions:", missing)
     check_sequence_order(upper_region_sequence, upper_x, name="Upper")
     check_sequence_order(lower_region_sequence, lower_x, name="Lower")
 
+
+
+
+
+import numpy as np
+from scipy.spatial.distance import cdist
+import networkx as nx
+
+def merge_columns(region_mat, x_mat, dist_next, dist_prev, 
+                  max_x_diff=50, max_dist_diff=5, min_coverage=0.3):
+    """
+    Merge columns in matrices that likely represent the same region.
+    """
+    n_rows, n_cols = region_mat.shape
+    # Filter columns with very low coverage first
+    coverage = np.sum(region_mat>0, axis=0) / n_rows
+    keep_cols = coverage >= min_coverage
+    region_mat = region_mat[:, keep_cols]
+    x_mat = x_mat[:, keep_cols]
+    dist_next = dist_next[:, keep_cols]
+    dist_prev = dist_prev[:, keep_cols]
+    n_cols = region_mat.shape[1]
+
+    # Build similarity graph
+    G = nx.Graph()
+    for i in range(n_cols):
+        G.add_node(i)
+
+    for i in range(n_cols):
+        for j in range(i+1, n_cols):
+            # overlapping rows
+            valid = (region_mat[:,i]>0) & (region_mat[:,j]>0)
+            if not np.any(valid):
+                # maybe complementary rows? still allow merge if x similar where overlaps exist
+                valid = (~np.isnan(x_mat[:,i])) & (~np.isnan(x_mat[:,j]))
+            if np.sum(valid)==0:
+                continue
+            dx = np.nanmean(np.abs(x_mat[valid,i]-x_mat[valid,j]))
+            ddn = np.nanmean(np.abs(dist_next[valid,i]-dist_next[valid,j]))
+            ddp = np.nanmean(np.abs(dist_prev[valid,i]-dist_prev[valid,j]))
+            if dx<max_x_diff and ddn<max_dist_diff and ddp<max_dist_diff:
+                G.add_edge(i,j)
+
+    # Connected components = merged columns
+    components = list(nx.connected_components(G))
+
+    # Build new merged matrices
+    new_cols = len(components)
+    merged_region = np.zeros((n_rows,new_cols),dtype=int)
+    merged_x = np.full((n_rows,new_cols),np.nan)
+    merged_dn = np.full((n_rows,new_cols),np.nan)
+    merged_dp = np.full((n_rows,new_cols),np.nan)
+
+    for k, comp in enumerate(components):
+        comp = list(comp)
+        for c in comp:
+            for r in range(n_rows):
+                if region_mat[r,c]>0:   # region present
+                    merged_region[r,k] = region_mat[r,c]
+                    merged_x[r,k] = x_mat[r,c]
+                    merged_dn[r,k] = dist_next[r,c]
+                    merged_dp[r,k] = dist_prev[r,c]
+
+    return merged_region, merged_x, merged_dn, merged_dp, components
+
+merged_region, merged_x, merged_dn, merged_dp, groups = merge_columns(
+    aligned, x_positions_matrix, gap_matrix, prev_gap_matrix,
+    max_x_diff=500, max_dist_diff=500, min_coverage=0.3)
+
+print("Number of merged columns:", merged_region.shape[1])
+print("Groups of merged original columns:", groups)
+
+
+
+import numpy as np
+import pandas as pd
+from scipy.interpolate import splrep, splev
+
+def fit_curves_for_regions(cells, region_to_cells, smoothing=0.0):
+    """
+    Fit a smooth curve (x as function of y) for each region using cell centroids.
+    
+    Parameters
+    ----------
+    cells : pd.DataFrame
+        Must contain 'label', 'centroid-0' (y) and 'centroid-1' (x).
+    region_to_cells : dict
+        Mapping region_id -> list of cell labels in that region.
+    smoothing : float
+        Smoothing factor for spline fitting (passed to splrep).
+        
+    Returns
+    -------
+    dict
+        region_id -> dict with:
+            'points': original (x,y) points sorted by y,
+            'spline': (tck) tuple returned by splrep,
+            'y_range': (y_min, y_max) of the region.
+    """
+    curves = {}
+
+    for region, labels in region_to_cells.items():
+        region_cells = cells[cells['label'].isin(labels)]
+        if region_cells.empty:
+            continue
+        
+        # Extract coordinates (y,x)
+        y = region_cells['centroid-0'].values
+        x = region_cells['centroid-1'].values
+        
+        # Sort by y for consistent fitting
+        sort_idx = np.argsort(y)
+        y_sorted = y[sort_idx]
+        x_sorted = x[sort_idx]
+        
+        # Need at least 4 points for splrep (cubic spline)
+        if len(y_sorted) < 4:
+            # fallback: just store points without spline
+            curves[region] = {
+                'points': np.column_stack((x_sorted, y_sorted)),
+                'spline': None,
+                'y_range': (y_sorted.min(), y_sorted.max())
+            }
+            continue
+        
+        # Fit a spline x(y)
+        tck = splrep(y_sorted, x_sorted, s=smoothing)
+        
+        curves[region] = {
+            'points': np.column_stack((x_sorted, y_sorted)),
+            'spline': tck,
+            'y_range': (y_sorted.min(), y_sorted.max())
+        }
+
+    return curves
+
+curves = fit_curves_for_regions(celldata, region_to_cells, smoothing=2.0)
+
+from napari.utils import colormaps
+
+from numpy.polynomial import Polynomial
+
+
+
+all_curves = []  # store coordinates for all curves
+all_names = []   # optional, store names per curve
+
+for region, cell_ids in region_to_cells.items():
+    region_cells = celldata[celldata['label'].isin(cell_ids)]
+    y = region_cells['centroid-0'].to_numpy()
+    x = region_cells['centroid-1'].to_numpy()
+
+    if len(x) < 3:
+        continue  # skip tiny regions
+
+    # Fit a low-degree polynomial: x = f(y)
+    degree = 2
+    coeffs = np.polyfit(y, x, deg=degree)
+    poly = np.poly1d(coeffs)
+
+    # Predict x positions along the y-range
+    y_vals = np.linspace(y.min(), y.max(), 200)
+    x_vals = poly(y_vals)
+
+    coords = np.column_stack((y_vals, x_vals))
+    all_curves.append(coords)
+    all_names.append(region)
+
+# Add all curves at once as one Shapes layer
+viewer.add_shapes(all_curves, shape_type='path',
+                  edge_color='yellow', edge_width=2,
+                  name='all_region_curves')
+
+endpoints = {}
+
+for region, cell_ids in region_to_cells.items():
+    region_cells = celldata[celldata['label'].isin(cell_ids)]
+    y = region_cells['centroid-0'].to_numpy()
+    x = region_cells['centroid-1'].to_numpy()
+
+    if len(x) < 3:
+        continue
+
+    # Fit polynomial
+    degree = 2
+    coeffs = np.polyfit(y, x, degree)
+    poly = np.poly1d(coeffs)
+    y_vals = np.linspace(y.min(), y.max(), 200)
+    x_vals = poly(y_vals)
+
+    # Tangent: derivative of polynomial
+    deriv = np.polyder(poly)
+    
+    # Store top and bottom endpoints with tangent
+    endpoints[region] = {
+        'top': (y_vals[0], x_vals[0], deriv(y_vals[0])),
+        'bottom': (y_vals[-1], x_vals[-1], deriv(y_vals[-1])),
+        'poly': poly
+    }
+
+def find_best_match(endpoint, candidates, max_dist=250, angle_thresh=1):
+    """
+    Find the best candidate to connect to `endpoint`.
+    - endpoint: (y, x, tangent)
+    - candidates: list of (y, x, tangent, region)
+    - max_dist: maximum allowed Euclidean distance
+    - angle_thresh: maximum allowed difference in tangent slope
+    """
+    y0, x0, slope0 = endpoint
+    best_score = -np.inf
+    best_candidate = None
+    
+    for y1, x1, slope1, region in candidates:
+        dist = np.hypot(x1-x0, y1-y0)
+        if dist > max_dist:
+            continue
+        angle_diff = abs(slope1 - slope0)
+        if angle_diff > angle_thresh:
+            continue
+        score = -dist - angle_diff*50  # simple scoring function
+        if score > best_score:
+            best_score = score
+            best_candidate = region
+            
+    return best_candidate
+
+connections = {}  # region -> next region
+for region, data in endpoints.items():
+    bottom_endpoint = (data['bottom'][0], data['bottom'][1], data['bottom'][2])
+    
+    # Build candidate list: top endpoints of all other regions
+    candidates = [(v['top'][0], v['top'][1], v['top'][2], r) 
+                  for r, v in endpoints.items() if r != region]
+    
+    next_region = find_best_match(bottom_endpoint, candidates)
+    if next_region is not None:
+        connections[region] = next_region
+
+connections_top = {}  # region -> next region
+for region, data in endpoints.items():
+    top_endpoint = (data['top'][0], data['top'][1], data['top'][2])
+    
+    # Build candidate list: top endpoints of all other regions
+    candidates = [(v['bottom'][0], v['bottom'][1], v['bottom'][2], r) 
+                  for r, v in endpoints.items() if r != region]
+    
+    next_region = find_best_match(top_endpoint, candidates)
+    if next_region is not None:
+        connections_top[region] = next_region
+
+print(connections)
+print(connections_top)
+
+
+
+def make_cone(y0, x0, slope, length=200, half_angle_deg=15, n_points=30, flip=False):
+    """
+    Build a cone polygon from an endpoint along a slope.
+
+    Parameters
+    ----------
+    y0, x0 : float
+        Endpoint coordinates
+    slope : float
+        Derivative dx/dy at endpoint (from polyder)
+    length : float
+        How far to extend the cone
+    half_angle_deg : float
+        Half angle of the cone (in degrees)
+    n_points : int
+        Points along the cone arc
+    flip : bool
+        If True, flip direction (useful for top vs bottom)
+    """
+    # Build direction vector in (dy, dx)
+    dy = 1.0
+    dx = slope * dy
+    direction = np.array([dy, dx])
+    direction = direction / np.linalg.norm(direction)
+
+    if flip:
+        direction = -direction  # flip for top endpoints
+
+    # Direction angle in image coords
+    base_angle = np.arctan2(direction[0], direction[1])  # atan2(dy, dx)
+
+    # Two edge angles of the cone
+    half_angle = np.deg2rad(half_angle_deg)
+    angles = np.linspace(base_angle - half_angle, base_angle + half_angle, n_points)
+
+    # Build cone tip to arc
+    tip = np.array([y0, x0])
+    arc = np.column_stack([
+        y0 + length * np.sin(angles),
+        x0 + length * np.cos(angles)
+    ])
+
+    # Polygon: tip + arc + back to tip
+    cone = np.vstack([tip, arc, tip])
+    return cone
+
+# Example usage:
+# Build cones for all endpoints and add to napari as one shapes layer:
+cones = []
+for region, data in endpoints.items():
+    yb, xb, slopeb = data['bottom']
+    yt, xt, slopet = data['top']
+
+    # Bottom endpoint (looking downward in image)
+    cone_b = make_cone(yb, xb, slopeb, length=250, half_angle_deg=15, flip=False)
+    cones.append(cone_b)
+
+    # Top endpoint (looking upward in image)
+    cone_t = make_cone(yt, xt, slopet, length=250, half_angle_deg=15, flip=True)
+    cones.append(cone_t)
+
+# In napari:
+viewer.add_shapes(cones, shape_type='polygon', face_color='red', opacity=0.2, name='search_cones')
+
+
+def point_in_polygon(x, y, polygon):
+    """
+    Ray casting algorithm to test if (x,y) lies inside polygon (array Nx2).
+    """
+    poly = polygon
+    inside = False
+    n = len(poly)
+    px, py = poly[:,1], poly[:,0]  # polygon coords
+    j = n - 1
+    for i in range(n):
+        xi, yi = px[i], py[i]
+        xj, yj = px[j], py[j]
+        if ((yi > y) != (yj > y)) and \
+           (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+def find_best_match_with_cones(endpoint, candidates, length=250, half_angle_deg=15, flip=False):
+    """
+    Return list of candidate regions whose endpoint lies inside the cone
+    of the current endpoint.
+
+    endpoint: (y,x,slope)
+    candidates: list of (y,x,slope,region)
+    """
+    y0, x0, slope0 = endpoint
+    # Build cone polygon
+    cone = make_cone(y0, x0, slope0, length=length, half_angle_deg=half_angle_deg, flip=flip)
+
+    in_cone = []
+    for y1, x1, slope1, region in candidates:
+        if point_in_polygon(x1, y1, cone):
+            in_cone.append(region)
+    return in_cone
+
+connections = {}  # region -> next region
+
+# 1) bottom cones of each region
+for region, data in endpoints.items():
+    bottom_endpoint = (data['bottom'][0], data['bottom'][1], data['bottom'][2])
+    # top endpoints of others
+    candidates = [(v['top'][0], v['top'][1], v['top'][2], r)
+                  for r, v in endpoints.items() if r != region]
+
+    # Who falls inside region's bottom cone?
+    inside_bottom_cone = find_best_match_with_cones(
+        bottom_endpoint, candidates, length=250, half_angle_deg=15, flip=False
+    )
+
+    for candidate_region in inside_bottom_cone:
+        # Mutual check: candidate’s top cone includes our bottom point?
+        cand_data = endpoints[candidate_region]
+        top_endpoint_cand = (cand_data['top'][0], cand_data['top'][1], cand_data['top'][2])
+        # our bottom point in candidate’s top cone?
+        inside_candidate_top = find_best_match_with_cones(
+            top_endpoint_cand,
+            [(data['bottom'][0], data['bottom'][1], data['bottom'][2], region)],
+            length=250, half_angle_deg=15, flip=True
+        )
+        if region in inside_candidate_top:
+            # Mutual match confirmed
+            connections[region] = candidate_region
+
+print(connections)
+
+
+# --- main ---
+def find_matches_by_polynomial(region_to_cells, celldata,
+                               degrees=(1,2,3,4),
+                               length=250,
+                               half_angle_deg=15):
+    """
+    For each polynomial degree, compute endpoints, cones, and mutual matches.
+    Returns:
+      results[degree] = {
+         'endpoints': dict(region -> endpoints),
+         'mutual_matches': dict(region -> region),
+         'one_sided_matches': dict(region -> region)
+      }
+    """
+    results = {}
+
+    for degree in degrees:
+        # 1. Fit polynomials
+        endpoints = {}
+        for region, cell_ids in region_to_cells.items():
+            region_cells = celldata[celldata['label'].isin(cell_ids)]
+            y = region_cells['centroid-0'].to_numpy()
+            x = region_cells['centroid-1'].to_numpy()
+            if len(x) < degree + 1:
+                continue
+            coeffs = np.polyfit(y, x, degree)
+            poly = np.poly1d(coeffs)
+            y_vals = np.linspace(y.min(), y.max(), 200)
+            x_vals = poly(y_vals)
+            deriv = np.polyder(poly)
+            endpoints[region] = {
+                'top': (y_vals[0], x_vals[0], deriv(y_vals[0])),
+                'bottom': (y_vals[-1], x_vals[-1], deriv(y_vals[-1])),
+                'poly': poly
+            }
+
+        # 2. Cones and matches
+        mutual_matches = {}
+        one_sided_matches = {}
+
+        for region, data in endpoints.items():
+            # bottom cone of current region
+            yb, xb, slopeb = data['bottom']
+            bottom_cone = make_cone(yb, xb, slopeb, length, half_angle_deg, flip=False)
+
+            # all other regions top endpoints
+            for other_region, other_data in endpoints.items():
+                if other_region == region:
+                    continue
+                yt, xt, slopet = other_data['top']
+                # Check if other region’s top endpoint in current bottom cone
+                in_my_bottom = point_in_polygon(xt, yt, bottom_cone)
+                if not in_my_bottom:
+                    continue
+
+                # Candidate’s top cone
+                top_cone_other = make_cone(yt, xt, slopet, length, half_angle_deg, flip=True)
+                # Check if our bottom endpoint in their top cone
+                in_their_top = point_in_polygon(xb, yb, top_cone_other)
+
+                if in_my_bottom and in_their_top:
+                    # Mutual match
+                    mutual_matches[region] = other_region
+                elif in_my_bottom:
+                    # Only one sided (region → other_region)
+                    one_sided_matches[region] = other_region
+
+        results[degree] = {
+            'endpoints': endpoints,
+            'mutual_matches': mutual_matches,
+            'one_sided_matches': one_sided_matches
+        }
+
+    return results
+
+match_results = find_matches_by_polynomial(region_to_cells, celldata,
+                                           degrees=(1,2,3,4),
+                                           length=250,
+                                           half_angle_deg=15)
+
+# Access mutual matches for degree 3:
+print(match_results[4]['mutual_matches'])
+print(match_results[4]['one_sided_matches'])
 ##### RENDU LA !!!!! #####
 
 ### regions top-down should accurately define a valid tree-ring boundary
