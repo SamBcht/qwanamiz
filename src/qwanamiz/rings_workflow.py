@@ -309,7 +309,7 @@ updated_boundaries = rings_functions.integrate_commons(upward_neighbors,
                                        rightcells_boundary, 
                                        expanded_labels)
 
-viewer.add_labels(updated_boundaries, name="Updated Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(updated_boundaries, name="Updated Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # We then integrate up and down pairs and also merge regions accordingly
 # An update of the cell_to_region mapping is done internally
@@ -319,7 +319,7 @@ final_boundaries = rings_functions.integrate_updown(upward_neighbors,
                                        updated_boundaries, 
                                        expanded_labels)
 
-viewer.add_labels(final_boundaries, name="Final Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(final_boundaries, name="Final Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # We update the mapping of cells to their boundary region
 cell_to_region, region_to_cells = rings_functions.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
@@ -1167,6 +1167,280 @@ prev_gap_matrix = compute_prev_gap_distances_matrix(x_positions_matrix)
 
 plot_alignment_with_xpos(aligned, prev_gap_matrix, regions)
 
+
+
+def reorder_columns_by_x(region_matrix, x_matrix):
+    """
+    Reorder the columns of region_matrix and x_matrix
+    by the mean x position across rows.
+
+    Parameters
+    ----------
+    region_matrix : list of list[int or None]
+        Region IDs per row/column.
+    x_matrix : list of list[float or None]
+        x positions corresponding to each region ID.
+
+    Returns
+    -------
+    region_matrix_sorted : list of list[int or None]
+        Columns reordered by x position.
+    x_matrix_sorted : list of list[float or None]
+        Columns reordered by x position.
+    """
+    n_rows = len(region_matrix)
+    n_cols = len(region_matrix[0])
+
+    # Convert to np.array for convenience
+    x_arr = np.array(x_matrix, dtype=float)
+    region_arr = np.array(region_matrix, dtype=object)
+
+    # Compute mean x per column ignoring None/nan
+    mean_x_per_col = []
+    for j in range(n_cols):
+        col_vals = [x_matrix[i][j] for i in range(n_rows) if x_matrix[i][j] is not None]
+        mean_x = np.nan if len(col_vals) == 0 else np.mean(col_vals)
+        mean_x_per_col.append(mean_x)
+
+    # Replace nans with large number to push them to the end
+    mean_x_clean = [val if not np.isnan(val) else np.inf for val in mean_x_per_col]
+
+    # Get sort order
+    sort_indices = np.argsort(mean_x_clean)
+
+    # Reorder both matrices
+    region_matrix_sorted = [[row[j] for j in sort_indices] for row in region_matrix]
+    x_matrix_sorted = [[row[j] for j in sort_indices] for row in x_matrix]
+
+    return region_matrix_sorted, x_matrix_sorted
+
+region_matrix_sorted, x_matrix_sorted = reorder_columns_by_x(aligned, x_positions_matrix)
+
+plot_alignment_with_xpos(region_matrix_sorted, x_matrix_sorted, regions)
+
+gap_matrix = compute_gap_distances_matrix(x_matrix_sorted)
+
+plot_alignment_with_xpos(region_matrix_sorted, gap_matrix, regions)
+
+prev_gap_matrix = compute_prev_gap_distances_matrix(x_matrix_sorted)
+
+plot_alignment_with_xpos(region_matrix_sorted, prev_gap_matrix, regions)
+
+import numpy as np
+
+import numpy as np
+
+def find_merge_by_x(region_matrix, x_matrix, x_threshold=10):
+    """
+    Find pairs of regions (by their IDs) where the bottom x of the upper region
+    is within ±x_threshold of the top x of the lower region.
+
+    Parameters
+    ----------
+    region_matrix : list of list[int or None]
+        Matrix of region IDs.
+    x_matrix : list of list[float or None]
+        Matrix of x positions corresponding to region IDs.
+    x_threshold : float
+        Fixed allowed difference in x between bottom of upper region and top of lower region.
+
+    Returns
+    -------
+    merge_candidates : list of tuple(int, int)
+        List of region ID pairs that can be merged.
+    """
+    n_rows = len(region_matrix)
+    n_cols = len(region_matrix[0])
+    x_arr = np.array(x_matrix, dtype=object)
+    reg_arr = np.array(region_matrix, dtype=object)
+    merge_candidates = []
+
+    for j in range(n_cols - 1):
+        # Skip columns that overlap vertically
+        overlap = any(reg_arr[i, j] is not None and reg_arr[i, j+1] is not None
+                      for i in range(n_rows))
+        if overlap:
+            continue
+
+        # Rows with values in each column
+        rows1 = [i for i in range(n_rows) if x_arr[i, j] is not None]
+        rows2 = [i for i in range(n_rows) if x_arr[i, j+1] is not None]
+        if not rows1 or not rows2:
+            continue
+
+        top1, bottom1 = rows1[0], rows1[-1]
+        top2, bottom2 = rows2[0], rows2[-1]
+
+        # Determine which column is above
+        if top1 < top2:  # col j above col j+1
+            x_bottom_upper = x_arr[bottom1, j]
+            x_top_lower = x_arr[top2, j+1]
+            region_upper = reg_arr[top1, j]
+            region_lower = reg_arr[top2, j+1]
+        else:  # col j+1 above col j
+            x_bottom_upper = x_arr[bottom2, j+1]
+            x_top_lower = x_arr[top1, j]
+            region_upper = reg_arr[top2, j+1]
+            region_lower = reg_arr[top1, j]
+
+        if x_bottom_upper is None or x_top_lower is None:
+            continue
+
+        # Check if bottom x is inside top x ± threshold
+        if abs(x_bottom_upper - x_top_lower) <= x_threshold:
+            merge_candidates.append((region_upper, region_lower))
+
+    return merge_candidates
+
+
+def find_mergeable_columns_auto(region_matrix, x_matrix, gap_next_matrix, gap_prev_matrix,
+                                gap_ratio_thresh=0.5, thresh_factor=0.5,
+                                use_median=True, max_x_thresh=200):
+    n_rows = len(region_matrix)
+    n_cols = len(region_matrix[0])
+
+    x_arr = np.array(x_matrix, dtype=object)
+    gap_next_arr = np.array(gap_next_matrix, dtype=object)
+    gap_prev_arr = np.array(gap_prev_matrix, dtype=object)
+
+    merge_candidates = []
+
+    for j in range(n_cols-1):
+        # Check no overlap per row
+        overlap = any(region_matrix[i][j] is not None and region_matrix[i][j+1] is not None
+                      for i in range(n_rows))
+        if overlap:
+            continue
+
+        # Find rows with values in each column
+        rows1 = [i for i in range(n_rows) if x_arr[i,j] is not None]
+        rows2 = [i for i in range(n_rows) if x_arr[i,j+1] is not None]
+        if not rows1 or not rows2:
+            continue
+
+        top1, bottom1 = rows1[0], rows1[-1]
+        top2, bottom2 = rows2[0], rows2[-1]
+        x_top1, x_bottom1 = x_arr[top1,j], x_arr[bottom1,j]
+        x_top2, x_bottom2 = x_arr[top2,j+1], x_arr[bottom2,j+1]
+
+        # gather all gaps
+        gaps_next1 = [gap_next_arr[i,j] for i in rows1 if gap_next_arr[i,j] is not None]
+        gaps_next2 = [gap_next_arr[i,j+1] for i in rows2 if gap_next_arr[i,j+1] is not None]
+        gaps_prev1 = [gap_prev_arr[i,j] for i in rows1 if gap_prev_arr[i,j] is not None]
+        gaps_prev2 = [gap_prev_arr[i,j+1] for i in rows2 if gap_prev_arr[i,j+1] is not None]
+        if not gaps_next1 or not gaps_next2 or not gaps_prev1 or not gaps_prev2:
+            continue
+
+        # define x threshold from min of all gaps
+        min_all_gaps = min(min(gaps_next1), min(gaps_next2),
+                           min(gaps_prev1), min(gaps_prev2))
+        x_thresh = thresh_factor * min_all_gaps
+        if x_thresh > max_x_thresh:
+            x_thresh = max_x_thresh
+
+        # ✅ Compare bottom of upper region to top of lower region
+        if top1 < top2:
+            x_upper_bottom = x_bottom2
+            x_lower_top = x_top1
+        else:
+            x_upper_bottom = x_bottom1
+            x_lower_top = x_top2
+
+        x_distance = abs(x_upper_bottom - x_lower_top) if (
+            x_upper_bottom is not None and x_lower_top is not None) else np.inf
+
+        if x_distance > x_thresh:
+            continue
+
+        # Compare distance to next and prev symmetrically
+        if use_median:
+            g_next1 = np.median(gaps_next1)
+            g_next2 = np.median(gaps_next2)
+            g_prev1 = np.median(gaps_prev1)
+            g_prev2 = np.median(gaps_prev2)
+        else:
+            g_next1 = np.min(gaps_next1)
+            g_next2 = np.min(gaps_next2)
+            g_prev1 = np.min(gaps_prev1)
+            g_prev2 = np.min(gaps_prev2)
+
+        ratio_next = abs(g_next1 - g_next2) / max(g_next1, g_next2)
+        ratio_prev = abs(g_prev1 - g_prev2) / max(g_prev1, g_prev2)
+
+        if ratio_next > gap_ratio_thresh or ratio_prev > gap_ratio_thresh:
+            continue
+
+        merge_candidates.append((j, j+1))
+
+    return merge_candidates
+
+
+merge_candidates = find_mergeable_columns_auto(
+    region_matrix_sorted,
+    x_matrix_sorted,
+    gap_matrix,
+    prev_gap_matrix,
+    gap_ratio_thresh=0.5,
+    thresh_factor=0.5,
+    use_median=True
+)
+print("Merge candidates:", merge_candidates)
+
+def compact_nonoverlapping_columns(region_matrix):
+    """
+    Compact columns by merging non-overlapping columns into the leftmost possible
+    without changing row order.
+
+    Parameters
+    ----------
+    region_matrix : list of list
+        Matrix of region IDs or None (rows x cols).
+
+    Returns
+    -------
+    merged_matrix : list of list
+        Same shape but with fewer columns where possible.
+    """
+    import copy
+    matrix = copy.deepcopy(region_matrix)
+    n_rows = len(matrix)
+    n_cols = len(matrix[0])
+
+    # Work with columns
+    cols = [[matrix[r][c] for r in range(n_rows)] for c in range(n_cols)]
+    used = [False] * n_cols
+    merged_cols = []
+
+    for i in range(n_cols):
+        if used[i]:
+            continue
+        col_i = cols[i][:]  # copy
+        for j in range(i + 1, n_cols):
+            if used[j]:
+                continue
+            col_j = cols[j]
+
+            # Check overlap row by row
+            overlap = any(a is not None and b is not None for a, b in zip(col_i, col_j))
+            if not overlap:
+                # Fill col_i’s None positions with col_j values row by row
+                for r in range(n_rows):
+                    if col_i[r] is None and col_j[r] is not None:
+                        col_i[r] = col_j[r]
+                used[j] = True
+        merged_cols.append(col_i)
+        used[i] = True
+
+    # Convert back to rows × cols
+    merged_matrix = [[merged_cols[c][r] for c in range(len(merged_cols))]
+                     for r in range(n_rows)]
+    return merged_matrix
+
+
+merged = compact_nonoverlapping_columns(region_matrix_sorted)
+
+plot_alignment(merged, regions, names=None)
+
 from collections import defaultdict, deque
 
 def align_region_sequences_with_merges(sequences, valid_pairs=None, gap_value=None, upper_seq=None, lower_seq=None):
@@ -1411,6 +1685,35 @@ def remove_weak_columns(
         "removed_columns": removed_columns,
     }
 
+def remove_singleton_columns(region_matrix):
+    """
+    Remove columns that contain only one non-None value.
+
+    Parameters
+    ----------
+    region_matrix : list of list
+        Matrix of region IDs or None (rows x cols).
+
+    Returns
+    -------
+    cleaned_matrix : list of list
+        Same number of rows, fewer columns.
+    """
+    n_rows = len(region_matrix)
+    n_cols = len(region_matrix[0])
+    
+    # Identify columns to keep
+    keep_cols = []
+    for c in range(n_cols):
+        col = [region_matrix[r][c] for r in range(n_rows)]
+        non_none_count = sum(1 for val in col if val is not None)
+        if non_none_count > 1:
+            keep_cols.append(c)
+    
+    # Build cleaned matrix
+    cleaned_matrix = [[region_matrix[r][c] for c in keep_cols] for r in range(n_rows)]
+    return cleaned_matrix
+
 
 aligned_clean, merged_columns_clean, info = remove_weak_columns(
     filled,
@@ -1420,6 +1723,220 @@ aligned_clean, merged_columns_clean, info = remove_weak_columns(
 )
 
 plot_alignment(aligned_clean, merged_columns_clean, names=None)
+
+from collections import Counter
+
+def normalize_pair(pair):
+    """Return the pair as an ordered tuple (smaller first)."""
+    a, b = pair
+    return (min(a, b), max(a, b))
+
+from collections import Counter
+
+def find_reliable_pairs(list1, list2, match_results, min_count=2):
+    """
+    Combine pairs from two lists and match_results dict, 
+    return pairs that appear at least min_count times.
+
+    Parameters
+    ----------
+    list1, list2 : list of (regionA, regionB)
+        Candidate region pairs from two sources.
+    match_results : dict
+        Dictionary with keys (1..4) for polynomial degrees, 
+        each containing 'mutual_matches' and 'one_sided_matches'.
+    min_count : int
+        Minimum number of sources where a pair must appear.
+
+    Returns
+    -------
+    reliable_pairs : list of tuple
+        Pairs appearing at least min_count times.
+    mutual_pairs : list of tuple
+        All mutual pairs extracted from match_results.
+    one_sided_pairs : list of tuple
+        All one-sided pairs extracted from match_results.
+    """
+
+    # ---- 1) extract mutual & one-sided pairs from match_results ----
+    mutual_pairs = []
+    one_sided_pairs = []
+
+    for deg, matches in match_results.items():
+        if 'mutual_matches' in matches:
+            for r1, r2 in matches['mutual_matches'].items():
+                r1 = int(r1) if isinstance(r1, (np.integer,)) else r1
+                r2 = int(r2) if isinstance(r2, (np.integer,)) else r2
+                mutual_pairs.append(tuple(sorted((r1, r2))))
+
+        if 'one_sided_matches' in matches:
+            for r1, r2 in matches['one_sided_matches'].items():
+                r1 = int(r1) if isinstance(r1, (np.integer,)) else r1
+                r2 = int(r2) if isinstance(r2, (np.integer,)) else r2
+                one_sided_pairs.append(tuple(sorted((r1, r2))))
+
+    # deduplicate inside each category
+    mutual_pairs = list(set(mutual_pairs))
+    one_sided_pairs = list(set(one_sided_pairs))
+
+    # ---- 2) normalize list1 and list2 as well ----
+    list1_clean = [tuple(sorted((int(a), int(b)))) for a,b in list1]
+    list2_clean = [tuple(sorted((int(a), int(b)))) for a,b in list2]
+
+    # ---- 3) count how many times each pair appears across all sources ----
+    all_pairs = list1_clean + list2_clean + mutual_pairs + one_sided_pairs
+    counts = Counter(all_pairs)
+
+    reliable_pairs = [p for p, c in counts.items() if c >= min_count]
+
+    return reliable_pairs, mutual_pairs, one_sided_pairs
+
+
+
+def merge_region_columns(region_matrix, reliable_pairs):
+    """
+    Merge columns for reliable pairs and fill None values.
+
+    Parameters
+    ----------
+    region_matrix : 2D array-like
+        Matrix of region IDs or None values.
+    reliable_pairs : list of tuple
+        Pairs of region IDs to merge.
+
+    Returns
+    -------
+    merged_matrix : np.ndarray
+        Updated matrix with merged columns.
+    """
+
+    # convert to numpy array if needed
+    region_matrix = np.array(region_matrix, dtype=object)
+
+    # Get all unique region IDs present
+    all_regions = np.unique(region_matrix[region_matrix != None])
+
+    # Build a mapping from region_id to column indices
+    region_to_cols = {}
+    for j in range(region_matrix.shape[1]):
+        col_vals = region_matrix[:, j]
+        non_none = col_vals[col_vals != None]
+        if len(non_none) > 0:
+            region_id = non_none[0]  # assume first non-None is the region id
+            region_to_cols.setdefault(region_id, []).append(j)
+
+    merged = region_matrix.copy()
+
+    for r1, r2 in reliable_pairs:
+        # find the columns corresponding to r1 and r2
+        cols_r1 = region_to_cols.get(r1, [])
+        cols_r2 = region_to_cols.get(r2, [])
+        if not cols_r1 or not cols_r2:
+            continue  # skip if either region not found
+
+        # take the first column of r1 and r2 (most common)
+        c1 = cols_r1[0]
+        c2 = cols_r2[0]
+
+        # for each row: if c1 is None but c2 not None, copy c2; vice versa
+        for i in range(merged.shape[0]):
+            v1 = merged[i, c1]
+            v2 = merged[i, c2]
+            if v1 is None and v2 is not None:
+                merged[i, c1] = v2
+            elif v2 is None and v1 is not None:
+                merged[i, c2] = v1
+
+        merged[:, c1] = np.where(merged[:, c1] == None, merged[:, c2], merged[:, c1])
+        merged[:, c2] = None
+
+    # Remove completely empty columns
+    non_empty_cols = [j for j in range(merged.shape[1]) if any(merged[:, j] != None)]
+    merged_compact = merged[:, non_empty_cols]
+
+
+    return merged_compact
+
+import numpy as np
+from collections import defaultdict
+
+def merge_region_chains(region_matrix, reliable_pairs):
+    """
+    Merge columns based on reliable pairs, including chains of regions.
+    Fill None values and remove completely empty columns.
+
+    Parameters
+    ----------
+    region_matrix : 2D array-like
+        Matrix of region IDs or None values.
+    reliable_pairs : list of tuple
+        Pairs of region IDs to merge.
+
+    Returns
+    -------
+    merged_matrix : np.ndarray
+        Updated matrix with merged chains and empty columns removed.
+    """
+
+    # Step 1: Build connected components of regions
+    parent = {}
+
+    def find(x):
+        # Union-find with path compression
+        parent.setdefault(x, x)
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+
+    def union(x, y):
+        px, py = find(x), find(y)
+        if px != py:
+            parent[py] = px
+
+    for r1, r2 in reliable_pairs:
+        union(r1, r2)
+
+    # Map each region to its component
+    components = defaultdict(list)
+    for r in parent:
+        components[find(r)].append(r)
+
+    # Step 2: Convert to numpy array for easy manipulation
+    merged = np.array(region_matrix, dtype=object)
+
+    # Step 3: For each component, merge all columns
+    region_to_cols = {}
+    n_rows, n_cols = merged.shape
+    for j in range(n_cols):
+        col_vals = merged[:, j]
+        non_none = col_vals[col_vals != None]
+        if len(non_none) > 0:
+            region_id = non_none[0]
+            region_to_cols.setdefault(region_id, []).append(j)
+
+    for comp_regions in components.values():
+        # Find all columns involved
+        cols = []
+        for r in comp_regions:
+            cols.extend(region_to_cols.get(r, []))
+        if not cols:
+            continue
+        cols = sorted(cols)
+        main_col = cols[0]
+
+        # Merge all other columns into main_col
+        for c in cols[1:]:
+            for i in range(n_rows):
+                if merged[i, main_col] is None and merged[i, c] is not None:
+                    merged[i, main_col] = merged[i, c]
+            merged[:, c] = None  # blank merged columns
+
+    # Step 4: Remove completely empty columns
+    non_empty_cols = [j for j in range(n_cols) if any(merged[:, j] != None)]
+    merged_compact = merged[:, non_empty_cols]
+
+    return merged_compact
+
 
 def clean_and_validate_matrix(aligned_matrix, valid_pairs=set()):
     """
@@ -2027,9 +2544,14 @@ match_results = find_matches_by_polynomial(region_to_cells, celldata,
                                            length=250,
                                            half_angle_deg=15)
 
-# Access mutual matches for degree 3:
-print(match_results[4]['mutual_matches'])
-print(match_results[4]['one_sided_matches'])
+for degree in range(1, 5):
+    print(f"Degree {degree} mutual matches:")
+    print(match_results[degree]['mutual_matches'])
+    print(f"Degree {degree} one-sided matches:")
+    print(match_results[degree]['one_sided_matches'])
+    print("-" * 40)
+
+
 ##### RENDU LA !!!!! #####
 
 ### regions top-down should accurately define a valid tree-ring boundary
