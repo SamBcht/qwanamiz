@@ -480,6 +480,10 @@ nearest_extremity = rings_functions.get_nearest_extremity(rightcells_df, cell_to
 # - up and down extremities are in the same radial files
 # - there are several up and down extremities in a small zone, this could introduce errors
 
+pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
+
+nearest_extremity = valid
+
 lines = []
 for up_label, down_label in nearest_extremity:
     up_coords = rightcells_df[rightcells_df["label"] == up_label][["centroid-0", "centroid-1"]].values[0]
@@ -499,11 +503,71 @@ new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_l
 
 viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
+
+
+###############################################################################
+#### SECOND SEARCH OF NEAREST EXTREMITY
+# This step does the same as before but without regions containing few cells and with new regions merged
 # Find the extrmities of the new ring segments
 up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
 
+upward_points = []
+downward_points = []
+
+# Extract centroid coordinates from celldata
+for region, up_label in up_extremities.items():
+    up_cell = celldata[celldata["label"] == up_label]
+    if not up_cell.empty:
+        upward_points.append((up_cell["centroid-0"].values[0], up_cell["centroid-1"].values[0]))
+
+for region, down_label in down_extremities.items():
+    down_cell = celldata[celldata["label"] == down_label]
+    if not down_cell.empty:
+        downward_points.append((down_cell["centroid-0"].values[0], down_cell["centroid-1"].values[0]))
+
+# Convert to numpy arrays for Napari
+upward_points = np.array(upward_points)
+downward_points = np.array(downward_points)
+
+# Add the points to Napari
+if len(upward_points) > 0:
+    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
+
+if len(downward_points) > 0:
+    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
+
+
+incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_to_region)
+
+nearest_extremity = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+
+pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
+
+nearest_extremity = valid
+
+lines = []
+for up_label, down_label in nearest_extremity:
+    up_coords = rightcells_df[rightcells_df["label"] == up_label][["centroid-0", "centroid-1"]].values[0]
+    down_coords = rightcells_df[rightcells_df["label"] == down_label][["centroid-0", "centroid-1"]].values[0]
+    lines.append([up_coords, down_coords])
+
+viewer.add_shapes(lines, shape_type='line', edge_color='chartreuse', name='Mutual Nearest Pairs', edge_width=3)
+
+new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, new_boundaries, expanded_labels)
+
+
+cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+
+# At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+
+viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+
+
 ###############################################################################
 # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
+up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
 
 all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = rings_functions.get_border_cells(rightcells_df, 
                                                                                                                          cell_to_region, 
@@ -1226,9 +1290,7 @@ prev_gap_matrix = compute_prev_gap_distances_matrix(x_matrix_sorted)
 
 plot_alignment_with_xpos(region_matrix_sorted, prev_gap_matrix, regions)
 
-import numpy as np
 
-import numpy as np
 
 def find_merge_by_x(region_matrix, x_matrix, x_threshold=10):
     """

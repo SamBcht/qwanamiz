@@ -749,6 +749,106 @@ def get_nearest_extremity(cells_df, cell_to_region, upward_cells, downward_cells
     return mutual_pairs
 
 
+def normalize_angle_deg(angle):
+    """Normalize any angle (deg) to range (-90, 90]."""
+    # First bring to (-180, 180]
+    ang = (angle + 180) % 360 - 180
+    # Fold to (-90, 90]
+    if ang > 90:
+        ang -= 180
+    elif ang <= -90:
+        ang += 180
+    return ang
+
+
+def angle_diff_deg(a, b):
+    """
+    Compute smallest difference between two angles in degrees, 
+    assuming angles are in (-90, 90] range.
+    Returns a value in [0, 90].
+    """
+    # Normalize both angles to -90..90
+    a = normalize_angle_deg(a)
+    b = normalize_angle_deg(b)
+    
+    diff = abs(a - b)
+    # If difference > 90, take the complement
+    if diff > 90:
+        diff = 180 - diff
+    return diff
+
+def analyze_pairs_angles(cells_df, mutual_pairs):
+    """
+    For each mutual pair (in degrees):
+      - cell mean angles
+      - their perpendicular angles
+      - segment angle left→right
+      - differences to mean and to perpendicular
+      - passed flag if segment closer to perpendicular than to mean
+    """
+    records = []
+    
+    cells_df = cells_df.copy()
+
+    for label1, label2 in mutual_pairs:
+        row1 = cells_df[cells_df["label"] == label1].iloc[0]
+        row2 = cells_df[cells_df["label"] == label2].iloc[0]
+
+        # centroids
+        x1, y1 = row1["centroid-1"], row1["centroid-0"]
+        x2, y2 = row2["centroid-1"], row2["centroid-0"]
+
+        # Force left→right
+        if x2 < x1:
+            x1, x2 = x2, x1
+            y1, y2 = y2, y1
+            label1, label2 = label2, label1
+            row1, row2 = row2, row1
+
+        # Segment angle in degrees: 0 = horizontal, +90 = up, -90 = down
+        seg_angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+        seg_angle = normalize_angle_deg(seg_angle)
+
+        ang1 = normalize_angle_deg(row1["mean_angle"])
+        ang2 = normalize_angle_deg(row2["mean_angle"])
+
+        # Perpendicular angles
+        perp1 = normalize_angle_deg(ang1 + 90)
+        perp2 = normalize_angle_deg(ang2 + 90)
+
+        # Differences (absolute)
+        diff1 = angle_diff_deg(seg_angle, ang1)
+        diff2 = angle_diff_deg(seg_angle, ang2)
+        diff1_perp = angle_diff_deg(seg_angle, perp1)
+        diff2_perp = angle_diff_deg(seg_angle, perp2)
+
+        # Passed condition: closer to perpendicular than to mean
+        passed = (diff1_perp < diff1) and (diff2_perp < diff2)
+
+        records.append({
+            "label1": label1,
+            "label2": label2,
+            "mean_angle1_deg": ang1,
+            "mean_angle2_deg": ang2,
+            "perp_angle1_deg": perp1,
+            "perp_angle2_deg": perp2,
+            "segment_angle_deg": seg_angle,
+            "diff1_deg": diff1,
+            "diff2_deg": diff2,
+            "diff1_perp_deg": diff1_perp,
+            "diff2_perp_deg": diff2_perp,
+            "passed": passed
+        })
+
+    df = pd.DataFrame.from_records(records)
+    valid_pairs = df[df['passed']].apply(lambda r: (r['label1'], r['label2']), axis=1).tolist()
+    excluded_pairs = df[~df['passed']].apply(lambda r: (r['label1'], r['label2']), axis=1).tolist()
+    
+    return df, valid_pairs, excluded_pairs
+
+
+
+
 
 def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cells, image_height, image_width, border_margin = 75, pix_to_um = 0.55042690590734):
     
