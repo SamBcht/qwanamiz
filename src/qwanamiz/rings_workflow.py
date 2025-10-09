@@ -14,9 +14,9 @@ import rings_functions
 lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
 
 # Create an empty mask with the same shape as expanded_labels
-lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
+#lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
 rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
+#left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
 
 # Get the labels of lastcells and their right_neighbors
 #lastcell_labels = lastcells_df["label"].values
@@ -27,13 +27,13 @@ left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
 #lastcells_inter = set(lastcell_labels) & set(right_neighbor_labels)
 
 # Create a mask where pixels belong to lastcells or their right_neighbors
-lastcells_mask[np.isin(expanded_labels, lastcells_labels)] = True
+#lastcells_mask[np.isin(expanded_labels, lastcells_labels)] = True
 rightcells_mask[np.isin(expanded_labels, rightcells_labels)] = True
-left_neighbors_mask[np.isin(expanded_labels, leftcells_labels)] = True
+#left_neighbors_mask[np.isin(expanded_labels, leftcells_labels)] = True
 
-viewer.add_image(lastcells_mask, name="LastCells Mask", opacity=0.5, colormap="red", scale = [pix_to_um, pix_to_um])
-viewer.add_image(rightcells_mask, name="Right-N Mask", opacity=0.5, colormap="orange", scale = [pix_to_um, pix_to_um])
-viewer.add_image(left_neighbors_mask, name="Left-N Mask", opacity=0.5, colormap="yellow", scale = [pix_to_um, pix_to_um])
+#viewer.add_image(lastcells_mask, name="LastCells Mask", opacity=0.5, colormap="red", scale = [pix_to_um, pix_to_um])
+#viewer.add_image(rightcells_mask, name="Right-N Mask", opacity=0.5, colormap="orange", scale = [pix_to_um, pix_to_um])
+#viewer.add_image(left_neighbors_mask, name="Left-N Mask", opacity=0.5, colormap="yellow", scale = [pix_to_um, pix_to_um])
 
 ###############################################################################
 # Now we can filter the cell and adjacency dataframes based on cell classification
@@ -177,7 +177,7 @@ boundary_labeled = np.zeros_like(expanded_labels, dtype=int)
 # Update boundary-labeled values at those positions
 boundary_labeled[target_mask] = region_array
 
-viewer.add_labels(boundary_labeled, name="Final Boundary Corrected", scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(boundary_labeled, name="Final Boundary Corrected", scale=[pix_to_um, pix_to_um])
 
 # Now we will work mostly with rightcells
 # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
@@ -207,12 +207,12 @@ problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_r
 print("Regions with multiple lastcells in the same radial_file:", problematic_regions)
 
 # Step 1: Create an empty mask
-problematic_mask = np.zeros_like(boundary_labeled, dtype=bool)
+#problematic_mask = np.zeros_like(boundary_labeled, dtype=bool)
 
 # Step 2: Set pixels belonging to problematic regions to True
-problematic_mask[np.isin(boundary_labeled, problematic_regions)] = True
+#problematic_mask[np.isin(boundary_labeled, problematic_regions)] = True
 
-viewer.add_image(problematic_mask, name="Problematic Regions", opacity=0.5, colormap="magenta", scale=[pix_to_um, pix_to_um])  # Highlighted problem regions
+#viewer.add_image(problematic_mask, name="Problematic Regions", opacity=0.5, colormap="magenta", scale=[pix_to_um, pix_to_um])  # Highlighted problem regions
 
 # Here we can define a function to correct the problematic regions based on
 # the subgraph of the region. The idea would be to find the minimum edges to 
@@ -226,7 +226,7 @@ viewer.add_image(problematic_mask, name="Problematic Regions", opacity=0.5, colo
 # We update the boundary_labeled image image to keep only rightcells
 rightcells_boundary = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
 
-viewer.add_labels(rightcells_boundary, name="Rightcells Boundary", scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(rightcells_boundary, name="Rightcells Boundary", scale=[pix_to_um, pix_to_um])
 
 #### Now we find the most up- and downward cells in each ring boundary segments
 up_extremities, down_extremities = rings_functions.get_extremities(region_to_right, rightcells_df)
@@ -251,11 +251,11 @@ upward_points = np.array(upward_points)
 downward_points = np.array(downward_points)
 
 # Add the points to Napari
-if len(upward_points) > 0:
-    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
+#if len(upward_points) > 0:
+#    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
 
-if len(downward_points) > 0:
-    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
+#if len(downward_points) > 0:
+#    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
 
 
 ###############################################################################
@@ -346,7 +346,7 @@ boundaries = rings_functions.integrate_candidates(final_boundaries,
                                   upward_neighbors, 
                                   downward_neighbors)
 
-viewer.add_labels(boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # UPDATE THE RIGHTCELLS DATAFRAME WITH NEWLY INTEGRATED CELLS
 # Step 1: Gather all labels already accounted for
@@ -387,11 +387,11 @@ upward_points = np.array(upward_points)
 downward_points = np.array(downward_points)
 
 # Add the points to Napari
-if len(upward_points) > 0:
-    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
+#if len(upward_points) > 0:
+#    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
 
-if len(downward_points) > 0:
-    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
+#if len(downward_points) > 0:
+#    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
 
 ############################################################################
 # FIND ADJACENCIES BETWEEN RING SEGMENTS AFTER ADDITION OF CELLS
@@ -473,7 +473,7 @@ incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_
 # When a region has only one cell that is thus both the up and down extremity,
 # nearest extremities are the same point and they are excluded from the merging
 # This avoid merging potential region falsely identified as boundary
-nearest_extremity = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+nearest_extremity, _ = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
 
 # This step could be repeat iteratively to add new connections
 # But we will still have non connected regions where
@@ -495,7 +495,7 @@ viewer.add_shapes(lines, shape_type='line', edge_color='chartreuse', name='Mutua
 new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, final_boundaries, expanded_labels)
 
 
-viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 
 
@@ -543,7 +543,7 @@ if len(downward_points) > 0:
 
 incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_to_region)
 
-nearest_extremity = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+nearest_extremity, _ = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
 
 pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
 
@@ -566,12 +566,49 @@ cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundar
 cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
 new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
 
-viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+#viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
+up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+
+incompatible_pairs = set()
+
+nearest_extremity, all_regions = rings_functions.get_nearest_extremity(rightcells_df, 
+                                                                       cell_to_region, 
+                                                                       up_extremities, 
+                                                                       down_extremities, 
+                                                                       incompatible_pairs,
+                                                                       new_boundaries.shape,
+                                                                       75,
+                                                                       pix_to_um)
+
+valid_pairs, excluded_pairs = rings_functions.filter_isolated_pairs(nearest_extremity, all_regions)
+
+print(f"✅ Valid (isolated) pairs: {len(valid_pairs)}")
+print(f"❌ Excluded (crowded) pairs: {len(excluded_pairs)}")
+
+lines = []
+for up_label, down_label in valid_pairs:
+    up_coords = rightcells_df[rightcells_df["label"] == up_label][["centroid-0", "centroid-1"]].values[0]
+    down_coords = rightcells_df[rightcells_df["label"] == down_label][["centroid-0", "centroid-1"]].values[0]
+    lines.append([up_coords, down_coords])
+
+viewer.add_shapes(lines, shape_type='line', edge_color='magenta', name='Mutual Nearest Pairs', edge_width=3)
+
+new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(valid_pairs, cell_to_region, new_boundaries, expanded_labels)
+
+
+cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+
+# At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+
+viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 ###############################################################################
 # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
 up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+
 
 all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = rings_functions.get_border_cells(rightcells_df, 
                                                                                                                          cell_to_region, 

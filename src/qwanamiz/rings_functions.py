@@ -706,7 +706,14 @@ def incompatible_regions(celldata, cell_to_region):
 
     return incompatible_pairs
 
-def get_nearest_extremity(cells_df, cell_to_region, upward_cells, downward_cells, incompatible_regions):
+def get_nearest_extremity(cells_df, 
+                          cell_to_region, 
+                          upward_cells, 
+                          downward_cells, 
+                          incompatible_regions, 
+                          image_shape=None, 
+                          border_margin=10.0,
+                          pix_to_um=1):
     # Step 2: Extract centroids and track label-to-region
     up_labels, up_centroids, up_regions = [], [], []
     for region, label in upward_cells.items():
@@ -734,6 +741,16 @@ def get_nearest_extremity(cells_df, cell_to_region, upward_cells, downward_cells
     # Step 5: Find mutual nearest pairs with different regions
     region_pairs = []
     mutual_pairs = []
+    neighborhoods = {}
+    
+    if image_shape is not None:
+        height = image_shape[0]*pix_to_um
+        width=image_shape[1]*pix_to_um
+                
+    else:
+        height=None
+        width=None
+    
     for up_label, down_label in up_to_down.items():
         if down_to_up.get(down_label) == up_label:
             up_region = cell_to_region[up_label]
@@ -746,7 +763,82 @@ def get_nearest_extremity(cells_df, cell_to_region, upward_cells, downward_cells
                     mutual_pairs.append((up_label, down_label))
                     region_pairs.append(region_pair)
                     
-    return mutual_pairs
+                    up_idx = up_labels.index(up_label)
+                    down_idx = down_labels.index(down_label)
+
+                    p_up = np.array(up_centroids[up_idx])
+                    p_down = np.array(down_centroids[down_idx])
+                    segment_len = np.linalg.norm(p_up - p_down)
+
+                    # Radius threshold
+                    radius = 3 * segment_len
+
+                    # Compute distances from both endpoints
+                    all_labels = up_labels + down_labels
+                    all_centroids = np.vstack([up_centroids, down_centroids])
+
+                    dist_up = np.linalg.norm(all_centroids - p_up, axis=1)
+                    dist_down = np.linalg.norm(all_centroids - p_down, axis=1)
+
+                    # Combine and find neighbors within radius
+                    nearby_idx = np.where((dist_up < radius) | (dist_down < radius))[0]
+                    nearby_labels = [all_labels[i] for i in nearby_idx if all_labels[i] not in (up_label, down_label)]
+                    
+                    if image_shape is not None:
+                        valid_nearby_labels = []
+                        for lbl in nearby_labels:
+                            row = cells_df[cells_df["label"] == lbl]
+                            if not row.empty:
+                                y, x = row["centroid-0"].values[0], row["centroid-1"].values[0]
+                                if (
+                                    border_margin <= x <= width - border_margin
+                                    and border_margin <= y <= height - border_margin
+                                ):
+                                    valid_nearby_labels.append(lbl)
+                        nearby_labels = valid_nearby_labels
+
+                    neighborhoods[(up_label, down_label)] = {
+                        "segment_length": segment_len,
+                        "radius": radius,
+                        "nearby_labels": nearby_labels,
+                    }
+                    
+    return mutual_pairs, neighborhoods
+
+def filter_isolated_pairs(mutual_pairs, neighborhoods):
+    """
+    Keep only mutual pairs that have no nearby extremities in their neighborhood.
+
+    Parameters
+    ----------
+    mutual_pairs : list of tuple
+        Pairs of (up_label, down_label).
+    neighborhoods : dict
+        Output of get_nearest_extremity() where each key is a mutual pair.
+
+    Returns
+    -------
+    valid_pairs : list of tuple
+        Pairs with no nearby extremities.
+    excluded_pairs : list of tuple
+        Pairs that have at least one nearby extremity.
+    """
+    
+    valid_pairs = []
+    excluded_pairs = []
+
+    for pair in mutual_pairs:
+        info = neighborhoods.get(pair, {})
+        nearby = info.get("nearby_labels", [])
+        num_nearby = len(nearby)
+
+        if num_nearby == 0:
+            valid_pairs.append(pair)
+            
+        else:
+            excluded_pairs.append(pair)
+                    
+    return valid_pairs, excluded_pairs
 
 
 def normalize_angle_deg(angle):
