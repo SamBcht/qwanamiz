@@ -1,15 +1,14 @@
-[tool.poetry]
+[project]
 name = "qwanamiz"
 version = "0.1.0"
 description = "Quantitative Wood Anatomy Measurements"
-authors = ["Samuel Bouchut"]
+authors = [{name = "Samuel Bouchut"}]
 license = "GNU General Public License v3.0"
 readme = "README.md"
+requires-python=">=3.12"
+dependencies = []
 
-[tool.poetry.dependencies]
-python = "^3"
-
-[tool.poetry.dev-dependencies]
+[poetry.group.dev.dependencies]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
