@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 #import networkx as nx
 import skimage.graph
 import skimage.util
-import qwanamiz
+import qwanamiz.qwanamiz
 #from tools import histogram
 #from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
 #from typing import Tuple 
@@ -99,7 +99,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ## Splitting merged cells using watershed segmentation
     #  This step needs to return updated cell measurements (regionprops_df)
     #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
-    labeled_image, regionprops_df, watershed_result = qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
+    labeled_image, regionprops_df, watershed_result = qwanamiz.qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
                                                                              area_threshold = 500, solidity_threshold = 0.95)
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
@@ -115,7 +115,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # The distance parameter can be considered as a cell wall thickness threshold
     # Two lumens separated by more than two times the distance won't be considered
     # as adjacent.
-    expanded_labels = qwanamiz.expand_cells(labeled_image,
+    expanded_labels = qwanamiz.qwanamiz.expand_cells(labeled_image,
                                             distance_map,
                                             nearest_label_coords,
                                             distance = 10,
@@ -149,11 +149,11 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ## REGION ADJACENCY GRAPH : The get_adjacent_labels function compute a simplified
     # Region Adjacency Graph. Return a set of adjacent cells pairs e.g. each pair
     # of labels that share a common border.
-    adj_graph = qwanamiz.get_adjacent_labels(expanded_labels)
+    adj_graph = qwanamiz.qwanamiz.get_adjacent_labels(expanded_labels)
 
     # Transform the set of label pairs in a dataframe, retrieve label centroid
     # coordinates and measure edge angle, length and center
-    adjacency = qwanamiz.adjacency_dataframe(adj_graph, regionprops_df)
+    adjacency = qwanamiz.qwanamiz.adjacency_dataframe(adj_graph, regionprops_df)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -166,11 +166,11 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Determine the bounds of the subsamples
     img_height, img_width = prediction.shape
     
-    nb_rows, nb_cols = qwanamiz.calculate_grid(image_width = img_width, 
+    nb_rows, nb_cols = qwanamiz.qwanamiz.calculate_grid(image_width = img_width, 
                                       image_height = img_height, 
                                       pixel_to_micron = pix_to_um)
 
-    adjacency, vm_parameters = qwanamiz.directionnality(
+    adjacency, vm_parameters = qwanamiz.qwanamiz.directionnality(
         adjacency,
         image_height = img_height, 
         image_width = img_width,
@@ -189,7 +189,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Edge classification and filtering
     print("Edge classification")
 
-    qwanamiz.classify_edges(adjacency, tolerance = angle_tolerance)
+    qwanamiz.qwanamiz.classify_edges(adjacency, tolerance = angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -200,7 +200,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Radial files grouping
     print("Radial files detection")
     
-    regionprops_df, adjacency = qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
+    regionprops_df, adjacency = qwanamiz.qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -209,7 +209,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # FIND POTENTIAL RAYS & RESIN DUCTS
     print("Rays and Resin Ducts possibility")
     
-    rays_ducts_table, rays_ducts_map = qwanamiz.rays_and_ducts(expanded_labels, 
+    rays_ducts_table, rays_ducts_map = qwanamiz.qwanamiz.rays_and_ducts(expanded_labels, 
                                                       scale = pix_to_um, 
                                                       min_duct_area = 80, 
                                                       min_duct_width = 10, 
@@ -217,10 +217,10 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                                                       min_ray_aspect = 2.5)   
 
 
-    rays_adj, duct_adj, unk_adj = qwanamiz.artefact_adjacent(expanded_labels, 
+    rays_adj, duct_adj, unk_adj = qwanamiz.qwanamiz.artefact_adjacent(expanded_labels, 
                                                     rays_ducts_map)
 
-    regionprops_df = qwanamiz.adjacent_type_column(regionprops_df, 
+    regionprops_df = qwanamiz.qwanamiz.adjacent_type_column(regionprops_df, 
                                  rays_adj, 
                                  duct_adj, 
                                  unk_adj)
@@ -234,13 +234,13 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     print(f'runtime : {endTime - start}')
 
     print("Measure lumen diameters")
-    qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
+    qwanamiz.qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
     
     print("Get radial walls")
-    qwanamiz.get_radial_walls(regionprops_df, adjacency)
+    qwanamiz.qwanamiz.get_radial_walls(regionprops_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -248,7 +248,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
     print("Wall thickness measurements")
-    regionprops_df = qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, auto_pixelwidth=True, scale = pix_to_um, scan_width = 75, nprocesses = ncores)
+    regionprops_df = qwanamiz.qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, auto_pixelwidth=True, scale = pix_to_um, scan_width = 75, nprocesses = ncores)
     
 
     endTime = datetime.datetime.now()
@@ -279,7 +279,7 @@ def get_basename(input_file, remove = '.png'):
     return base_name
 
 
-if __name__ == '__main__':
+def main():
 
     # Set the command line arguments
     parser = argparse.ArgumentParser()
@@ -386,7 +386,7 @@ if __name__ == '__main__':
         #np.save(output_path, labeled_image)
         
         if not args.noplots:
-            angle_plot = qwanamiz.plot_angles(params = vm_parameters, 
+            angle_plot = qwanamiz.qwanamiz.plot_angles(params = vm_parameters, 
                                               num_rows = nrows, 
                                               num_cols = ncols)
             output_path = os.path.join(args.output, f"{base_name}_angles.png")
