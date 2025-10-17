@@ -6,12 +6,13 @@ authors = [{name = "Samuel Bouchut"}]
 license = "GNU General Public License v3.0"
 readme = "README.md"
 requires-python=">=3.12"
-dependencies = ["numpy (>=2.3.4,<3.0.0)", "scikit-image (>=0.25.2,<0.26.0)", "pandas (>=2.3.3,<3.0.0)", "matplotlib (>=3.10.7,<4.0.0)"]
+dependencies = ["numpy (>=2.3.4,<3.0.0)", "scikit-image (>=0.25.2,<0.26.0)", "pandas (>=2.3.3,<3.0.0)", "matplotlib (>=3.10.7,<4.0.0)", "napari[all] (>=0.6.6,<0.7.0)"]
 
 [poetry.group.dev.dependencies]
 
 [project.scripts]
 qwanaflow = "qwanamiz.qwanaflow:main"
+qwanaviz =  "qwanamiz.qwanaviz:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
