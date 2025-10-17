@@ -714,11 +714,26 @@ def get_nearest_extremity(cells_df,
                           image_shape=None, 
                           border_margin=10.0,
                           pix_to_um=1):
+    
+    if image_shape is not None:
+        height = image_shape[0]*pix_to_um
+        width=image_shape[1]*pix_to_um
+                
+    else:
+        height=None
+        width=None
+    
     # Step 2: Extract centroids and track label-to-region
     up_labels, up_centroids, up_regions = [], [], []
     for region, label in upward_cells.items():
         row = cells_df[cells_df["label"] == label]
         if not row.empty:
+            y, x = row["centroid-0"].values[0], row["centroid-1"].values[0]
+            # ✅ exclude extremities near any image border
+            if image_shape is not None:
+                if (y < border_margin) or (y >  height - border_margin) \
+                   or (x < border_margin) or (x > width - border_margin):
+                    continue  # skip this extremity
             up_labels.append(label)
             up_centroids.append((row["centroid-0"].values[0], row["centroid-1"].values[0]))
             up_regions.append(region)
@@ -727,9 +742,20 @@ def get_nearest_extremity(cells_df,
     for region, label in downward_cells.items():
         row = cells_df[cells_df["label"] == label]
         if not row.empty:
+            row = cells_df[cells_df["label"] == label]
+            if not row.empty:
+                y, x = row["centroid-0"].values[0], row["centroid-1"].values[0]
+                # ✅ exclude extremities near any image border
+                if image_shape is not None:
+                    if (y < border_margin) or (y >  height - border_margin) \
+                       or (x < border_margin) or (x > width - border_margin):
+                        continue  # skip this extremity
             down_labels.append(label)
             down_centroids.append((row["centroid-0"].values[0], row["centroid-1"].values[0]))
             down_regions.append(region)
+            
+    if not up_labels or not down_labels:
+        return [], {}
 
     # Step 3: Compute distance matrix
     dist_matrix = cdist(np.array(up_centroids), np.array(down_centroids))
@@ -743,14 +769,7 @@ def get_nearest_extremity(cells_df,
     mutual_pairs = []
     neighborhoods = {}
     
-    if image_shape is not None:
-        height = image_shape[0]*pix_to_um
-        width=image_shape[1]*pix_to_um
-                
-    else:
-        height=None
-        width=None
-    
+        
     for up_label, down_label in up_to_down.items():
         if down_to_up.get(down_label) == up_label:
             up_region = cell_to_region[up_label]
@@ -1116,7 +1135,7 @@ def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
 # upper_sequence: a list with the order of the region IDs along the upper border of the picture. All keys in ring lines should be in that list.
 # image_height: the height of the image, in micrometers
 # return value: a list of numpy arrays with one 2D array per element representing each polygon. The polygons are in left-to-right order.
-def draw_polygons(cells, ring_lines, upper_sequence, image_height):
+def draw_polygons(cells, ring_lines, upper_sequence, image_width):
     # The output is a list of 2D arrays that will hold the coordinates of the polygons
     polygons = list()
 
@@ -1144,9 +1163,13 @@ def draw_polygons(cells, ring_lines, upper_sequence, image_height):
             i_polygon = np.concatenate([coords, np.flip(prev_coords, axis = 0)])
         else:
             # Otherwise we need to add the corners of the image
-            corners = np.array([[image_height, 0], [0, 0]])
-            i_polygon = np.concatenate([coords, corners])
+            top_y = coords[0][0]
+            bottom_y = coords[-1][0]
 
+            corners = np.array([[bottom_y, 0], [top_y, 0]])
+            i_polygon = np.concatenate([coords, corners])
+            
+       
         # We need to wrap back to the first vertex for a true polygon
         i_polygon = np.concatenate([i_polygon, i_polygon[0:1, :]])
 
@@ -1155,6 +1178,18 @@ def draw_polygons(cells, ring_lines, upper_sequence, image_height):
         
         # Setting the previous coordinates to the current ones before restarting the loop
         prev_coords = coords
+        
+    if prev_coords is not None:
+        right_x = image_width - 1
+        top_y = prev_coords[0][0]
+        bottom_y = prev_coords[-1][0]
+
+        right_side = np.array([[bottom_y, right_x], [top_y, right_x]])
+        last_polygon = np.concatenate([prev_coords, right_side])
+        last_polygon = np.concatenate([last_polygon, last_polygon[0:1, :]])
+        
+        polygons.append(last_polygon)
+
 
     return polygons
 
