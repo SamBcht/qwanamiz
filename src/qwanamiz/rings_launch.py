@@ -29,7 +29,7 @@ import datetime
 import napari
 from collections import defaultdict
 
-sampleID = "L20_F07-1M2-Sc7"
+sampleID = "L20_F24-2M1-Sc4"
 output_folder = "C:/Users/sambo/Desktop/QWAnamiz_store/qwanamiz_dev"
 
 
