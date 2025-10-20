@@ -263,6 +263,8 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
             'bbox-1',
             'bbox-2',
             'bbox-3'])
+    
+    regionprops_df["WallThickness"] = regionprops_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis=1, skipna=True)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -394,7 +396,19 @@ def main():
         
         # Save the cell measurements dataframe
         output_path = os.path.join(args.output, f"{base_name}_cells.csv")
-        regionprops_df.to_csv(output_path, index=False)
+        # Filter "isolated" cells and those without radial_file
+        filtered_data = regionprops_df[(regionprops_df['classification'] == 'isolated') | (regionprops_df['radial_file'].isna())]
+
+        celldata = regionprops_df.copy()
+        # Remove "isolated" cells and those without radial_file from the main dataframe
+        celldata = celldata.dropna(subset=['radial_file'])
+
+        # Filter out "isolated" cells
+        celldata = celldata[celldata['classification'] != 'isolated']
+        celldata.to_csv(output_path, index=False)
+        
+        output_path = os.path.join(args.output, f"{base_name}_filtered.csv")
+        filtered_data.to_csv(output_path, index=False)
         
         # Save the adjacency dataframe
         output_path = os.path.join(args.output, f"{base_name}_adjacency.csv")

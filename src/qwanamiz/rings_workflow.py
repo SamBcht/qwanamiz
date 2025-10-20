@@ -652,8 +652,8 @@ for label, cls in region_classes.items():
 print("Top sequence:", seq["top"])
 print("Bottom sequence:", seq["bottom"])
 
-
 up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+
 
 
 all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = rings_functions.get_border_cells(rightcells_df, 
@@ -709,22 +709,6 @@ valid, duplicates = rings_functions.filter_pairs_overlap(final_merge, region_cla
 print(valid)
 print(duplicates)
 
-def get_extremity_cell(region, up_extremities, down_extremities):
-    """Return the extremity cell ID based on region class."""
-    zone = region_classes.get(region)
-    if zone == "top":
-        return down_extremities.get(region)  # bottom-most cell of top region
-    elif zone == "bottom":
-        return up_extremities.get(region)    # top-most cell of bottom region
-    else:
-        return None
-
-def get_coordinates(cell_id, cells_df):
-    """Return (x, y) coordinates for a given cell ID from rightcells_df."""
-    row = cells_df[cells_df["label"] == cell_id]
-    if row.empty:
-        return None
-    return (float(row["centroid-1"].iloc[0]), float(row["centroid-0"].iloc[0]))
 
 pair_extremities = {}
 
@@ -831,7 +815,7 @@ distances_df = rings_functions.compute_cell_distances(celldata, boundaries, year
 # distances_df["dist_to_previous"] *= pix_to_um
 
 # Add total boundary distance per cell
-distances_df["cell_ring_width"] = distances_df["dist_to_current"] + distances_df["dist_to_previous"]
+distances_df["cell_ring_width"] = distances_df["dist_to_next"] + distances_df["dist_to_prev"]
 
 # Compute mean ring width from cell distances
 mean_ringwidth_from_cells = distances_df.groupby("year")["cell_ring_width"].mean()
@@ -912,3 +896,11 @@ viewer.add_image(
 ringprops_df = rings_functions.add_radialfile_stats(celldata, ringprops_df)
 
 ringprops_df = rings_functions.early_latewood_width(celldata, ringprops_df)
+
+
+celldata = celldata.drop(
+    columns = [
+        'next_diameter_rad',
+        'prev_diameter_rad',
+        'next_woodzone',
+        'prev_ring'])

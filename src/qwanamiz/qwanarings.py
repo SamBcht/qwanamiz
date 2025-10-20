@@ -19,8 +19,9 @@ import pandas as pd
 import networkx as nx
 
 # qwanamiz-specific imports
-import qwanamiz
-import rings_functions
+import qwanamiz.qwanamiz
+import qwanamiz.rings_functions
+import skimage.measure.regionprops_table
 
 if __name__ == '__main__':
 
@@ -32,11 +33,11 @@ if __name__ == '__main__':
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
-    parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 5,
-                        help = """The minimum number of cells in a ring-boundary region to consider it. Defaults to 5.""")
+    parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 4,
+                        help = """The minimum number of cells in a ring-boundary region to consider it. Defaults to 4.""")
 
-    parser.add_argument("--first-year", dest = "firstyear", type = int, default = 0,
-                        help = """The calendar year when the first ring was formed, used for assigning cells to years. Defaults to 0 (year unknown).""")
+    parser.add_argument("--first-year", dest = "firstyear", type = int, default = 1,
+                        help = """The calendar year when the first ring was formed, used for assigning cells to years. Defaults to 1 (year unknown).""")
 
     args = parser.parse_args()
 
@@ -56,6 +57,8 @@ if __name__ == '__main__':
     ##############################################################################
     # Detection of tree-ring transitions by comparing successive cells properties
     # (radial diameter and early-latewood classification)
+    celldata = qwanamiz.morks_index(celldata)
+    
     # Get lastcells in rings based on diameter and woodzone cell features
     lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
 
@@ -278,7 +281,16 @@ if __name__ == '__main__':
     # When a region has only one cell that is thus both the up and down extremity,
     # nearest extremities are the same point and they are excluded from the merging
     # This avoid merging potential region falsely identified as boundary
-    nearest_extremity = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+    nearest_extremity,_ = rings_functions.get_nearest_extremity(rightcells_df, 
+                                                              cell_to_region, 
+                                                              up_extremities, 
+                                                              down_extremities, 
+                                                              incompatible_region_pairs)
+    
+    pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
+
+    nearest_extremity = valid
+
 
     # This step could be repeat iteratively to add new connections
     # But we will still have non connected regions where
@@ -293,11 +305,68 @@ if __name__ == '__main__':
     cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
     new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
 
+    
+    ###############################################################################
+    #### SECOND SEARCH OF NEAREST EXTREMITY
+    # This step does the same as before but without regions containing few cells and with new regions merged
     # Find the extrmities of the new ring segments
     up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+    
+    incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_to_region)
+
+    nearest_extremity, _ = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+
+    pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
+
+    nearest_extremity = valid
+    
+    new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, new_boundaries, expanded_labels)
+
+
+    cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+
+    # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+    cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+    new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+
+    #viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+
+    up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+
+    incompatible_pairs = set()
+
+    nearest_extremity, all_regions = rings_functions.get_nearest_extremity(rightcells_df, 
+                                                                           cell_to_region, 
+                                                                           up_extremities, 
+                                                                           down_extremities, 
+                                                                           incompatible_pairs,
+                                                                           new_boundaries.shape,
+                                                                           75,
+                                                                           pix_to_um)
+
+    valid_pairs, excluded_pairs = rings_functions.filter_isolated_pairs(nearest_extremity, all_regions)
+    
+    new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(valid_pairs, cell_to_region, new_boundaries, expanded_labels)
+
+
+    cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+
+    # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
+    cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+    new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+    
+    ################################################################################
+    # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE WITH ELLIPSE
+
+    region_classes, ring_regions, seq = rings_functions.classify_regions_by_axis(new_boundaries, pix_to_um)
+    
+    #print("Top sequence:", seq["top"])
+    #print("Bottom sequence:", seq["bottom"])
 
     ###############################################################################
     # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
+    up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+
 
     all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = rings_functions.get_border_cells(rightcells_df, 
                                                                                                                              cell_to_region, 
@@ -309,16 +378,62 @@ if __name__ == '__main__':
                                                                                                                              pix_to_um = pix_to_um)
 
     # Result
-    print("Upper border regions (left to right):", upper_region_sequence)
-    print("Lower border regions (left to right):", lower_region_sequence)
-    print("Matching upper regions :", matched_up)
-    print("Matching lower regions :", matched_down)
+    #print("Upper border regions (left to right):", upper_region_sequence)
+    #print("Lower border regions (left to right):", lower_region_sequence)
+    #print("Matching upper regions :", matched_up)
+    #print("Matching lower regions :", matched_down)
+    
+    y_positions, sequences = rings_functions.get_region_sequences(new_boundaries, n_lines=20)
+
+
+    aligned, regions = rings_functions.align_region_sequences(sequences, gap_value=None, upper_seq=seq["top"], lower_seq=seq["bottom"])
+
+    #plot_alignment(aligned, regions, names=None)
+
+    candidates, cu, cl = rings_functions.find_merge_candidates(
+        seq["top"], seq["bottom"]
+    )
+    
+    print("Merge candidates:", candidates)
+
+    cleaned_matrix = rings_functions.remove_singleton_columns(aligned)
+
+    #plot_alignment(cleaned_matrix, regions, names=None)
+
+    filled = rings_functions.fill_columns(cleaned_matrix, candidates, 0.79, region_classes)
+
+    #rings_functions.plot_alignment(filled, regions, names=None)
+    
+    incomplete = rings_functions.find_incomplete_regions(filled)
+    
+    final_merge = rings_functions.filter_incomplete_regions(incomplete_info=incomplete, 
+                                         classifications=region_classes,
+                                         merge_candidates=candidates, 
+                                         matched_up=matched_up, 
+                                         matched_down=matched_down)
+    
+    pair_extremities = {}
+
+    for r1, r2 in valid:
+        cell1 = rings_functions.get_extremity_cell(r1, up_extremities, down_extremities, region_classes)
+        cell2 = rings_functions.get_extremity_cell(r2, up_extremities, down_extremities, region_classes)
+        coord1 = rings_functions.get_coordinates(cell1, rightcells_df)
+        coord2 = rings_functions.get_coordinates(cell2, rightcells_df)
+        pair_extremities[(r1, r2)] = (coord1, coord2)
+        
+    all_merge_pairs = rings_functions.select_regions_to_merge(pair_extremities, candidates, final_merge)
+
+
+    aligned_top, aligned_bottom = rings_functions.build_aligned_sequences(filled, all_merge_pairs, final_merge)
+
+    print("Top   →", aligned_top)
+    print("Bottom→", aligned_bottom)
 
     # Identifying true ring boundaries from the upper and lower sequences
-    ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, upper_region_sequence, lower_region_sequence)
+    ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
 
     # Getting polygon coordinates defining tree rings from the ring lines
-    ring_polygons = rings_functions.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = upper_region_sequence, image_height = expanded_labels.shape[0] * pix_to_um)
+    ring_polygons = rings_functions.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = aligned_top, image_width = expanded_labels.shape[1] * pix_to_um)
 
     # Assigning rings to years based on the polygon coordinates
     celldata = rings_functions.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
@@ -328,12 +443,91 @@ if __name__ == '__main__':
     celltemp.set_index('label', inplace = True)
     year_dict = celltemp['year'].to_dict()
     year_image = np.vectorize(year_dict.get)(expanded_labels)
+    
+    ###############################################################################
+    # RINGWIDTH & RING-LEVEL MEASUREMENTS
+    
+    # Get exact ring boundaries
+    boundaries = rings_functions.extract_ring_boundaries(year_image, pix_to_um)
+    
+    # Measure ringwidth from ring boundary lines
+    rw = rings_functions.measure_ringwidth(boundaries)
+    
+    # Get cells distances from previous and next ring boundaries
+    distances_df = rings_functions.compute_cell_distances(celldata, boundaries, year_col="year")
+    
+    ## Calculate ring width from cells as checkpoint
+    # Add total boundary distance per cell
+    distances_df["cell_ring_width"] = distances_df["dist_to_next"] + distances_df["dist_to_prev"]
 
-    # Intersection: regions that have both an upward and a downward border cell
-    regions_topdown = (set(upper_region_sequence) | set(matched_up)) & (set(lower_region_sequence) | set(matched_down))
-    print(f"{len(regions_topdown)} regions touch both the top and bottom borders.")
-    print("Valid regions :", regions_topdown)
+    # Compute mean ring width from cell distances
+    mean_ringwidth_from_cells = distances_df.groupby("year")["cell_ring_width"].mean()
 
+    # Convert mean_ring_distances (list from earlier) to a Series for comparison
+    # Those were based on skeleton boundaries (already in pixel or µm?)
+    ringwidth_from_boundaries = pd.Series(rw, index=range(2, len(rw)+2))
+    
+    ##############################################################################
+    celldata = distances_df.copy()
+
+    ringprops_df = pd.DataFrame(
+        skimage.measure.regionprops_table(
+            year_image.astype(int),
+            spacing = pix_to_um,
+            properties = (
+                'label',
+                'area',
+                'area_filled',
+                'major_axis_length',
+                'minor_axis_length',
+                'centroid',
+                'orientation',
+                'perimeter_crofton')))
+
+    # --- Add ringwidth from boundaries ---
+    # `ringwidth_from_boundaries` is a Series with index = year, value = ringwidth
+    ringprops_df["ringwidth"] = ringprops_df["label"].map(ringwidth_from_boundaries)
+
+    # --- Add ringwidth from cells ---
+    # `mean_ringwidth_from_cells` is a Series with index = year, value = mean cell-based ring width
+    ringprops_df["rw_from_cells"] = ringprops_df["label"].map(mean_ringwidth_from_cells)
+
+    # Assuming your celldata has:
+    # 'year'       → the ring ID
+    # 'radial_file' → radial file ID
+    # 'file_rank'  → current rank of the cell in the radial file
+
+    # Compute new rank per radial_file in each ring
+    celldata["file_rank_scaled"] = (
+        celldata
+        .sort_values(["year", "radial_file", "file_rank"])  # make sure sorted
+        .groupby(["year", "radial_file"])
+        .cumcount() + 1  # starts from 1
+    )
+
+
+
+    celldata = rings_functions.filter_radial_files(celldata)
+    
+    ringprops_df = rings_functions.add_radialfile_stats(celldata, ringprops_df)
+
+    ringprops_df = rings_functions.early_latewood_width(celldata, ringprops_df)
+    
+    ringprops_df = ringprops_df.drop(
+        columns = [
+            'year_y'])
+
+
+    celldata = celldata.drop(
+        columns = [
+            'next_diameter_rad',
+            'prev_diameter_rad',
+            'next_woodzone',
+            'prev_ring'])
+
+
+
+    ###########################################################################
     # Saving the images of interest to file for later retrieval by ringview.py
     output_path = f"{args.prefix}_ring_imgs"
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -350,4 +544,7 @@ if __name__ == '__main__':
 
     # Saving the updated DataFrame of cells as a .csv file
     celldata.to_csv(f"{args.prefix}_ringcells.csv", index = False)
+    
+    # Saving the updated DataFrame of cells as a .csv file
+    ringprops_df.to_csv(f"{args.prefix}_rings.csv", index = False)
 

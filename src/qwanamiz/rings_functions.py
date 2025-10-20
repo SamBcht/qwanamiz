@@ -1825,7 +1825,7 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
             continue  # reject
             
         overlap_found = False
-        for row in filled:
+        for row in filled_matrix:
         # Count how many times the two regions appear in this row
             count_r1 = row.count(r1)
             count_r2 = row.count(r2)
@@ -2115,9 +2115,9 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
     df = celldata.copy().set_index("label")
 
     # Initialize columns
-    df["dist_to_current"] = np.nan
-    df["dist_to_previous"] = np.nan
-    df["prev_ring"] = np.nan  # store previous ring index
+    df["dist_to_next"] = np.nan
+    df["dist_to_prev"] = np.nan
+    #df["prev_ring"] = np.nan  # store previous ring index
     
     # Loop over boundaries
     for i, boundary in enumerate(skeleton_boundaries):
@@ -2136,15 +2136,15 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
 
         # Distance to CURRENT ring line
         d_curr, _ = tree.query(centroids)
-        df.loc[cells_in_ring.index, "dist_to_current"] = d_curr
+        df.loc[cells_in_ring.index, "dist_to_next"] = d_curr
 
         # Distance to PREVIOUS ring line (only if exists)
         if i > 0:
             prev_boundary = np.array(skeleton_boundaries[i - 1])
             tree_prev = cKDTree(prev_boundary)
             d_prev, _ = tree_prev.query(centroids)
-            df.loc[cells_in_ring.index, "dist_to_previous"] = d_prev
-            df.loc[cells_in_ring.index, "prev_ring"] = i  # index previous ring
+            df.loc[cells_in_ring.index, "dist_to_prev"] = d_prev
+            #df.loc[cells_in_ring.index, "prev_ring"] = i  # index previous ring
 
     # Remove first ring (no previous reference)
     #df = df[df["prev_ring"].notna()]
@@ -2171,8 +2171,8 @@ def filter_radial_files(celldata):
         first_cell = celldata_sorted.loc[row["first_idx"]]
         last_cell = celldata_sorted.loc[row["last_idx"]]
         
-        cond_first = first_cell["dist_to_previous"] < first_cell["diameter_rad"]
-        cond_last = last_cell["dist_to_current"] < (last_cell["diameter_rad"] + 2*last_cell["WallThickness"])
+        cond_first = first_cell["dist_to_prev"] < first_cell["diameter_rad"]
+        cond_last = last_cell["dist_to_next"] < (last_cell["diameter_rad"] + 2*last_cell["WallThickness"])
         
         if cond_first and cond_last:
             valid_radial_files.append((year, radial_file))
@@ -2299,7 +2299,7 @@ def early_latewood_width(celldata, ringprops_df):
             ew_cells = rf_group[rf_group["woodzone"] == "earlywood"]
             if not ew_cells.empty:
                 last_ew = ew_cells.loc[ew_cells["file_rank_scaled"].idxmax()]
-                ew_width = last_ew["dist_to_previous"] + 0.5 * last_ew["diameter_rad"]
+                ew_width = last_ew["dist_to_prev"] + 0.5 * last_ew["diameter_rad"]
                 ew_widths.append(ew_width)
 
             # --- Latewood width ---
@@ -2307,7 +2307,7 @@ def early_latewood_width(celldata, ringprops_df):
             if not lw_cells.empty:
                 first_lw = lw_cells.loc[lw_cells["file_rank_scaled"].idxmin()]
                 lw_width = (
-                    first_lw["dist_to_current"]
+                    first_lw["dist_to_next"]
                     + 0.5 * first_lw["diameter_rad"]
                     + first_lw["WallThickness"]
                 )
