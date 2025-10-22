@@ -55,7 +55,7 @@ if __name__ == '__main__':
     ])
     
     if not output_dirs:
-        print("⚠️ No directories ending with '_outputs' found in input directory.")
+        print("No directories ending with '_outputs' found in input directory.")
         exit()
         
     # --- Process each directory ---
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         prefix = os.path.join(outdir, base_name)
     
         start = datetime.datetime.now()
-        print(f"🔹 Processing {base_name}...")
+        print(f"Processing {base_name}...")
     
         imgs_path = f"{prefix}_imgs.npz"
         cells_path = f"{prefix}_cells.csv"
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     
         missing = [p for p in [imgs_path, cells_path, adjacency_path] if not os.path.exists(p)]
         if missing:
-            print(f"⚠️ Skipping {base_name} — missing files: {', '.join(os.path.basename(m) for m in missing)}\n")
+            print(f"Skipping {base_name} — missing files: {', '.join(os.path.basename(m) for m in missing)}\n")
             continue
 
         # Reading the input data
@@ -460,6 +460,10 @@ if __name__ == '__main__':
                                              matched_up=matched_up, 
                                              matched_down=matched_down)
         
+        valid, duplicates = rings_functions.filter_pairs_overlap(final_merge, region_classes, filled)
+        print(valid)
+        print(duplicates)
+        
         pair_extremities = {}
     
         for r1, r2 in valid:
@@ -490,7 +494,8 @@ if __name__ == '__main__':
         celltemp = celldata.copy()
         celltemp.set_index('label', inplace = True)
         year_dict = celltemp['year'].to_dict()
-        year_image = np.vectorize(year_dict.get)(expanded_labels)
+        #year_image = np.vectorize(year_dict.get)(expanded_labels)
+        year_image = np.vectorize(lambda x: np.nan if year_dict.get(x) is None else year_dict.get(x))(expanded_labels)
         
         endTime = datetime.datetime.now()
         print(f'runtime : {endTime - start}')

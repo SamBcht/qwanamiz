@@ -8,6 +8,7 @@ import networkx as nx
 import rings_functions
 
 ##############################################################################
+celldata = rings_functions.morks_index(celldata)
 # Detection of tree-ring transitions by comparing successive cells properties
 # (radial diameter and early-latewood classification)
 # Get lastcells in rings based on diameter and woodzone cell features
@@ -773,12 +774,16 @@ viewer.add_shapes(ring_polygons,
 
 celltemp = celldata.copy()
 celltemp.set_index('label', inplace = True)
+#celltemp["year"] = celltemp["year"].fillna(-1)
+#celltemp["year"] = celltemp["year"].astype(int)
 year_dict = celltemp['year'].to_dict()
-year_image = np.vectorize(year_dict.get)(expanded_labels)
+#year_image = np.vectorize(year_dict.get)(expanded_labels)
+#year_image = np.vectorize(lambda x: year_dict.get(x, -1))(expanded_labels).astype(int)
+year_image = np.vectorize(lambda x: np.nan if year_dict.get(x) is None else year_dict.get(x))(expanded_labels)
 
 viewer.add_labels(year_image.astype(int), name="Tree-ring year", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
-
+year_image=year_image
 
 boundaries = rings_functions.extract_ring_boundaries(year_image, pix_to_um)
 

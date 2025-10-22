@@ -8,12 +8,12 @@ Created on Thu Jun 12 18:05:51 2025
 import numpy as np
 import pandas as pd
 import networkx as nx
-from collections import defaultdict
+#from collections import defaultdict
 from itertools import combinations
 from scipy.spatial.distance import cdist
 from scipy.spatial import cKDTree
 
-from collections import Counter, deque
+from collections import Counter, deque, defaultdict
 import copy
 #from collections import defaultdict, deque
 from skimage.measure import regionprops, regionprops_table
@@ -925,6 +925,9 @@ def analyze_pairs_angles(cells_df, mutual_pairs):
       - differences to mean and to perpendicular
       - passed flag if segment closer to perpendicular than to mean
     """
+    if len(mutual_pairs) == 0:
+        return pd.DataFrame(), [], []
+
     records = []
     
     cells_df = cells_df.copy()
@@ -1902,7 +1905,7 @@ def select_regions_to_merge(pair_extremities, candidates, final_merge):
 
     #print(pair_distances)
 
-    from collections import defaultdict
+    #from collections import defaultdict
 
     # Step 2: group pairs by involved regions
     region_to_pairs = defaultdict(list)
