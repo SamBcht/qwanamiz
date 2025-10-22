@@ -207,26 +207,20 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     
     ######################################################################
     # FIND POTENTIAL RAYS & RESIN DUCTS
-    print("Rays and Resin Ducts possibility")
+    #print("Rays and Resin Ducts possibility")
     
-    rays_ducts_table, rays_ducts_map = qwanamiz.qwanamiz.rays_and_ducts(expanded_labels, 
-                                                      scale = pix_to_um, 
-                                                      min_duct_area = 80, 
-                                                      min_duct_width = 10, 
-                                                      min_ray_ecc = 0.8, 
-                                                      min_ray_aspect = 2.5)   
+    #rays_ducts_table, rays_ducts_map = qwanamiz.qwanamiz.rays_and_ducts(expanded_labels, scale = pix_to_um,min_duct_area = 80,min_duct_width = 10, min_ray_ecc = 0.8, min_ray_aspect = 2.5)   
 
 
-    rays_adj, duct_adj, unk_adj = qwanamiz.qwanamiz.artefact_adjacent(expanded_labels, 
-                                                    rays_ducts_map)
+    #rays_adj, duct_adj, unk_adj = qwanamiz.qwanamiz.artefact_adjacent(expanded_labels, rays_ducts_map)
 
-    regionprops_df = qwanamiz.qwanamiz.adjacent_type_column(regionprops_df, 
-                                 rays_adj, 
-                                 duct_adj, 
-                                 unk_adj)
+    #regionprops_df = qwanamiz.qwanamiz.adjacent_type_column(regionprops_df,  rays_adj,  duct_adj, unk_adj)
     
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
+    #endTime = datetime.datetime.now()
+    #print(f'runtime : {endTime - start}')
+    
+    ######################################################################
+    # MEASURE DIAMETERS & CELL WALLS
 
     print("labels and edges correspondance")
 
@@ -272,7 +266,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     print("successfully run")
     
-    return regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, watershed_result, rays_ducts_map, rays_ducts_table, nb_rows, nb_cols
+    return regionprops_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
 
 
 def get_basename(input_file, remove = '.png'):
@@ -358,7 +352,7 @@ def main():
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, distance_map, expanded_labels, labeled_image, watershed_result, rays_and_ducts, rd_table, nrows, ncols = batch_measurements(img_path, 
+        regionprops_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nrows, ncols = batch_measurements(img_path, 
                                                                                                                                                             sampleID = base_name,
                                                                                                                                                             pixel_size = args.pixel,
                                                                                                                                                             dir_nrows = args.nrows,
@@ -372,13 +366,18 @@ def main():
         
         
         # Save the workflow output images
-        output_path = os.path.join(args.output, f"{base_name}_imgs")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        np.savez_compressed(output_path, dmap = distance_map, 
+        output_dir = os.path.join(args.output, f"{base_name}_outputs")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        output_path=os.path.join(output_dir, f"{base_name}_imgs")
+        np.savez_compressed(output_path,
+                            bw_img = prediction,
+                            dmap = distance_map, 
                             explabs = expanded_labels, 
                             labs = labeled_image,
-                            watershed = watershed_result,
-                            rd_map = rays_and_ducts)
+                            watershed = watershed_result#,
+                            #rd_map = rays_and_ducts
+                            )
         #np.save(output_path, distance_map)
         
         #output_path = os.path.join(args.output, f"{base_name}_explabs.npy")
@@ -391,11 +390,11 @@ def main():
             angle_plot = qwanamiz.qwanamiz.plot_angles(params = vm_parameters, 
                                               num_rows = nrows, 
                                               num_cols = ncols)
-            output_path = os.path.join(args.output, f"{base_name}_angles.png")
+            output_path = os.path.join(output_dir, f"{base_name}_angles.png")
             angle_plot.savefig(output_path)
         
         # Save the cell measurements dataframe
-        output_path = os.path.join(args.output, f"{base_name}_cells.csv")
+        output_path = os.path.join(output_dir, f"{base_name}_cells.csv")
         # Filter "isolated" cells and those without radial_file
         filtered_data = regionprops_df[(regionprops_df['classification'] == 'isolated') | (regionprops_df['radial_file'].isna())]
 
@@ -407,21 +406,21 @@ def main():
         celldata = celldata[celldata['classification'] != 'isolated']
         celldata.to_csv(output_path, index=False)
         
-        output_path = os.path.join(args.output, f"{base_name}_filtered.csv")
+        output_path = os.path.join(output_dir, f"{base_name}_filtered.csv")
         filtered_data.to_csv(output_path, index=False)
         
         # Save the adjacency dataframe
-        output_path = os.path.join(args.output, f"{base_name}_adjacency.csv")
+        output_path = os.path.join(output_dir, f"{base_name}_adjacency.csv")
         adjacency.to_csv(output_path, index=True)
         
-        output_path = os.path.join(args.output, f"{base_name}_rays.csv")
-        rd_table.to_csv(output_path, index=True)
+        #output_path = os.path.join(output_dir, f"{base_name}_rays.csv")
+        #rd_table.to_csv(output_path, index=True)
         
-        output_path = os.path.join(args.output, f"{base_name}_params.csv")
+        output_path = os.path.join(output_dir, f"{base_name}_params.csv")
         (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
          .to_csv(output_path, header=True))
         
-        print(f"Saved workflow output to {output_path}")
+        print(f"Saved workflow output to {output_dir}")
         endTime = datetime.datetime.now()
         print(f'Total runtime : {endTime - start_save}')
 

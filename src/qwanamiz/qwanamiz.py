@@ -16,7 +16,7 @@ from skimage.feature import peak_local_max
 from scipy.stats import circmean
 import matplotlib.pyplot as plt
 #from tools import histogram
-from vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
+from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
 from scipy.stats import vonmises
 from multiprocessing import Pool
 from functools import partial

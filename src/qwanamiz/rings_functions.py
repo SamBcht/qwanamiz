@@ -24,6 +24,22 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 #from typing import Dict, List, Tuple, Any
 
+def morks_index(cell_df):
+    """
+    Classify cells as earlywood or latewood based on Mork's index.
+
+    Parameters:
+    cell_df (pd.DataFrame): Dataframe with 'WallThickness' and 'LumenLength' columns.
+
+    Returns:
+    pd.DataFrame: The same dataframe with an added 'woodzone' column.
+    """
+    cell_df = cell_df.copy()  # Avoid modifying original dataframe
+    cell_df["woodzone"] = np.where(
+        (cell_df["WallThickness"] * 4 >= cell_df["diameter_rad"]), "latewood", "earlywood"
+    )
+    return cell_df
+
 def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_prev = 8):
     
     # Create a lookup dictionary for cellID -> diameter_rad

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 import skimage.graph
 import skimage.util
-import qwanamiz
+import qwanamiz.qwanamiz
 #from tools import histogram
 #from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
 #from typing import Tuple 

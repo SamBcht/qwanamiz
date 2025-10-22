@@ -902,5 +902,4 @@ celldata = celldata.drop(
     columns = [
         'next_diameter_rad',
         'prev_diameter_rad',
-        'next_woodzone',
-        'prev_ring'])
+        'next_woodzone'])
