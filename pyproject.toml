@@ -11,8 +11,9 @@ dependencies = ["numpy (>=2.3.4,<3.0.0)", "scikit-image (>=0.25.2,<0.26.0)", "pa
 [poetry.group.dev.dependencies]
 
 [project.scripts]
-qwanaflow = "qwanamiz.qwanaflow:main"
-qwanaviz =  "qwanamiz.qwanaviz:main"
+qwanaflow  = "qwanamiz.qwanaflow:main"
+qwanarings = "qwanamiz.qwanarings:main"
+qwanaviz   = "qwanamiz.qwanaviz:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
