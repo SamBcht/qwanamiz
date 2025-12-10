@@ -99,6 +99,9 @@ def qwa_napari_view(img_path, cells_path):
     diam_df = cells.copy()
     diam_df = diam_df.dropna(subset=['extr_rad'])
 
+    # Removing the 'np.float64' function calls from the input otherwise it will not be parsed properly
+    diam_df['extr_rad'] = diam_df['extr_rad'].str.replace("np.float64", "")
+    diam_df['extr_tan'] = diam_df['extr_tan'].str.replace("np.float64", "")
     diam_df['extr_rad'] = diam_df['extr_rad'].apply(ast.literal_eval)
     diam_df['extr_tan'] = diam_df['extr_tan'].apply(ast.literal_eval)
 
@@ -152,7 +155,7 @@ def qwa_napari_view(img_path, cells_path):
     
     return viewer
 
-if __name__ == '__main__':
+def main():
 
 
     # Set the command line arguments

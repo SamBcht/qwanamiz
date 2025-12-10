@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # Set paths
     input_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/input'
     model_path = 'C:/Users/sambo/Desktop/qwanamiz/qwanamiz/src/qwanamiz/final_semseg_coniferen_model.pth'
-    output_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/output_seg'
+    output_folder = 'C:/Users/sambo/Desktop/QWAnamiz_store/input_measures'
 
 
     ###------------------------------------------- Prepare Model -------------------------------###

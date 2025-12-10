@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 import skimage.graph
 import skimage.util
-import qwanamiz
+#import qwanamiz
 #from tools import histogram
 #from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
 #from typing import Tuple 
@@ -29,7 +29,7 @@ import datetime
 import napari
 from collections import defaultdict
 
-sampleID = "L20_F07-1M2-Sc6"
+sampleID = "L20_F07-1M2-Sc4"
 output_folder = "C:/Users/sambo/Desktop/QWAnamiz_store/qwanamiz_dev"
 
 

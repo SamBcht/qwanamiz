@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 import skimage.graph
 import skimage.util
-import qwanamiz
+import qwanamiz.qwanamiz
 #from tools import histogram
 #from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
 #from typing import Tuple 
@@ -35,9 +35,9 @@ import napari
 
 #png_test = np.load(img_path)
 
-sampleID = "L20_F07-1M1-Sc1"
+sampleID = "L20_F39-2M1-Sc3"
 
-png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/input/L20_F07-1M1-Sc1_segmented.png'
+png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/input/L20_F39-2M1-Sc3_segmented.png'
 
 prediction = skimage.io.imread(png_path)
 
