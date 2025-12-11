@@ -5,6 +5,7 @@ Created on Thu Jul 11 13:46:49 2024
 @author: sambo
 """
 
+import os
 import argparse
 import napari
 import numpy as np
@@ -12,13 +13,25 @@ import pandas as pd
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 import ast
+import pickle
 
-def qwa_napari_view(img_path, cells_path):
+def qwa_napari_view(img_path, cells_path, ring_path, ring_pickle, polygon_pickle):
     
-    
+    # Loading the data from qwanaflow
     images = np.load(img_path)
-
     cells = pd.read_csv(cells_path)
+
+    # Loading the data from qwanarings if the files exist
+    if os.path.exists(ring_path):
+        ring_images = np.load(ring_path)
+
+    if os.path.exists(ring_pickle):
+        with open(ring_pickle, "rb") as file:
+            rings = pickle.load(file)
+
+    if os.path.exists(polygon_pickle):
+        with open(polygon_pickle, "rb") as file:
+            polygons = pickle.load(file)
 
     pix_to_um = 0.55042690590734
 
@@ -146,6 +159,10 @@ def qwa_napari_view(img_path, cells_path):
                       edge_width=1, 
                       name='Tangential Diameters')
 
+    # Drawing the set of boundaries found by qwanarings.py
+    if os.path.exists(ring_path):
+        viewer.add_labels(ring_images['new_boundaries'], name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+
     napari.run()
     
     return viewer
@@ -161,9 +178,18 @@ def main():
                                             These files should all be output by qwanaflow.py.""")
 
     args = parser.parse_args()
-    
+
+    # Paths to the files produced by qwanaflow
     imgs = args.prefix + "_imgs.npz"
     cells_df = args.prefix + '_cells.csv'
+
+    # Paths to the files produced by qwanarings
+    ring_path = args.prefix + "_ring_imgs.npz"
+    ring_pickle = args.prefix + "_rings.pkl"
+    polygon_pickle = args.prefix + "_polygons.pkl"
     
     qwa_napari_view(img_path = imgs, 
-                    cells_path = cells_df)
+                    cells_path = cells_df,
+                    ring_path = ring_path,
+                    ring_pickle = ring_pickle,
+                    polygon_pickle = polygon_pickle)
