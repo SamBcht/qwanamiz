@@ -10,9 +10,10 @@ At the moment, we recommend cloning the repository directly from GitHub:
 git clone https://github.com/SamBcht/qwanamiz.git
 ```
 
-The two executable files that are needed for analyses are located in `src/qwanamiz`:
+The executable files that are needed for analyses are located in `src/qwanamiz`:
 
 - `qwanaflow.py` (cell labeling, measurements, and radial file identification)
+- `qwanarings.py` (tree ring delimitation, cell attribution to a ring)
 - `qwanamiz.py` (visualization of the results produced by `qwanaflow.py`)
 
 ### Requirements
@@ -104,9 +105,82 @@ options:
                         multiprocessing).
 ```
 
-## Output files
+### QWAnaflow output files
 
 TODO: A description of the files output by `qwanaflow.py` should be written here.
+
+`qwanaflow.py`returns the following files packed in a folder named as sampleID_outputs:
+- *_adjacency.csv : Dataframe containing pairs of adjacent cells and related measurements
+- *_cells.csv : Dataframe of individual cell measurements
+- *_filtered.csv : Dataframe with cells that were filtered out because they don't
+belong to any radial file. These filtered lines are probably noisy artefacts 
+from the original image
+- *_imgs.npz : Numpy arrays necessary for launching `qwanarings.py` and 
+`qwanaviz.py`. Contains image data for the original black-and-white image, 
+the labeled image, the expanded labels and the distance map
+- *_params.csv : Dataframe with resulting parameters of Von Mises distribution 
+from the directionnality analysis.
+- *_angles.png : Graphical summary of directionnality analysis showing Von Mises
+distributions fitted for each sub-images.
+
+
+## QWAnarings
+
+The output of `qwanaflow.py` can be further processed to identify tree-ring boundaries
+from the cells and adjacency graph using the `qwanarings.py` command-line tool.
+`qwanarings.py`is currently designed to process the resulting folder(s) of 
+`qwanaflow.py` command.
+
+```
+python qwanarings.py --help
+
+usage: qwanarings.py [-h] [--prefix PREFIX] [--pixel-size PIXEL]
+                     [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
+
+options:
+  -h, --help            show this help message and exit
+  --input-dir INPUT     Path to the main directory containing subfolders for 
+                        each processed image. 
+                        Suffixes '_imgs.npz', '_cells.csv' and '_adjacency.csv' 
+                        must be in the subfolders to obtain the input files.
+  --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
+                        Defaults to 0.55042690590734 micrometers.
+  --minimum-cells MINCELLS
+                        The minimum number of cells in a ring-boundary region
+                        to consider it. Defaults to 5.
+  --first-year FIRSTYEAR
+                        The calendar year when the first ring was formed, used
+                        for assigning cells to years. Defaults to 0 (year
+                        unknown).
+```
+
+### QWAnarings outputs
+`qwanarings.py`returns the following files directly inside the processed folder:
+- *_rings.csv : Dataframe containing global ring measurements and data.
+- *_ringcells.csv : Dataframe of individual cell measurements completed with 
+ring attribution and ring-level measurements.
+- *_polygons.pkl : Polygon coordinates needed for visualisation with `ringview.py`
+- *_rings.pkl : Ring boundary coordinates needed for visualisation with `ringview.py`
+- *_ring_imgs.npz : Numpy arrays necessary for launching `ringview.py` visualisation. 
+Contains image data for ring boundary lines and whole ring regions.
+
+### Visualisation
+The results can be visualized using the `ringview.py` command-line tool:
+
+```
+python ringview.py --help
+
+usage: ringview.py [-h] [--prefix PREFIX] [--pixel-size PIXEL]
+
+options:
+  -h, --help          show this help message and exit
+  --prefix PREFIX     The prefix of the files to use for the analysis.
+                      Suffixes '_imgs.npz', '_cells.csv', '_adjacency.csv',
+                      and '_ring_imgs.npz' will be added to that prefix to
+                      obtain the input files.
+  --pixel-size PIXEL  Size of a pixel in the wanted measurement unit. Defaults
+                      to 0.55042690590734 micrometers.
+```
 
 ## QWAnaviz
 
@@ -130,51 +204,6 @@ options:
   -h, --help  show this help message and exit
 ```
 
-# QWAnarings
-
-The output of `qwanaflow.py` can be further processed to identify tree-ring boundaries
-from the cells and adjacency graph using the `qwanarings.py` command-line tool:
-
-```
-python qwanarings.py --help
-
-usage: qwanarings.py [-h] [--prefix PREFIX] [--pixel-size PIXEL]
-                     [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
-
-options:
-  -h, --help            show this help message and exit
-  --prefix PREFIX       The prefix of the files to use for the analysis.
-                        Suffixes '_imgs.npz', '_cells.csv' and
-                        '_adjacency.csv' will be added to that prefix to
-                        obtain the input files.
-  --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
-                        Defaults to 0.55042690590734 micrometers.
-  --minimum-cells MINCELLS
-                        The minimum number of cells in a ring-boundary region
-                        to consider it. Defaults to 5.
-  --first-year FIRSTYEAR
-                        The calendar year when the first ring was formed, used
-                        for assigning cells to years. Defaults to 0 (year
-                        unknown).
-```
-
-The results can be visualized using the `ringview.py` command-line tool:
-
-```
-python ringview.py --help
-
-usage: ringview.py [-h] [--prefix PREFIX] [--pixel-size PIXEL]
-
-options:
-  -h, --help          show this help message and exit
-  --prefix PREFIX     The prefix of the files to use for the analysis.
-                      Suffixes '_imgs.npz', '_cells.csv', '_adjacency.csv',
-                      and '_ring_imgs.npz' will be added to that prefix to
-                      obtain the input files.
-  --pixel-size PIXEL  Size of a pixel in the wanted measurement unit. Defaults
-                      to 0.55042690590734 micrometers.
-```
-
 ## Contributing
 
 Interested in contributing? Check out the contributing guidelines. Please note
@@ -188,6 +217,9 @@ project, you agree to abide by its terms.
 ## Credits
 
 `qwanamiz` was created with [`cookiecutter`](https://cookiecutter.readthedocs.io/en/latest/) and the `py-pkgs-cookiecutter` [template](https://github.com/py-pkgs/py-pkgs-cookiecutter).
+
+Functions used to fit Von Mises distributions have been implemeted from
+[François Konschelle, Mixture of von Mises distributions](https://framagit.org/fraschelle/mixture-of-von-mises-distributions)
 
 @article{KATZENMAIER2023126126,
     title = {Towards ROXAS AI: Deep learning for faster and more accurate conifer cell analysis},
