@@ -44,11 +44,6 @@ def qwa_napari_view(img_path, cells_path):
                       name = 'Cells', 
                       scale = [pix_to_um, pix_to_um])
     
-    # Add the expanded labels image
-    viewer.add_labels(images['rd_map'], 
-                      name = 'Rays & Resin Ducts', 
-                      scale = [pix_to_um, pix_to_um])
-
     # Add the watershed result image
     viewer.add_labels(images['watershed'],
                       name = 'Watershed segmentation',

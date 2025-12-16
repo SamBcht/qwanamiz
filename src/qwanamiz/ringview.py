@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import napari
 
-if __name__ == '__main__':
+def main():
 
     parser = argparse.ArgumentParser()
 

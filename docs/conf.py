@@ -17,7 +17,7 @@ author = u"Samuel Bouchut"
 # ones.
 extensions = [
     "myst_nb",
-    "autoapi.extension",
+    #"autoapi.extension",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
 ]
@@ -34,3 +34,6 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
+
+# Increase cell time-out for Jupyter notebooks
+nb_execution_timeout = 90

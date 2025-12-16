@@ -20,11 +20,11 @@ import networkx as nx
 
 # qwanamiz-specific imports
 #import qwanamiz.qwanamiz
-import rings_functions
-import qwanaplots
+from qwanamiz import rings_functions as qrings
+from qwanamiz import qwanaplots as qplots
 from skimage.measure import regionprops_table
 
-if __name__ == '__main__':
+def main():
 
     parser = argparse.ArgumentParser()
     
@@ -92,10 +92,10 @@ if __name__ == '__main__':
         # Detection of tree-ring transitions by comparing successive cells properties
         # (radial diameter and early-latewood classification)
         print("Find boundary cells & connected components")
-        celldata = rings_functions.morks_index(celldata)
+        celldata = qrings.morks_index(celldata)
         
         # Get lastcells in rings based on diameter and woodzone cell features
-        lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
+        lastcells_labels, rightcells_labels, leftcells_labels = qrings.get_lastcells(celldata, adjacency)
     
         # Create a mask where pixels belong to lastcells or their right_neighbors
         rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         # See Common Neighbors & Up-Down Pairs sections of the script
     
         # Now we can construct the graph using previously filtered nodes and edges
-        graph = rings_functions.boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels)
+        graph = qrings.boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels)
     
         # Find connected components (as sets of nodes)
         # This will group all cells that are connected by a path along retained edges
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         # Now we will work mostly with rightcells
         # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
         # unwanted groupings by using a single line of cells
-        right_to_region, region_to_right = rings_functions.map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
+        right_to_region, region_to_right = qrings.map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
     
         endTime = datetime.datetime.now()
         print(f'runtime : {endTime - start}')
@@ -208,10 +208,10 @@ if __name__ == '__main__':
         # ring boundary
     
         # We update the boundary_labeled image image to keep only rightcells
-        rightcells_boundary = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
+        rightcells_boundary = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
     
         #### Now we find the most up- and downward cells in each ring boundary segments
-        up_extremities, down_extremities = rings_functions.get_extremities(region_to_right, rightcells_df)
+        up_extremities, down_extremities = qrings.get_extremities(region_to_right, rightcells_df)
     
         ###############################################################################
         #### Then we search in the extremity cell adjacencies if they can unite ring 
@@ -225,7 +225,7 @@ if __name__ == '__main__':
         # another segment
     
         # We also keep the remaining cells for further use
-        common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = rings_functions.get_extremity_neighbors(up_extremities, down_extremities, celldata)
+        common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = qrings.get_extremity_neighbors(up_extremities, down_extremities, celldata)
     
         ###############################################################################
         #### INTEGRATION OF NEW CELLS
@@ -242,7 +242,7 @@ if __name__ == '__main__':
         # as well as the label of the extremity ring segment
     
         # We start by integrating common neighbors and merge ring segments accordingly
-        updated_boundaries = rings_functions.integrate_commons(upward_neighbors, 
+        updated_boundaries = qrings.integrate_commons(upward_neighbors, 
                                                                downward_neighbors, 
                                                                common_neighbors, 
                                                                rightcells_boundary, 
@@ -250,25 +250,25 @@ if __name__ == '__main__':
     
         # We then integrate up and down pairs and also merge regions accordingly
         # An update of the cell_to_region mapping is done internally
-        final_boundaries = rings_functions.integrate_updown(upward_neighbors, 
+        final_boundaries = qrings.integrate_updown(upward_neighbors, 
                                                             downward_neighbors, 
                                                             up_down_pairs, 
                                                             updated_boundaries, 
                                                             expanded_labels)
     
         # We update the mapping of cells to their boundary region
-        cell_to_region, region_to_cells = rings_functions.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+        cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
         ###############################################################################
         #### INTEGRATION OF CELLS AT THE EXTREMITIES
     
         # We find in the remaining cells adjacent to extremities the ones that show
         # characteristics of ring transition
-        labels_to_integrate = rings_functions.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
+        labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
     
         # Cells retained for integration are the ones with their direct left neighbor
         # showing a X times lower diameter
         # or a transition between earlywood and latewood
-        boundaries = rings_functions.integrate_candidates(final_boundaries, 
+        boundaries = qrings.integrate_candidates(final_boundaries, 
                                                           expanded_labels, 
                                                           labels_to_integrate, 
                                                           cell_to_region, 
@@ -288,11 +288,11 @@ if __name__ == '__main__':
         # Step 2: Append to rightcells_df (without duplicate labels)
         rightcells_df = pd.concat([rightcells_df, new_rows]).drop_duplicates(subset="label")
     
-        cell_to_region, region_to_cells = rings_functions.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
+        cell_to_region, region_to_cells = qrings.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
     
     
         # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
         
         endTime = datetime.datetime.now()
         print(f'runtime : {endTime - start}')
@@ -306,32 +306,32 @@ if __name__ == '__main__':
         print("Iterative search of boundary segments to merge from distances")
     
         # The function return a list of tuples with labels of the CONNECTED CELLS
-        connected_regions = rings_functions.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
+        connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
     
-        final_boundaries, new_cell_to_region = rings_functions.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
+        final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
     
-        cell_to_region, region_to_cells = rings_functions.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+        cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
     
         # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
         # This function allows to get a list of regions containing at least one cell of
         # the same radial file. Can be used to avoid merging of boundary segments belonging
         # to different files
-        incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_to_region)
+        incompatible_region_pairs = qrings.incompatible_regions(celldata, cell_to_region)
     
         # Finally, we find each up_extremity's nearest down_extremity and vice versa.
         # We keep pairs of up and down that are mutually the nearest for each other
         # When a region has only one cell that is thus both the up and down extremity,
         # nearest extremities are the same point and they are excluded from the merging
         # This avoid merging potential region falsely identified as boundary
-        nearest_extremity,_ = rings_functions.get_nearest_extremity(rightcells_df, 
+        nearest_extremity,_ = qrings.get_nearest_extremity(rightcells_df, 
                                                                   cell_to_region, 
                                                                   up_extremities, 
                                                                   down_extremities, 
                                                                   incompatible_region_pairs)
         
-        pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
+        pairs_df, valid, excluded = qrings.analyze_pairs_angles(celldata, nearest_extremity)
     
         nearest_extremity = valid
     
@@ -341,45 +341,45 @@ if __name__ == '__main__':
         # - up and down extremities are in the same radial files
         # - there are several up and down extremities in a small zone, this could introduce errors
     
-        new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, final_boundaries, expanded_labels)
+        new_boundaries, new_cell_to_region = qrings.merge_by_cells(nearest_extremity, cell_to_region, final_boundaries, expanded_labels)
     
-        cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+        cell_to_region, region_to_cells = qrings.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
-        cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
-        new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
+        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
     
         
         ###############################################################################
         #### SECOND SEARCH OF NEAREST EXTREMITY
         # This step does the same as before but without regions containing few cells and with new regions merged
         # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
         
-        incompatible_region_pairs = rings_functions.incompatible_regions(celldata, cell_to_region)
+        incompatible_region_pairs = qrings.incompatible_regions(celldata, cell_to_region)
     
-        nearest_extremity, _ = rings_functions.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+        nearest_extremity, _ = qrings.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
     
-        pairs_df, valid, excluded = rings_functions.analyze_pairs_angles(celldata, nearest_extremity)
+        pairs_df, valid, excluded = qrings.analyze_pairs_angles(celldata, nearest_extremity)
     
         nearest_extremity = valid
         
-        new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(nearest_extremity, cell_to_region, new_boundaries, expanded_labels)
+        new_boundaries, new_cell_to_region = qrings.merge_by_cells(nearest_extremity, cell_to_region, new_boundaries, expanded_labels)
     
     
-        cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+        cell_to_region, region_to_cells = qrings.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
-        cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
-        new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
     
         #viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
     
-        up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
         incompatible_pairs = set()
     
-        nearest_extremity, all_regions = rings_functions.get_nearest_extremity(rightcells_df, 
+        nearest_extremity, all_regions = qrings.get_nearest_extremity(rightcells_df, 
                                                                                cell_to_region, 
                                                                                up_extremities, 
                                                                                down_extremities, 
@@ -388,16 +388,16 @@ if __name__ == '__main__':
                                                                                75,
                                                                                pix_to_um)
     
-        valid_pairs, excluded_pairs = rings_functions.filter_isolated_pairs(nearest_extremity, all_regions)
+        valid_pairs, excluded_pairs = qrings.filter_isolated_pairs(nearest_extremity, all_regions)
         
-        new_boundaries, new_cell_to_region = rings_functions.merge_by_cells(valid_pairs, cell_to_region, new_boundaries, expanded_labels)
+        new_boundaries, new_cell_to_region = qrings.merge_by_cells(valid_pairs, cell_to_region, new_boundaries, expanded_labels)
     
     
-        cell_to_region, region_to_cells = rings_functions.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
+        cell_to_region, region_to_cells = qrings.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
-        cell_to_region, region_to_cells = rings_functions.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
-        new_boundaries = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
         
         endTime = datetime.datetime.now()
         print(f'runtime : {endTime - start}')
@@ -406,17 +406,17 @@ if __name__ == '__main__':
         
         print("Find ring sequences & draw rings")
     
-        region_classes, ring_regions, seq = rings_functions.classify_regions_by_axis(new_boundaries, pix_to_um)
+        region_classes, ring_regions, seq = qrings.classify_regions_by_axis(new_boundaries, pix_to_um)
         
         #print("Top sequence:", seq["top"])
         #print("Bottom sequence:", seq["bottom"])
     
         ###############################################################################
         # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
-        up_extremities, down_extremities = rings_functions.get_extremities(region_to_cells, rightcells_df)
+        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
     
-        all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = rings_functions.get_border_cells(rightcells_df, 
+        all_border_cells, upper_region_sequence, lower_region_sequence, matched_up, matched_down, unjustified = qrings.get_border_cells(rightcells_df, 
                                                                                                                                  cell_to_region, 
                                                                                                                                  up_extremities,
                                                                                                                                  down_extremities,
@@ -431,64 +431,64 @@ if __name__ == '__main__':
         #print("Matching upper regions :", matched_up)
         #print("Matching lower regions :", matched_down)
         
-        y_positions, sequences = rings_functions.get_region_sequences(new_boundaries, n_lines=20)
+        y_positions, sequences = qrings.get_region_sequences(new_boundaries, n_lines=20)
     
     
-        aligned, regions = rings_functions.align_region_sequences(sequences, gap_value=None, upper_seq=seq["top"], lower_seq=seq["bottom"])
+        aligned, regions = qrings.align_region_sequences(sequences, gap_value=None, upper_seq=seq["top"], lower_seq=seq["bottom"])
     
         #plot_alignment(aligned, regions, names=None)
     
-        candidates, cu, cl = rings_functions.find_merge_candidates(
+        candidates, cu, cl = qrings.find_merge_candidates(
             seq["top"], seq["bottom"]
         )
         
         print("Merge candidates:", candidates)
     
-        cleaned_matrix = rings_functions.remove_singleton_columns(aligned)
+        cleaned_matrix = qrings.remove_singleton_columns(aligned)
     
         #plot_alignment(cleaned_matrix, regions, names=None)
     
-        filled = rings_functions.fill_columns(cleaned_matrix, candidates, 0.79, region_classes)
+        filled = qrings.fill_columns(cleaned_matrix, candidates, 0.79, region_classes)
     
-        #rings_functions.plot_alignment(filled, regions, names=None)
+        #qrings.plot_alignment(filled, regions, names=None)
         
-        incomplete = rings_functions.find_incomplete_regions(filled)
+        incomplete = qrings.find_incomplete_regions(filled)
         
-        final_merge = rings_functions.filter_incomplete_regions(incomplete_info=incomplete, 
+        final_merge = qrings.filter_incomplete_regions(incomplete_info=incomplete, 
                                              classifications=region_classes,
                                              merge_candidates=candidates, 
                                              matched_up=matched_up, 
                                              matched_down=matched_down)
         
-        valid, duplicates = rings_functions.filter_pairs_overlap(final_merge, region_classes, filled)
+        valid, duplicates = qrings.filter_pairs_overlap(final_merge, region_classes, filled)
         print(valid)
         print(duplicates)
         
         pair_extremities = {}
     
         for r1, r2 in valid:
-            cell1 = rings_functions.get_extremity_cell(r1, up_extremities, down_extremities, region_classes)
-            cell2 = rings_functions.get_extremity_cell(r2, up_extremities, down_extremities, region_classes)
-            coord1 = rings_functions.get_coordinates(cell1, rightcells_df)
-            coord2 = rings_functions.get_coordinates(cell2, rightcells_df)
+            cell1 = qrings.get_extremity_cell(r1, up_extremities, down_extremities, region_classes)
+            cell2 = qrings.get_extremity_cell(r2, up_extremities, down_extremities, region_classes)
+            coord1 = qrings.get_coordinates(cell1, rightcells_df)
+            coord2 = qrings.get_coordinates(cell2, rightcells_df)
             pair_extremities[(r1, r2)] = (coord1, coord2)
             
-        all_merge_pairs = rings_functions.select_regions_to_merge(pair_extremities, candidates, final_merge)
+        all_merge_pairs = qrings.select_regions_to_merge(pair_extremities, candidates, final_merge)
     
     
-        aligned_top, aligned_bottom = rings_functions.build_aligned_sequences(filled, all_merge_pairs, final_merge)
+        aligned_top, aligned_bottom = qrings.build_aligned_sequences(filled, all_merge_pairs, final_merge)
     
         print("Top   →", aligned_top)
         print("Bottom→", aligned_bottom)
     
         # Identifying true ring boundaries from the upper and lower sequences
-        ring_lines = rings_functions.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
+        ring_lines = qrings.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
     
         # Getting polygon coordinates defining tree rings from the ring lines
-        ring_polygons = rings_functions.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = aligned_top, image_width = expanded_labels.shape[1] * pix_to_um)
+        ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = aligned_top, image_width = expanded_labels.shape[1] * pix_to_um)
     
         # Assigning rings to years based on the polygon coordinates
-        celldata = rings_functions.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
+        celldata = qrings.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
     
         # Create an image of cell assignment for display
         celltemp = celldata.copy()
@@ -505,13 +505,13 @@ if __name__ == '__main__':
         print("Refine ring boundaries & calculate ring properties")
         
         # Get exact ring boundaries
-        boundaries = rings_functions.extract_ring_boundaries(year_image, pix_to_um)
+        boundaries = qrings.extract_ring_boundaries(year_image, pix_to_um)
         
         # Measure ringwidth from ring boundary lines
-        rw = rings_functions.measure_ringwidth(boundaries)
+        rw = qrings.measure_ringwidth(boundaries)
         
         # Get cells distances from previous and next ring boundaries
-        distances_df = rings_functions.compute_cell_distances(celldata, boundaries, year_col="year")
+        distances_df = qrings.compute_cell_distances(celldata, boundaries, year_col="year")
         
         ## Calculate ring width from cells as checkpoint
         # Add total boundary distance per cell
@@ -564,11 +564,11 @@ if __name__ == '__main__':
     
     
     
-        celldata = rings_functions.filter_radial_files(celldata)
+        celldata = qrings.filter_radial_files(celldata)
         
-        ringprops_df = rings_functions.add_radialfile_stats(celldata, ringprops_df)
+        ringprops_df = qrings.add_radialfile_stats(celldata, ringprops_df)
     
-        ringprops_df = rings_functions.early_latewood_width(celldata, ringprops_df)
+        ringprops_df = qrings.early_latewood_width(celldata, ringprops_df)
         
         ringprops_df = ringprops_df.drop(
             columns = [
@@ -621,7 +621,7 @@ if __name__ == '__main__':
         prediction = images['bw_img']
         
         # --- Draw rings to an image ---
-        qwanaplots.draw_rings(
+        qplots.draw_rings(
             prediction=prediction,
             year_image=year_image,
             filtered_mask=filtered_mask,
