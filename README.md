@@ -109,7 +109,7 @@ qwanaviz output/test_image.png_outputs/test_image.png
 The best way to explain what this script does is to actually try it! Feel free
 to explore the different layers displayed, remove or add them back, and zoom in
 on the features. By hovering over the image, you will be able to see the values
-or IDs of the feature that is currently selected as will as the coordinates in
+or IDs of the feature that is currently selected as well as the coordinates in
 the measurement unit specified when running `qwanaflow` and `qwanarings`.
 
 Note that you do not need to run `qwanarings` before running `qwanaviz`, as the
@@ -120,15 +120,16 @@ Note that you do not need to run `qwanarings` before running `qwanaviz`, as the
 ### `qwanaflow` outputs
 
 `qwanaflow` (the QWA measurement tool) produces output files with the following
-suffixes:
+suffixes in a folder named as `{sampleID}_outputs`:
 
-* `cells.csv`: a data table storing measurements at the cell level (this is the
-  main output of `qwanaflow`).
-* `filtered.csv`: similar to `cells.csv`, but without the cells that have not
-  been assigned a radial file.
-* `adjacency.csv`: a data table of metadata on cell adjacencies (the regional
-  adjacency graph).
-* `imgs.npz`: processed image rasters in compressed `numpy` format with the
+* `_cells.csv`: DataFrame of individual cell measurements (this is the main
+  output of `qwanaflow`).
+* `_filtered.csv`: DataFrame of cells that were filtered out because they do
+  not belong to any radial file. These filtered cells are probably noisy
+  artefacts from the original image.
+* `_adjacency.csv`: DataFrame containing pairs of adjacent cells and related
+  measurements
+* `_imgs.npz`: image arrays in compressed `numpy` format with the
   following keys:
     * `bw_img`: the original black and white image used as input to the program.
     * `dmap`: the distance map from each cell wall pixel to the nearest cell
@@ -138,31 +139,32 @@ suffixes:
       considered.
     * `watershed`: an image indicating which cells were processed by the
       watershed algorithm used to split incorrectly merged cells.
-* `angles.png`: a figure showing the adjacency angles found in different parts
-  of the input image, used for assigning adjacencies as radial or tangential.
-* `params.csv`: a data table with the parameters used for determining the
-  adjacency angles; useful for debugging issues with directionality.
+* `_angles.png`: Graphical summary of directionality analysis showing von
+  Mises distributions fitted for each sub-image.
+* `_params.csv`: a DataFrame with the parameters of the von Mises distributions
+  used for determining the adjacency angles; useful for debugging issues with
+  directionality.
 
-### `qwanaings` outputs
+### `qwanarings` outputs
 
 `qwanarings` (the growth ring detection program) produces output files with the
-following suffixes:
+following suffixes inside the processed folder:
 
-* `ringcells.csv`: a data table with cell measurements from `qwanaflow` and
-  added columns related to the growth ring analysis.
-* `rings.csv`: a data table of metadata on each growth ring.
-* `ring_imgs.npz`: processed image rasters in compressed `numpy` format with
+* `_rings.csv`: DataFrame containing global ring measurements and data.
+* `_ringcells.csv`: DataFrame of individual cell measurements completed with
+  ring attribution and ring-level measurements.
+* `_ring_imgs.npz`: processed image rasters in compressed `numpy` format with
   the following keys:
     * `new_boundaries`: an image identifying the cells detected as the first
       earlywood cells of each ring, used in detecting growth-ring boundaries.
     * `year_image`: an image of the year attributed to each pixel in the image
       (both cell lumens and walls)
-* `rings.pkl`: a serialized `pickle` object containing the IDs of the cells
+* `_rings.pkl`: a serialized `pickle` object containing the IDs of the cells
   defining ring boundaries.
-* `polygons.pkl`: a serialized `pickle` object, which contains a list of 2D
+* `_polygons.pkl`: a serialized `pickle` object, which contains a list of 2D
   `numpy` arrays with the coordinates of the polygons used for defining growth
   rings.
-* `img.png`: an image summarizing the results of the growth-ring analysis and
+* `_img.png`: an image summarizing the results of the growth-ring analysis and
   the radial files identified as valid.
 
 ## Detailed documentation
@@ -250,7 +252,7 @@ options:
 
 ### `qwanarings` command-line arguments
 
-Running `qwanaflow --help` will provide a list of command-line arguments that
+Running `qwanarings --help` will provide a list of command-line arguments that
 can be used to control the growth-ring detection workflow:
 
 ```bash
@@ -299,6 +301,12 @@ options:
                       to 0.55042690590734 micrometers.
 ```
 
+## Contributing
+
+Interested in contributing? Check out the contributing guidelines. Please note
+that this project is released with a Code of Conduct. By contributing to this
+project, you agree to abide by its terms.
+
 ## License
 
 `qwanamiz` was created by Samuel Bouchut. It is licensed under the terms of the
@@ -310,6 +318,9 @@ GNU General Public License v3.0 license.
 [`cookiecutter`](https://cookiecutter.readthedocs.io/en/latest/) and the
 `py-pkgs-cookiecutter`
 [template](https://github.com/py-pkgs/py-pkgs-cookiecutter).
+
+Functions used to fit Von Mises distributions have been implemeted from
+[François Konschelle, Mixture of von Mises distributions](https://framagit.org/fraschelle/mixture-of-von-mises-distributions)
 
 Katzenmaier, M., Garnot, V.S.F., Björklund, J., Schneider, L., Wegner, J.D. and
 von Arx, G., 2023. Towards ROXAS AI: Deep learning for faster and more accurate

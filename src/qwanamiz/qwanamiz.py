@@ -157,7 +157,7 @@ def adjacency_dataframe(rag, lumen_props):
     # Create a DataFrame from the set of label tuples
     adj_df = pd.DataFrame(rag, columns=['label1', 'label2'])
     
-    # Merge to get coordinates for label1# Merge to get coordinates for label1
+    # Merge to get coordinates for label1
     adj_df = adj_df.merge(lumen_props,
                  left_on = 'label1',
                  right_on = 'label',
@@ -275,7 +275,7 @@ def directionnality(adj_df,
                     num_rows = 4,
                     num_cols = 8,
                     # Threshold for acceptable difference between mu and the peak angle
-                    mu_threshold = 5,  # in degrees. Adjust this value based on your needs
+                    mu_threshold = 5,  # in degrees
                     max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
                     convergence_threshold = 0.001,
                     k_threshold = 50):
