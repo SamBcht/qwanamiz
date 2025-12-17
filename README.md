@@ -61,8 +61,8 @@ We recommend using [RoxasAI](https://github.com/marckatzenmaier/TowardsRoxasAI)
 by Katzenmeier et al. (2023) to preprocess wood anatomy images prior to running
 the `qwanamiz` workflow. This tool outputs binarized .png files which
 differentiate cell lumens from other features in the image, with cell walls in
-black (1) and cell lumens in white (0). However, any .png file which encodes
-binarized wood anatomy images this way is suitable for input to qwanamiz.
+black and cell lumens in white. However, any .png file which encodes binarized
+wood anatomy images this way is suitable for input to qwanamiz.
 
 ### `qwanaflow`
 
@@ -179,9 +179,14 @@ Users who want to better understand the detailed workflow of `qwanaflow` and
 * `qwanarings_example.ipynb`
 
 These can be run as interactive Jupyter notebooks or compiled by navigating to
-the `docs` folder and running the following command:
+the `docs` folder and running the command `make html`. Either way, you first need
+to install a few dependencies with `pip`.
 
 ```bash
+# Installing development dependencies with pip
+pip install jupyter myst-nb sphinx-autoapi sphinx-rtd-theme
+
+# Compiling the documentation
 make html
 ```
 
@@ -199,7 +204,7 @@ library functions used in `qwanamiz` so they can be adapted for other purposes.
 Running `qwanaflow --help` will provide a list of command-line arguments that
 can be used to control the cell measurement workflow:
 
-```bash
+```plaintext
 usage: qwanaflow [-h] [--pixel-size PIXEL] [--dir-nrows NROWS]
                  [--dir-ncols NCOLS] [--disable-plots]
                  [--vm-threshold VMTHRESHOLD] [--angle-tolerance ANGLE]
@@ -255,7 +260,7 @@ options:
 Running `qwanarings --help` will provide a list of command-line arguments that
 can be used to control the growth-ring detection workflow:
 
-```bash
+```plaintext
 usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
                   [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
 
@@ -282,7 +287,7 @@ options:
 Running `qwanaviz --help` will provide a list of command-line arguments that
 can be used to launch the visualization script:
 
-```bash
+```plaintext
 usage: qwanaviz [-h] [--pixel-size PIXEL] prefix
 
 positional arguments:
@@ -319,7 +324,7 @@ GNU General Public License v3.0 license.
 `py-pkgs-cookiecutter`
 [template](https://github.com/py-pkgs/py-pkgs-cookiecutter).
 
-Functions used to fit Von Mises distributions have been implemeted from
+Functions used to fit Von Mises distributions have been implemented from
 [François Konschelle, Mixture of von Mises distributions](https://framagit.org/fraschelle/mixture-of-von-mises-distributions)
 
 Katzenmaier, M., Garnot, V.S.F., Björklund, J., Schneider, L., Wegner, J.D. and
