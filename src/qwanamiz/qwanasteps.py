@@ -31,13 +31,13 @@ import napari
 
 #####################################################################
 # TEST if there is a difference between the png and the numpy array
-#img_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/final_outputs/L20_F02-1M2-Sc5_array.npy'
+#img_path = ''
 
 #png_test = np.load(img_path)
 
-sampleID = "L20_F39-2M1-Sc3"
+sampleID = "sampleID"
 
-png_path = 'C:/Users/sambo/Desktop/QWAnamiz_store/input/L20_F39-2M1-Sc3_segmented.png'
+png_path = 'input_image_path'
 
 prediction = skimage.io.imread(png_path)
 
@@ -451,7 +451,7 @@ celldata = qwanamiz.morks_index(celldata)
 #### SAVE THE FINAL DATAFRAME
 
 ## The final dataframe should be formatted to keep only useful information
-output_folder = "C:/Users/sambo/Desktop/QWAnamiz_store/qwanamiz_dev"
+output_folder = "output destination"
 
 celldata.to_csv(f"{output_folder}/{sampleID}_cells.csv", index=False)
 

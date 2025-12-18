@@ -348,7 +348,7 @@ def main():
         
         
         # Adapt the parameter to the input file type
-        base_name = get_basename(img_path, remove = '_segmented.png')
+        base_name = get_basename(img_path, remove = '.png')
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")

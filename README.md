@@ -120,7 +120,7 @@ Note that you do not need to run `qwanarings` before running `qwanaviz`, as the
 ### `qwanaflow` outputs
 
 `qwanaflow` (the QWA measurement tool) produces output files with the following
-suffixes in a folder named as `{sampleID}_outputs`:
+suffixes in a folder named as `{input.filename}_outputs`:
 
 * `_cells.csv`: DataFrame of individual cell measurements (this is the main
   output of `qwanaflow`).
@@ -314,8 +314,16 @@ project, you agree to abide by its terms.
 
 ## License
 
-`qwanamiz` was created by Samuel Bouchut. It is licensed under the terms of the
-GNU General Public License v3.0 license.
+`qwanamiz` was developed by the Canadian Research Chair in dendroecology and 
+dendroclimatology by Samuel Bouchut, Marc-André Lemay, 
+and Fabio Gennaretti.
+
+The Canadian Research Chair in dendroecology and dendroclimatology is based 
+at the Groupe de Recherche en Écologie de la MRC Abitibi, 
+Institut de Recherche sur les Forêts, Université du Québec en 
+Abitibi-Témiscamingue, Amos, Québec J9T 2L8, Canada.
+
+It is licensed under the terms of the GNU General Public License v3.0 license.
 
 ## Credits
 
