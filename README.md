@@ -103,7 +103,7 @@ interactive visualization.  This script can be launched from the command line
 using the prefix of the sample to visualize as input:
 
 ```bash
-qwanaviz output/test_image.png_outputs/test_image.png
+qwanaviz output/test_image_outputs/test_image
 ```
 
 The best way to explain what this script does is to actually try it! Feel free
