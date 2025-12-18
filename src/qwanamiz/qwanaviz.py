@@ -5,6 +5,7 @@ Created on Thu Jul 11 13:46:49 2024
 @author: sambo
 """
 
+import os
 import argparse
 import napari
 import numpy as np
@@ -12,18 +13,32 @@ import pandas as pd
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 import ast
+import pickle
 
-def qwa_napari_view(img_path, cells_path):
+def qwa_napari_view(img_path, cells_path, ring_path, ring_pickle, polygon_pickle, pix_to_um):
     
-    
+    # Loading the data from qwanaflow
     images = np.load(img_path)
-
     cells = pd.read_csv(cells_path)
+    cells.set_index('label', inplace = True, drop = False)
 
-    pix_to_um = 0.55042690590734
+    # Loading the data from qwanarings if the files exist
+    if os.path.exists(ring_path):
+        ring_images = np.load(ring_path)
+
+    if os.path.exists(ring_pickle):
+        with open(ring_pickle, "rb") as file:
+            rings = pickle.load(file)
+
+    if os.path.exists(polygon_pickle):
+        with open(polygon_pickle, "rb") as file:
+            polygons = pickle.load(file)
 
     # Launch Napari viewer
     viewer = napari.Viewer()
+
+    # Drawing the binarized image
+    viewer.add_image(images['bw_img'], name='Original B&W', scale = [pix_to_um, pix_to_um])
 
     # Add the labeled image
     viewer.add_labels(images['labs'], 
@@ -146,6 +161,41 @@ def qwa_napari_view(img_path, cells_path):
                       edge_width=1, 
                       name='Tangential Diameters')
 
+    # Drawing the set of boundaries found by qwanarings.py
+    if os.path.exists(ring_path):
+        viewer.add_labels(ring_images['new_boundaries'], name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+
+    # DRAWING THE TREE-RING BOUNDARIES FOUND BY qwanarings.py
+    # Prepare the lines visualization
+    if os.path.exists(ring_pickle):
+        lines = []
+
+        # Prepare the lines
+        for i,region in enumerate(rings):
+            region_cells = cells.loc[rings[region]]
+            coords = list(zip(region_cells["centroid-0"], region_cells["centroid-1"]))
+            lines.append(coords)
+
+        # Add lines as shapes to the viewer
+        viewer.add_shapes(lines,
+                          shape_type='path',
+                          edge_color='black',
+                          edge_width=10,
+                          name='Ring boundaries')
+
+    # And ring polygons
+    if os.path.exists(polygon_pickle):
+        viewer.add_shapes(polygons,
+                          shape_type='polygon',
+                          edge_color='black',
+                          face_color=[['red', 'green', 'blue', 'coral', 'black'][i % 5] for i in range(len(polygons))],
+                          opacity = 0.3,
+                          name='Tree-ring polygons')
+
+    # Add cell year assignment
+    if os.path.exists(ring_path):
+        viewer.add_labels(ring_images['year_image'].astype(int), name="Tree-ring year", opacity=0.7, scale=[pix_to_um, pix_to_um])
+
     napari.run()
     
     return viewer
@@ -157,13 +207,29 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("prefix", help = """The prefix of the sample to use qwanamiz.py with. qwanamiz will look for
-                                            file paths corresponding to 'prefix + _imgs.npz' and 'prefix + _cells.csv'.
-                                            These files should all be output by qwanaflow.py.""")
+                                            file paths corresponding to 'prefix + _imgs.npz', 'prefix + _cells.csv',
+                                            'prefix + _ring_imgs.npz', 'prefix + _rings.pkl', and 'prefix + _polygons.pkl'
+                                            These files should all be output by qwanaflow or qwanarings. Files output
+                                            by the qwanarings utility are optional and will not be drawn if only qwanaflow
+                                            has been run.""")
+
+    parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
+                        help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
     args = parser.parse_args()
-    
+
+    # Paths to the files produced by qwanaflow
     imgs = args.prefix + "_imgs.npz"
     cells_df = args.prefix + '_cells.csv'
+
+    # Paths to the files produced by qwanarings
+    ring_path = args.prefix + "_ring_imgs.npz"
+    ring_pickle = args.prefix + "_rings.pkl"
+    polygon_pickle = args.prefix + "_polygons.pkl"
     
     qwa_napari_view(img_path = imgs, 
-                    cells_path = cells_df)
+                    cells_path = cells_df,
+                    ring_path = ring_path,
+                    ring_pickle = ring_pickle,
+                    polygon_pickle = polygon_pickle,
+                    pix_to_um = args.pixel)
