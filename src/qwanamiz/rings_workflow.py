@@ -902,9 +902,14 @@ ringprops_df = rings_functions.add_radialfile_stats(celldata, ringprops_df)
 
 ringprops_df = rings_functions.early_latewood_width(celldata, ringprops_df)
 
+sampleID = celldata["SampleId"].unique()
+ringprops_df['SampleId'] = sampleID[0]
 
 celldata = celldata.drop(
     columns = [
         'next_diameter_rad',
         'prev_diameter_rad',
         'next_woodzone'])
+
+#celldata.to_csv(f"{output_folder}/test_ringcells.csv", index=True)
+

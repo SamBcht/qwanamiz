@@ -573,6 +573,13 @@ def main():
         ringprops_df = ringprops_df.drop(
             columns = [
                 'year_y'])
+        
+        # Add SampleId column to ring dataframe
+        ## TO DO : Add correspondance check with base_name : if "SampleId" in celldata:
+            #assert celldata["SampleId"].nunique() == 1
+            #assert celldata["SampleId"].iloc[0] == base_name
+        sampleID = celldata["SampleId"].unique()
+        ringprops_df['SampleId'] = sampleID[0]
     
     
         celldata = celldata.drop(
@@ -615,7 +622,7 @@ def main():
             pickle.dump(ring_polygons, file)
         
         # --- Save DataFrames as CSV ---
-        celldata.to_csv(f"{base_prefix}_ringcells.csv", index=False)
+        celldata.to_csv(f"{base_prefix}_ringcells.csv", index=True)
         ringprops_df.to_csv(f"{base_prefix}_rings.csv", index=False)
         
         prediction = images['bw_img']
