@@ -54,7 +54,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ## INPUT : 'prediction' is a numpy array of float64, output of roxasAI algorithm
     # it is the result of the binarization of the original image.
     # The array has the same size as the original image
-    prediction = skimage.io.imread(img_path)
+    prediction = skimage.io.imread(img_path, as_gray=True)
 
     ## IMAGE METADATA AND RESOLUTION :
     # 10x scans have a resolution of 46146 dpi. We can define a scaling factor
