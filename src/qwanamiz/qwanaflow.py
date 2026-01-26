@@ -11,34 +11,34 @@ Created on Fri Jun 21 13:28:00 2024
 
 @author: sambo
 """
+
+# Python base library imports
 import os
 import sys
 import argparse
 import glob
 import datetime
-import numpy as np
-import pandas as pd
+
+# scikit-image imports
 import skimage.io
 import skimage.measure
 import skimage.color
-# import cv2
-# from PIL import Image
-#from skimage import img_as_ubyte
-from scipy.ndimage import distance_transform_edt
+import skimage.graph
+import skimage.util
+
+# matplotlib imports and parameters
 import matplotlib
 matplotlib.use('Agg') # this avoids matplotlib hanging in command-line environments
 import matplotlib.pyplot as plt
-#import networkx as nx
-import skimage.graph
-import skimage.util
+
+# other third-party package imports
+import numpy as np
+import pandas as pd
+from scipy.ndimage import distance_transform_edt
+
+# local qwanamiz imports
 import qwanamiz.qwanamiz
-#from tools import histogram
-#from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
-#from typing import Tuple 
-#from scipy.special import i0
-#from scipy.special import iv
-#from scipy.optimize import fsolve
-#from scipy.stats import vonmises
+
 
 def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
                        convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
@@ -78,7 +78,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # in microns if spacing is set with the scaling factor.
     # See scikit-image documentation for more information
     # See also additionnal properties that could be computed in the documentation
-    regionprops_df = pd.DataFrame(
+    cell_df = pd.DataFrame(
         skimage.measure.regionprops_table(
             labeled_image,
             spacing = pix_to_um,
@@ -93,13 +93,11 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                 'image',
                 'bbox',
                 'solidity')))
-    
-    #regionprops_df['SampleId'] = sampleID
 
     ## Splitting merged cells using watershed segmentation
-    #  This step needs to return updated cell measurements (regionprops_df)
+    #  This step needs to return updated cell measurements (cell_df)
     #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
-    labeled_image, regionprops_df, watershed_result = qwanamiz.qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
+    labeled_image, cell_df, watershed_result = qwanamiz.qwanamiz.adjust_labels(labeled_image, cell_df, scale = pix_to_um,
                                                                              area_threshold = 500, solidity_threshold = 0.95)
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
@@ -131,7 +129,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
             )
         )
 
-    regionprops_df = regionprops_df.join(expandprops_df.set_index('label'), 
+    cell_df = cell_df.join(expandprops_df.set_index('label'), 
                         on = 'label',  
                         lsuffix = '_lumen',
                         rsuffix = '_cell',
@@ -153,7 +151,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     # Transform the set of label pairs in a dataframe, retrieve label centroid
     # coordinates and measure edge angle, length and center
-    adjacency = qwanamiz.qwanamiz.adjacency_dataframe(adj_graph, regionprops_df)
+    adjacency = qwanamiz.qwanamiz.adjacency_dataframe(adj_graph, cell_df)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -200,24 +198,10 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # Radial files grouping
     print("Radial files detection")
     
-    regionprops_df, adjacency = qwanamiz.qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
+    cell_df, adjacency = qwanamiz.qwanamiz.assign_radial_files(cell_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
-    
-    ######################################################################
-    # FIND POTENTIAL RAYS & RESIN DUCTS
-    #print("Rays and Resin Ducts possibility")
-    
-    #rays_ducts_table, rays_ducts_map = qwanamiz.qwanamiz.rays_and_ducts(expanded_labels, scale = pix_to_um,min_duct_area = 80,min_duct_width = 10, min_ray_ecc = 0.8, min_ray_aspect = 2.5)   
-
-
-    #rays_adj, duct_adj, unk_adj = qwanamiz.qwanamiz.artefact_adjacent(expanded_labels, rays_ducts_map)
-
-    #regionprops_df = qwanamiz.qwanamiz.adjacent_type_column(regionprops_df,  rays_adj,  duct_adj, unk_adj)
-    
-    #endTime = datetime.datetime.now()
-    #print(f'runtime : {endTime - start}')
     
     ######################################################################
     # MEASURE DIAMETERS & CELL WALLS
@@ -228,13 +212,13 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     print(f'runtime : {endTime - start}')
 
     print("Measure lumen diameters")
-    qwanamiz.qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
+    qwanamiz.qwanamiz.measure_diameters(cell_df, spacing = pix_to_um)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
     
     print("Get radial walls")
-    qwanamiz.qwanamiz.get_radial_walls(regionprops_df, adjacency)
+    qwanamiz.qwanamiz.get_radial_walls(cell_df, adjacency)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -242,15 +226,15 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
     print("Wall thickness measurements")
-    regionprops_df = qwanamiz.qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, auto_pixelwidth=True, scale = pix_to_um, scan_width = 75, nprocesses = ncores)
+    cell_df = qwanamiz.qwanamiz.measure_wallthickness(cell_df, adjacency, distance_map, auto_pixelwidth=True, scale = pix_to_um, scan_width = 75, nprocesses = ncores)
     
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
-    regionprops_df['SampleId'] = sampleID
+    cell_df['SampleId'] = sampleID
     
-    regionprops_df = regionprops_df.drop(
+    cell_df = cell_df.drop(
         columns = [
             'image',
             'bbox-0',
@@ -258,7 +242,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
             'bbox-2',
             'bbox-3'])
     
-    regionprops_df["WallThickness"] = regionprops_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis=1, skipna=True)
+    cell_df["WallThickness"] = cell_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis=1, skipna=True)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
@@ -266,7 +250,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     print("successfully run")
     
-    return regionprops_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
+    return cell_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
 
 
 def get_basename(input_file, remove = '.png'):
@@ -345,14 +329,12 @@ def main():
     start_save = datetime.datetime.now()
     for img_path in img_paths:
         
-        
-        
         # Adapt the parameter to the input file type
         base_name = get_basename(img_path, remove = '.png')
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nrows, ncols = batch_measurements(img_path, 
+        cell_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nrows, ncols = batch_measurements(img_path, 
                                                                                                                                                             sampleID = base_name,
                                                                                                                                                             pixel_size = args.pixel,
                                                                                                                                                             dir_nrows = args.nrows,
@@ -375,16 +357,7 @@ def main():
                             dmap = distance_map, 
                             explabs = expanded_labels, 
                             labs = labeled_image,
-                            watershed = watershed_result#,
-                            #rd_map = rays_and_ducts
-                            )
-        #np.save(output_path, distance_map)
-        
-        #output_path = os.path.join(args.output, f"{base_name}_explabs.npy")
-        #np.save(output_path, expanded_labels)
-        
-        #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
-        #np.save(output_path, labeled_image)
+                            watershed = watershed_result)
         
         if not args.noplots:
             angle_plot = qwanamiz.qwanamiz.plot_angles(params = vm_parameters, 
@@ -396,9 +369,9 @@ def main():
         # Save the cell measurements dataframe
         output_path = os.path.join(output_dir, f"{base_name}_cells.csv")
         # Filter "isolated" cells and those without radial_file
-        filtered_data = regionprops_df[(regionprops_df['classification'] == 'isolated') | (regionprops_df['radial_file'].isna())]
+        filtered_data = cell_df[(cell_df['classification'] == 'isolated') | (cell_df['radial_file'].isna())]
 
-        celldata = regionprops_df.copy()
+        celldata = cell_df.copy()
         # Remove "isolated" cells and those without radial_file from the main dataframe
         celldata = celldata.dropna(subset=['radial_file'])
 
@@ -412,9 +385,6 @@ def main():
         # Save the adjacency dataframe
         output_path = os.path.join(output_dir, f"{base_name}_adjacency.csv")
         adjacency.to_csv(output_path, index=True)
-        
-        #output_path = os.path.join(output_dir, f"{base_name}_rays.csv")
-        #rd_table.to_csv(output_path, index=True)
         
         output_path = os.path.join(output_dir, f"{base_name}_params.csv")
         (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
