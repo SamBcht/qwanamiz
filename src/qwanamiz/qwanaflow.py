@@ -120,7 +120,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                                             nearest_label_coords,
                                             distance = 10,
                                             spacing = pix_to_um)
-    
+
     expandprops_df = pd.DataFrame(
         skimage.measure.regionprops_table(
             expanded_labels,
