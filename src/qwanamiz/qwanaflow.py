@@ -5,13 +5,6 @@ Created on Thu Jun 27 11:16:40 2024
 @author: sambo
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 21 13:28:00 2024
-
-@author: sambo
-"""
-
 # Python base library imports
 import os
 import sys
@@ -22,157 +15,130 @@ import datetime
 # scikit-image imports
 import skimage.io
 import skimage.measure
-import skimage.color
-import skimage.graph
-import skimage.util
-
-# matplotlib imports and parameters
-import matplotlib
-matplotlib.use('Agg') # this avoids matplotlib hanging in command-line environments
-import matplotlib.pyplot as plt
 
 # other third-party package imports
-import numpy as np
-import pandas as pd
 from scipy.ndimage import distance_transform_edt
 
 # local qwanamiz imports
 import qwanamiz.qwanamiz as qmiz
 
-
 def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
                        convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
 
+    # Determining start time of the analysis to compute run time
     start = datetime.datetime.now()
 
-    ##############################################################################
-    # Image processing and lumen preliminary measurements
-    print("Image processing and lumen measurements")
+    #### Step 1 : Cell labeling and measurements
 
-    ##### Load the input array
-    ## INPUT : 'prediction' is a numpy array of float64, output of roxasAI algorithm
-    # it is the result of the binarization of the original image.
-    # The array has the same size as the original image
-    prediction = skimage.io.imread(img_path, as_gray=True)
-
-    ## IMAGE METADATA AND RESOLUTION :
-    # 10x scans have a resolution of 46146 dpi. We can define a scaling factor
-    # with conversion : 1 Pixel = 0.55042690590734 Microns
-    pix_to_um = pixel_size
-
-    #################################################################################
-    #### Step 1: Cell Labeling and Measurements
+    # 'prediction' is a numpy array of float64 resulting from the binarization of the original image.
+    print("Reading input image")
+    prediction = skimage.io.imread(img_path, as_gray = True)
+    img_height, img_width = prediction.shape
+    qmiz.update_runtime(start)
 
     ## CELL LUMEN DETECTION : the label function from scikit.image package
-    # compute a connected components analysis on the binary image.
+    # computes a connected components analysis on the binary image.
     # Two pixels are connected e.g. belong to the same cell lumen
     # when they are neighbors and have the same value (here 'black' or 'white').
-    # See scikit-image documentation for more information
-    # Adjust the connectivity if needed. By default, connectivity is defined by 
-    # prediction.ndim = 2
+    print("Labeling individual cells")
     labeled_image = skimage.measure.label(prediction)
+    qmiz.update_runtime(start)
 
     ## CELL LUMEN MEASUREMENTS : the function 'measure_lumens' measures lumen 
-    # traits. Returns a pandas dataframe with measurements
-    # in microns if spacing is set with the scaling factor.
-    # See scikit-image documentation for more information
-    # See also additionnal properties that could be computed in the documentation
-    cell_df = qmiz.measure_lumens(labeled_image, spacing = pix_to_um)
+    # traits. Returns a pandas dataframe with measurements in microns if
+    # spacing is set with the scaling factor.
+    print("Measuring lumen-related features")
+    cell_df = qmiz.measure_lumens(labeled_image, spacing = pixel_size)
+    qmiz.update_runtime(start)
 
     ## Splitting merged cells using watershed segmentation
     #  This step needs to return updated cell measurements (cell_df)
     #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
-    labeled_image, cell_df, watershed_result = qmiz.adjust_labels(labeled_image, cell_df, scale = pix_to_um,
-                                                                             area_threshold = 500, solidity_threshold = 0.95)
+    print("Splitting cells using watershed algorithm")
+    labeled_image, cell_df, watershed_result = qmiz.adjust_labels(labeled_image, cell_df, scale = pixel_size,
+                                                                  area_threshold = 500, solidity_threshold = 0.95)
+    qmiz.update_runtime(start)
 
-    ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
+    ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell wall pixels,
     # e.g. background pixels. Return an image where each back ground pixel takes
     # the value of the distance to the nearest cell lumen in microns with the 
     # sampling parameter set to the scaling factor.
+    print("Compute distance from cell wall pixel to nearest lumen")
     distance_map, nearest_label_coords = distance_transform_edt(labeled_image == 0,
-                                          sampling = pix_to_um,
-                                          return_indices = True)
+                                                                sampling = pixel_size,
+                                                                return_indices = True)
+    qmiz.update_runtime(start)
 
     ## EXPAND CELL LUMENS UNTIL JUNCTION WITH ADJACENT CELLS : Expand labels in 
     # label image by distance pixels without overlapping.
     # The distance parameter can be considered as a cell wall thickness threshold
     # Two lumens separated by more than two times the distance won't be considered
     # as adjacent.
+    print("Measuring whole cell-related features")
+
+    # Producing an array with integers corresponding to individual cells (both lumen and wall)
     expanded_labels = qmiz.expand_cells(labeled_image,
-                                            distance_map,
-                                            nearest_label_coords,
-                                            distance = 10,
-                                            spacing = pix_to_um)
+                                        distance_map,
+                                        nearest_label_coords,
+                                        distance = 10,
+                                        spacing = pixel_size)
 
     # Measuring properties on whole cells
-    cell_df = qmiz.measure_cells(cell_df, expanded_labels, spacing = pix_to_um)
+    cell_df = qmiz.measure_cells(cell_df, expanded_labels, spacing = pixel_size)
     
     qmiz.update_runtime(start)
-    ####################################################################################
 
-    ##################################################################################
-    #### Step 2 : Cell adjacency analysis
-    print("Adjacency analysis")
+    #### Step 2 : Cell adjacency analysis and radial files
 
-    ## REGION ADJACENCY GRAPH : The get_adjacent_labels function compute a simplified
-    # Region Adjacency Graph. Return a set of adjacent cells pairs e.g. each pair
-    # of labels that share a common border.
-    # Transform the set of label pairs in a dataframe, retrieve label centroid
-    # coordinates and measure edge angle, length and center
+    ## REGION ADJACENCY GRAPH
+    # The returned DataFrame is indexed by label pairs corresponding
+    # to edges in the graph, with metadata on the adjacencies in various columns
+    print("Producing region adjacency graph")
     adjacency = qmiz.adjacency_dataframe(expanded_labels, cell_df)
-
     qmiz.update_runtime(start)
-    ###############################################################################
 
-    ##############################################################################
-    # Directionality analysis
-    print("Directionality analysis and edge classification")
+    ### Directionality analysis
+    print("Analyzing directionality and classifying edges")
 
-    # Determine the bounds of the subsamples
-    img_height, img_width = prediction.shape
-    
+    # Automatically determining the number of rows and columns in the image for the directionality analysis
     nb_rows, nb_cols = qmiz.calculate_grid(image_width = img_width, 
-                                      image_height = img_height, 
-                                      pixel_to_micron = pix_to_um)
+                                           image_height = img_height, 
+                                           pixel_to_micron = pixel_size)
 
-    adjacency, vm_parameters = qmiz.directionality(
-        adjacency,
-        image_height = img_height, 
-        image_width = img_width,
-        spacing = pix_to_um,
-        num_rows = nb_rows,
-        num_cols = nb_cols,
-        convergence_threshold = convergence_threshold)
+    # Determining the directionality angle for each part of the image
+    adjacency, vm_parameters = qmiz.directionality(adjacency,
+                                                   image_height = img_height, 
+                                                   image_width = img_width,
+                                                   spacing = pixel_size,
+                                                   num_rows = nb_rows,
+                                                   num_cols = nb_cols,
+                                                   convergence_threshold = convergence_threshold)
 
     # Edge classification and filtering
     qmiz.classify_edges(adjacency, tolerance = angle_tolerance)
 
     qmiz.update_runtime(start)
 
-    ###################################################################################
-    # Radial files grouping
-    print("Radial files detection")
+    # Assign cells to radial files
+    print("Assigning cells to radial files")
     cell_df, adjacency = qmiz.assign_radial_files(cell_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
     qmiz.update_runtime(start)
     
-    ######################################################################
-    # MEASURE DIAMETERS & CELL WALLS
+    #### Step 3: Measure lumen diameters and cell walls
 
-    print("Measure lumen diameters")
-    qmiz.measure_diameters(cell_df, spacing = pix_to_um)
+    print("Measuring lumen diameters")
+    qmiz.measure_diameters(cell_df, spacing = pixel_size)
     qmiz.update_runtime(start)
 
-    ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
-    print("Wall thickness measurements")
+    print("Measuring wall thickness")
     cell_df, adjacency = qmiz.measure_walls(cell_df,
                                             adjacency,
                                             distance_map,
                                             auto_pixelwidth = True,
-                                            scale = pix_to_um,
+                                            scale = pixel_size,
                                             scan_width = 75,
                                             nprocesses = ncores)
-    
     qmiz.update_runtime(start)
 
     # Inserting before last column for compatibility with older qwanaflow version
@@ -187,16 +153,14 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
             'bbox-2',
             'bbox-3'])
     
-    print("successfully run")
+    print("Successfully run")
     
     return cell_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
-
 
 def get_basename(input_file, remove = '.png'):
     base_name = os.path.basename(input_file)
     base_name = base_name.replace(remove, '')
     return base_name
-
 
 def main():
 
@@ -284,7 +248,7 @@ def main():
                                                                                             stitch_angle_tolerance = args.stitch_angle,
                                                                                             ncores = args.ncores)
         
-        print('save outputs')
+        print('Saving outputs')
         
         qmiz.write_qwanaflow_outputs(output = args.output,
                                      base_name = base_name,
