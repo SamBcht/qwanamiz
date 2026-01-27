@@ -22,6 +22,39 @@ from multiprocessing import Pool
 from functools import partial
 ##########################################################################
 
+# A wrapper around skimage.measure.regionprops_table that measures the properties of cell lumens
+def measure_lumens(labeled_image, spacing):
+    cell_df = pd.DataFrame(
+        skimage.measure.regionprops_table(
+            labeled_image,
+            spacing = spacing,
+            properties = ('label', 'area', 'major_axis_length', 'minor_axis_length',
+                          'centroid', 'orientation', 'perimeter_crofton', 'image',
+                          'bbox', 'solidity')
+        )
+    )
+
+    return cell_df
+
+# Measure dimensions of whole cells after they have been expanded to their cell wall
+def measure_cells(cell_df, expanded_labels, spacing):
+    # Measure cell area including the cell wall
+    expandprops_df = pd.DataFrame(
+        skimage.measure.regionprops_table(
+            expanded_labels,
+            spacing = spacing,
+            properties = ('label', 'area')
+            )
+        )
+
+    cell_df = cell_df.join(expandprops_df.set_index('label'), 
+                           on = 'label',  
+                           lsuffix = '_lumen',
+                           rsuffix = '_cell',
+                           validate = '1:1')
+
+    return cell_df
+
 # Split merged cells that have not been properly recognized as distinct at the image binarization stage
 def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solidity_threshold = 0.95):
 
@@ -152,7 +185,10 @@ def compute_edge_properties(centroid1, centroid2):
 
 ########################################################################
 # Arrange the adjacency graph in a dataframe with edges characteristics
-def adjacency_dataframe(rag, lumen_props):
+def adjacency_dataframe(expanded_labels, lumen_props):
+
+    # Compute the adjacencies
+    rag = get_adjacent_labels(expanded_labels)
     
     # Create a DataFrame from the set of label tuples
     adj_df = pd.DataFrame(rag, columns=['label1', 'label2'])
@@ -267,8 +303,8 @@ def calculate_grid(image_width, image_height, pixel_to_micron, row_min_height = 
     return int(num_rows), int(num_cols)
 
 
-# Directionnality modelisation
-def directionnality(adj_df,
+# Directionality modeling
+def directionality(adj_df,
                     image_height,
                     image_width,
                     spacing = 1,
@@ -493,8 +529,11 @@ def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
 
     return max_thickness
 
-def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width = 10, scale = 1, nprocesses = 1):
+def measure_walls(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width = 10, scale = 1, nprocesses = 1):
 
+    # First we assign up and down neighbors to each cell
+    cell_df, adj_df = get_radial_walls(cell_df, adj_df)
+    
     # Initializing the columns for wall thickness
     cell_df['left_wall_thickness'] = 0.0
     cell_df['right_wall_thickness'] = 0.0
@@ -608,7 +647,7 @@ def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, sc
         if label in down_edges:
             cell_df.at[idx, 'down_wall_thickness'] = wall_df.at[down_edges[label], 'wall_thickness']
     
-    return cell_df
+    return cell_df, adj_df
 
 #########################################################################
 # Classify cell walls between radial and tangential

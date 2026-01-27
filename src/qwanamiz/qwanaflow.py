@@ -73,26 +73,12 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # prediction.ndim = 2
     labeled_image = skimage.measure.label(prediction)
 
-    ## CELL LUMEN MEASUREMENTS : the function 'regionprops_table measure the lumen 
-    # traits listed in properties. Return a pandas dataframe with measurements
+    ## CELL LUMEN MEASUREMENTS : the function 'measure_lumens' measures lumen 
+    # traits. Returns a pandas dataframe with measurements
     # in microns if spacing is set with the scaling factor.
     # See scikit-image documentation for more information
     # See also additionnal properties that could be computed in the documentation
-    cell_df = pd.DataFrame(
-        skimage.measure.regionprops_table(
-            labeled_image,
-            spacing = pix_to_um,
-            properties = (
-                'label',
-                'area',
-                'major_axis_length',
-                'minor_axis_length',
-                'centroid',
-                'orientation',
-                'perimeter_crofton',
-                'image',
-                'bbox',
-                'solidity')))
+    cell_df = qwanamiz.qwanamiz.measure_lumens(labeled_image, spacing = pix_to_um)
 
     ## Splitting merged cells using watershed segmentation
     #  This step needs to return updated cell measurements (cell_df)
@@ -119,23 +105,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                                             distance = 10,
                                             spacing = pix_to_um)
 
-    expandprops_df = pd.DataFrame(
-        skimage.measure.regionprops_table(
-            expanded_labels,
-            spacing = pix_to_um,
-            properties = (
-                'label',
-                'area')
-            )
-        )
-
-    cell_df = cell_df.join(expandprops_df.set_index('label'), 
-                        on = 'label',  
-                        lsuffix = '_lumen',
-                        rsuffix = '_cell',
-                        validate = '1:1')
-
-
+    # Measuring properties on whole cells
+    cell_df = qwanamiz.qwanamiz.measure_cells(cell_df, expanded_labels, spacing = pix_to_um)
+    
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
     ####################################################################################
@@ -147,19 +119,17 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ## REGION ADJACENCY GRAPH : The get_adjacent_labels function compute a simplified
     # Region Adjacency Graph. Return a set of adjacent cells pairs e.g. each pair
     # of labels that share a common border.
-    adj_graph = qwanamiz.qwanamiz.get_adjacent_labels(expanded_labels)
-
     # Transform the set of label pairs in a dataframe, retrieve label centroid
     # coordinates and measure edge angle, length and center
-    adjacency = qwanamiz.qwanamiz.adjacency_dataframe(adj_graph, cell_df)
+    adjacency = qwanamiz.qwanamiz.adjacency_dataframe(expanded_labels, cell_df)
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
     ###############################################################################
 
     ##############################################################################
-    # Directionnality analysis
-    print("Directionnality analysis")
+    # Directionality analysis
+    print("Directionality analysis")
 
     # Determine the bounds of the subsamples
     img_height, img_width = prediction.shape
@@ -168,7 +138,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
                                       image_height = img_height, 
                                       pixel_to_micron = pix_to_um)
 
-    adjacency, vm_parameters = qwanamiz.qwanamiz.directionnality(
+    adjacency, vm_parameters = qwanamiz.qwanamiz.directionality(
         adjacency,
         image_height = img_height, 
         image_width = img_width,
@@ -216,19 +186,18 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
 
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
-    
-    print("Get radial walls")
-    qwanamiz.qwanamiz.get_radial_walls(cell_df, adjacency)
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
 
     ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
     print("Wall thickness measurements")
-    cell_df = qwanamiz.qwanamiz.measure_wallthickness(cell_df, adjacency, distance_map, auto_pixelwidth=True, scale = pix_to_um, scan_width = 75, nprocesses = ncores)
+    cell_df, adjacency = qwanamiz.qwanamiz.measure_walls(cell_df,
+                                                         adjacency,
+                                                         distance_map,
+                                                         auto_pixelwidth = True,
+                                                         scale = pix_to_um,
+                                                         scan_width = 75,
+                                                         nprocesses = ncores)
     
-
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
