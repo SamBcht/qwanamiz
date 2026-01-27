@@ -5,6 +5,8 @@ Created on Mon Jun 10 13:32:21 2024
 @author: sambo
 """
 
+import datetime
+import os
 import numpy as np
 import skimage.measure
 from skimage import measure, segmentation
@@ -1368,3 +1370,47 @@ def morks_index(cell_df):
         (cell_df["WallThickness"] * 4 >= cell_df["diameter_rad"]), "latewood", "earlywood"
     )
     return cell_df
+
+# A simple function that updates the user on total run time
+def update_runtime(start_time):
+    print(f'runtime : {datetime.datetime.now() - start_time}')
+    return
+
+def write_qwanaflow_outputs(output, base_name, prediction, distance_map,
+                            expanded_labels, labeled_image, watershed_result,
+                            vm_parameters, nrows, ncols, cell_df, adjacency, noplots):
+
+    # Create the output directory if it does not already exist
+    output_dir = os.path.join(output, f"{base_name}_outputs")
+    os.makedirs(output_dir, exist_ok = True)
+
+    # Saving the numpy images in compressed format
+    np.savez_compressed(os.path.join(output_dir, f"{base_name}_imgs"),
+                        bw_img = prediction,
+                        dmap = distance_map,
+                        explabs = expanded_labels,
+                        labs = labeled_image,
+                        watershed = watershed_result)
+
+    # Optionally saving the directionality diagnostics plot
+    if not noplots:
+        angle_plot = plot_angles(params = vm_parameters, num_rows = nrows, num_cols = ncols)
+        angle_plot.savefig(os.path.join(output_dir, f"{base_name}_angles.png"))
+
+    # Save a DataFrame of "isolated" cells and those without radial_file
+    filtered_data = cell_df[(cell_df['classification'] == 'isolated') | (cell_df['radial_file'].isna())]
+    filtered_data.to_csv(os.path.join(output_dir, f"{base_name}_filtered.csv"), index = False)
+
+    # Save a DataFrame of cells that do have a radial file and are not isolated
+    cell_df = cell_df.dropna(subset=['radial_file'])
+    cell_df = cell_df[cell_df['classification'] != 'isolated']
+    cell_df.to_csv(os.path.join(output_dir, f"{base_name}_cells.csv"), index = False)
+
+    # Save the adjacency dataframe
+    adjacency.to_csv(os.path.join(output_dir, f"{base_name}_adjacency.csv"), index = True)
+
+    # Save the von Mises parameters found by the directionality analysis
+    pd.DataFrame.from_dict(data = vm_parameters, orient = 'index').to_csv(os.path.join(output_dir, f"{base_name}_params.csv"), header = True)
+
+    return
+
