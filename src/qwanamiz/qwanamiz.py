@@ -5,23 +5,32 @@ Created on Mon Jun 10 13:32:21 2024
 @author: sambo
 """
 
+# Python standard library imports
 import datetime
 import os
-import numpy as np
-import skimage.measure
-from skimage import measure, segmentation
-import pandas as pd
-from skimage.draw import line
-from skimage.filters import gaussian
-from scipy.ndimage import distance_transform_edt
-from skimage.feature import peak_local_max
-from scipy.stats import circmean
-import matplotlib.pyplot as plt
-#from tools import histogram
-from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
-from scipy.stats import vonmises
 from multiprocessing import Pool
 from functools import partial
+
+# scikit-image imports
+import skimage.measure
+from skimage import measure, segmentation
+from skimage.draw import line
+from skimage.filters import gaussian
+from skimage.feature import peak_local_max
+
+# scipy imports
+from scipy.stats import vonmises
+from scipy.ndimage import distance_transform_edt
+from scipy.stats import circmean
+
+# Other third-party library imports
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# qwanamiz-related imports
+from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
+
 ##########################################################################
 
 # A wrapper around skimage.measure.regionprops_table that measures the properties of cell lumens
@@ -130,10 +139,6 @@ def expand_cells(label_image, distances, indices, distance = 1, spacing = 1,):
     nearest_labels = label_image[tuple(masked_nearest_label_coords)]
     labels_out[dilate_mask] = nearest_labels
     return labels_out
-
-
-
-
 
 ###########################################################################
 # Function to get the adjacent cells
@@ -1207,169 +1212,6 @@ def get_radial_walls(cells_df, walls_df):
             walls_df.at[down_edge, 'wall_classification'] = 'radial_sel'
         
     return cells_df, walls_df
-
-###############################################################################
-def rays_and_ducts(labels, 
-                   scale = 1, 
-                   min_duct_area = 80, 
-                   min_duct_width = 20, 
-                   min_ray_ecc = 0.8, 
-                   min_ray_aspect = 2.5):
-    
-    # Define a binary mask for the background (i.e., areas you suspect are either rays or resin ducts)
-    background_mask = labels == 0
-
-    # Identify regions (connected components) in the background
-    background_labels = skimage.measure.label(background_mask)
-    
-    properties = skimage.measure.regionprops_table(
-        background_labels, 
-        properties=['label',
-                    'centroid',
-                    'area', 
-                    'eccentricity', 
-                    'minor_axis_length', 
-                    'major_axis_length', 
-                    'orientation'],
-        spacing=scale  # Include spacing if needed for calibration
-        )
-
-    # Convert to arrays for faster processing
-    labels = properties['label']
-    areas = properties['area']
-    eccentricities = properties['eccentricity']
-    minor_axis_lengths = properties['minor_axis_length']
-    major_axis_lengths = properties['major_axis_length']
-    orientations = properties['orientation']
-
-    # Pre-calculate constants
-    pi_by_3 = np.pi / 3
-    inf_aspect_ratio = np.inf
-
-    # Initialize a classification array (numeric for performance reasons)
-    classifications = np.full_like(labels, fill_value=3, dtype=int)
-    
-    # Compute aspect ratios (avoiding division by zero)
-    aspect_ratios = np.divide(major_axis_lengths, minor_axis_lengths, out=np.full_like(major_axis_lengths, inf_aspect_ratio), where=minor_axis_lengths != 0)
-    
-    # Classify "horizontal" regions: orientation more or less horizontal
-    horizontal = np.abs(orientations) > np.abs(pi_by_3)
-    
-    # Rays: horizontal, high aspect ratio, and high eccentricity
-    rays_mask = (horizontal) & (aspect_ratios > min_ray_aspect) & (eccentricities > min_ray_ecc)
-    classifications[rays_mask] = 1  # 1 for Ray
-    
-    # Resin ducts: lower aspect ratio and larger area
-    resin_ducts_mask = (areas > min_duct_area) & (eccentricities < 0.98) & (minor_axis_lengths > min_duct_width) & (~rays_mask)
-    classifications[resin_ducts_mask] = 2  # 2 for Resin Duct
-    
-    
-    unknown_mask = (~resin_ducts_mask) & (~rays_mask)
-    
-    # Initialize classified_mask (using the labels and classifications)
-    classified_mask = np.zeros_like(background_labels)
-
-    # Assign the ray classification (1) and resin duct classification (2)
-    classified_mask[np.isin(background_labels, labels[rays_mask])] = 1
-    classified_mask[np.isin(background_labels, labels[resin_ducts_mask])] = 2
-    classified_mask[np.isin(background_labels, labels[unknown_mask])] = 3
-        
-    properties['classification'] = classifications
-    
-    properties_df = pd.DataFrame(properties)
-    
-    return properties_df, classified_mask
-
-
-#########
-def artefact_adjacent(labeled_image, classified_mask, ray_class=1, resin_duct_class=2, unknown_class=3):
-    # Initialize sets to store adjacent labels for each class
-    rays_adjacent = set()
-    ducts_adjacent = set()
-    unknown_adjacent = set()
-
-    # Create shifted classified_mask images to check adjacencies
-    vshift1 = classified_mask[:-1, :]
-    vshift2 = classified_mask[1:, :]
-    hshift1 = classified_mask[:, :-1]
-    hshift2 = classified_mask[:, 1:]
-
-    # Corresponding labeled image shifts
-    label_vshift1 = labeled_image[:-1, :]
-    label_vshift2 = labeled_image[1:, :]
-    label_hshift1 = labeled_image[:, :-1]
-    label_hshift2 = labeled_image[:, 1:]
-
-    # Vertical adjacencies
-    v_adj = vshift1 != vshift2
-    v_ind = np.where(v_adj)
-
-    for i in range(len(v_ind[0])):
-        class1, class2 = vshift1[v_ind[0][i], v_ind[1][i]], vshift2[v_ind[0][i], v_ind[1][i]]
-        label1, label2 = label_vshift1[v_ind[0][i], v_ind[1][i]], label_vshift2[v_ind[0][i], v_ind[1][i]]
-
-        # Add labels based on classified_mask class
-        if class1 == ray_class or class2 == ray_class:
-            rays_adjacent.update([label1, label2])
-        if class1 == resin_duct_class or class2 == resin_duct_class:
-            ducts_adjacent.update([label1, label2])
-        if class1 == unknown_class or class2 == unknown_class:
-            unknown_adjacent.update([label1, label2])
-
-    # Horizontal adjacencies
-    h_adj = hshift1 != hshift2
-    h_ind = np.where(h_adj)
-
-    for i in range(len(h_ind[0])):
-        class1, class2 = hshift1[h_ind[0][i], h_ind[1][i]], hshift2[h_ind[0][i], h_ind[1][i]]
-        label1, label2 = label_hshift1[h_ind[0][i], h_ind[1][i]], label_hshift2[h_ind[0][i], h_ind[1][i]]
-
-        # Add labels based on classified_mask class
-        if class1 == ray_class or class2 == ray_class:
-            rays_adjacent.update([label1, label2])
-        if class1 == resin_duct_class or class2 == resin_duct_class:
-            ducts_adjacent.update([label1, label2])
-        if class1 == unknown_class or class2 == unknown_class:
-            unknown_adjacent.update([label1, label2])
-
-    # Convert sets to lists
-    return list(rays_adjacent), list(ducts_adjacent), list(unknown_adjacent)
-
-def adjacent_type_column(complete_df, 
-                             rays_adjacent, 
-                             duct_adjacent, 
-                             unk_adjacent):
-    # Create a new column 'adj_type' initialized with NaN
-    complete_df['adj_type'] = np.nan
-    
-    # Set the column value to 1 if the label is in rays_adj
-    complete_df.loc[complete_df['label'].isin(rays_adjacent), 'adj_type'] = 1
-    
-    # Set the column value to 2 if the label is in duct_adj
-    complete_df.loc[complete_df['label'].isin(duct_adjacent), 'adj_type'] = 2
-    
-    # Set the column value to 3 if the label is in unk_adj
-    complete_df.loc[complete_df['label'].isin(unk_adjacent), 'adj_type'] = 3
-
-    return complete_df
-
-
-
-def morks_index(cell_df):
-    """
-    Classify cells as earlywood or latewood based on Mork's index.
-
-    Parameters:
-    cell_df (pd.DataFrame): Dataframe with 'WallThickness' and 'LumenLength' columns.
-
-    Returns:
-    pd.DataFrame: The same dataframe with an added 'woodzone' column.
-    """
-    cell_df = cell_df.copy()  # Avoid modifying original dataframe
-    cell_df["woodzone"] = np.where(
-        (cell_df["WallThickness"] * 4 >= cell_df["diameter_rad"]), "latewood", "earlywood"
-    )
-    return cell_df
 
 # A simple function that updates the user on total run time
 def update_runtime(start_time):
