@@ -646,6 +646,8 @@ def measure_walls(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width
 
         if label in down_edges:
             cell_df.at[idx, 'down_wall_thickness'] = wall_df.at[down_edges[label], 'wall_thickness']
+
+    cell_df["WallThickness"] = cell_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis = 1, skipna = True)
     
     return cell_df, adj_df
 

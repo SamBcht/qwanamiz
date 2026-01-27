@@ -201,7 +201,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
-    cell_df['SampleId'] = sampleID
+    # Inserting before last column for compatibility with older qwanaflow version
+    # Should probably be inserted last or even at the beginning of the DataFrame
+    cell_df.insert(loc = len(cell_df.columns) - 1, column = 'SampleId', value = sampleID)
     
     cell_df = cell_df.drop(
         columns = [
@@ -211,8 +213,6 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
             'bbox-2',
             'bbox-3'])
     
-    cell_df["WallThickness"] = cell_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis=1, skipna=True)
-
     endTime = datetime.datetime.now()
     print(f'runtime : {endTime - start}')
 
