@@ -152,3 +152,124 @@ def draw_rings(
     # --- Save final image ---
     combined.save(output_path)
     print(f"✅ Final PNG image saved : {output_path}")
+
+# A function that plots the main direction of each panel after running directionality function
+# base_image: an numpy array of an image to use as a background
+# vm_params: a dictionary of von Mises parameters returned by directionality
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_directionality(base_image, vm_params, scaling, cmap = 'gray'):
+    
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Looping over each panel on which the von Mises parameters wer fitted
+    for _, params in vm_params.items():
+
+        # Drawing a rectangle that shows the extent of the panel
+        x = np.array(params['x'])[[0, 1, 1, 0, 0]] / scaling
+        y = np.array(params['y'])[[0, 0, 1, 1, 1]] / scaling
+        plt.plot(x, y, linewidth = 2, c = 'red')
+
+        # Determining arrow coordinates starting from the middle of each panel
+        # Arrows will display the angle determined as the radial angle in this panel
+        # Here the arrow length is hard-coded to be 1/4 of the panel width; this could be adjusted if needed
+        center = np.array([params['x'][0] + params['x'][1], params['y'][0] + params['y'][1]]) / 2 / scaling
+        arrow_length = (params['x'][1] - params['x'][0]) / 4 / scaling
+        arrow_end = center + np.array([np.cos(params['mu']), np.sin(params['mu'])]) * arrow_length
+
+        # Drawing the arrow
+        plt.annotate('',
+                     xytext = np.array([center[0], center[1]]),
+                     xy = np.array([arrow_end[0], arrow_end[1]]),
+                     arrowprops = dict(arrowstyle = "->", color = 'red', lw = 2))
+
+    return
+
+# A function that plots adjacency edges and allows for selecting adjacency type
+# base_image: an numpy array of an image to use as a background
+# adjacency: a DataFrame of adjacencies, such as returned
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# adj_type: the type of adjacency to display on the plot. If None (default), then all are displayed
+# color: the color to use for displaying adjacencies, defaults to 'blue'
+# linewidth: the line width to use for displaying adjacencies, defaults to 1
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_adjacencies(base_image, adjacency, scaling, adj_type = None, color = 'blue', linewidth = 1, cmap = 'gray'):
+
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Looping over the adjacencies
+    for _, row in adjacency.iterrows():
+
+        # Extracting the endpoints of the adjacencies
+        y1, x1 = row["centroid1"]
+        y2, x2 = row["centroid2"]
+
+        # Displaying the adjacency as a line if it is the selected type
+        if adj_type is None or row["wall_classification"] == adj_type:
+            plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = color, linewidth = linewidth)
+
+    return
+
+# A function that plots lines representing radial files
+# base_image: an numpy array of an image to use as a background
+# cells: a DataFrame of individual cell measurements, with columns 'radial_file' and 'file_rank'
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# linewidth: the line width to use for displaying radial files, defaults to 1
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_radial_files(base_image, cells, scaling, linewidth = 1, cmap = 'gray'):
+
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Extracting the set of radial file IDs
+    radial_file_ids = np.unique([i for i in cells['radial_file'] if i is not None])
+
+    # Looping over the radial files
+    for i in radial_file_ids:
+
+        # Extracting a DataFrame with only cells in a given radial file
+        radial_file_df = cells[cells['radial_file'] == i]
+
+        # It is not worth displaying cells that are the only member of their radial file
+        if(len(radial_file_df) == 1):
+            continue
+
+        # Sorting the cells by file rank so the lines are drawn in the right order
+        radial_file_df = radial_file_df.sort_values(by = 'file_rank')
+
+        # Displaying the lines
+        plt.plot(radial_file_df['centroid-1'] / scaling, radial_file_df['centroid-0'] / scaling, linewidth = linewidth)
+
+    return
+
+# A function that plots lines representing the cell diameters that were measured
+# base_image: an numpy array of an image to use as a background
+# cells: a DataFrame of individual cell measurements, with columns 'diameter_rad', 'diameter_tan', 'extr_rad', and 'extr_tan'
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# linewidth: the line width to use for displaying diameters, defaults to 1
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_diameters(base_image, cells, scaling, linewidth = 1, cmap = 'gray'):
+
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Looping over the cells
+    for index, row in cells.iterrows():
+        
+        # We only display the radial diameter if it was measured
+        if row['diameter_rad'] is not None:
+            point1, point2 = row['extr_rad']
+            y1, x1 = point1
+            y2, x2 = point2
+            plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = 'blue', linewidth = linewidth)
+
+        # We only display the tangential diameter if it was measured
+        if row['diameter_tan'] is not None:
+            point1, point2 = row['extr_tan']
+            y1, x1 = point1
+            y2, x2 = point2
+            plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = 'green', linewidth = linewidth)
+
+    return
