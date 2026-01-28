@@ -48,7 +48,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     # traits. Returns a pandas dataframe with measurements in microns if
     # spacing is set with the scaling factor.
     print("Measuring lumen-related features")
-    cell_df = qmiz.measure_lumens(labeled_image, spacing = pixel_size)
+    cell_df = qmiz.measure_lumens(labeled_image, spacing = pixel_size, nprocesses = ncores)
     qmiz.update_runtime(start)
 
     ## Splitting merged cells using watershed segmentation

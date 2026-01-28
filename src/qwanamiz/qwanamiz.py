@@ -34,8 +34,33 @@ from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdf
 ##########################################################################
 
 # A wrapper around skimage.measure.regionprops_table that measures the properties of cell lumens
-def measure_lumens(labeled_image, spacing):
-    cell_df = pd.DataFrame(
+def measure_lumens(labeled_image, spacing, nprocesses = 1):
+
+    # Fork depending on multiprocessing or not
+    if nprocesses > 1:
+        # We create subsets of the image where different number of cells are masked as zeroes
+        nlabels = np.max(labeled_image)
+        breakpoints = np.linspace(0, nlabels, nprocesses + 1, dtype = int)
+        breakpoints[-1] = nlabels + 1
+
+        images = list()
+
+        for i in range(nprocesses):
+            images.append(labeled_image.copy())
+            images[i][~np.logical_and(images[i] >= breakpoints[i], images[i] < breakpoints[i + 1])] = 0
+
+        parallel_prop = partial(measure_properties, spacing = spacing)
+        
+        with Pool(processes = nprocesses) as p:
+            cell_df = pd.concat(p.map(parallel_prop, images))
+            
+    else:
+        cell_df = measure_properties(labeled_image, spacing)
+
+    return cell_df
+
+def measure_properties(labeled_image, spacing):
+    cells = pd.DataFrame(
         skimage.measure.regionprops_table(
             labeled_image,
             spacing = spacing,
@@ -45,7 +70,8 @@ def measure_lumens(labeled_image, spacing):
         )
     )
 
-    return cell_df
+    return cells
+    
 
 # Measure dimensions of whole cells after they have been expanded to their cell wall
 def measure_cells(cell_df, expanded_labels, spacing):
