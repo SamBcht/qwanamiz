@@ -127,7 +127,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     #### Step 3: Measure lumen diameters and cell walls
 
     print("Measuring lumen diameters")
-    qmiz.measure_diameters(cell_df, spacing = pixel_size)
+    cell_df = qmiz.measure_diameters(cell_df, spacing = pixel_size, nprocesses = ncores)
     qmiz.update_runtime(start)
 
     # Compute cell wall thickness between centroids of adjacent cells

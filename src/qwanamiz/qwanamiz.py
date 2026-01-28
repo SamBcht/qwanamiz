@@ -970,10 +970,26 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
 
     return cell_df, edge_df
 
+# Multiprocessing-enabled diameter measurements
+def measure_diameters(complete_df, spacing = 1, nprocesses = 1):
+
+    # Checking if we are multiprocessing or not
+    if nprocesses > 1:
+        measure_partial = partial(measure_diameter_df, spacing = spacing)
+
+        with Pool(processes = nprocesses)as p:
+            complete_df = pd.concat(p.map(measure_partial, np.array_split(complete_df, nprocesses)))
+
+    else:
+        complete_df = measure_diameter_df(complete_df, spacing = spacing)
+
+    return complete_df
+    
+
 ######################################################################################
 # Measure radial and tangential diameters relative to the cell angle
 
-def measure_diameters(complete_df, spacing = 1):
+def measure_diameter_df(complete_df, spacing = 1):
     """
     Measure the diameters of objects along specified angles and their perpendiculars.
     
