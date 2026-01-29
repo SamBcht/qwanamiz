@@ -16,9 +16,6 @@ import datetime
 import skimage.io
 import skimage.measure
 
-# other third-party package imports
-from scipy.ndimage import distance_transform_edt
-
 # local qwanamiz imports
 import qwanamiz.qwanamiz as qmiz
 
@@ -60,13 +57,11 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     qmiz.update_runtime(start)
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell wall pixels,
-    # e.g. background pixels. Return an image where each back ground pixel takes
+    # e.g. background pixels. Return an image where each background pixel takes
     # the value of the distance to the nearest cell lumen in microns with the 
     # sampling parameter set to the scaling factor.
     print("Compute distance from cell wall pixel to nearest lumen")
-    distance_map, nearest_label_coords = distance_transform_edt(labeled_image == 0,
-                                                                sampling = pixel_size,
-                                                                return_indices = True)
+    distance_map, nearest_label_coords = qmiz.measure_distance(labeled_image = labeled_image, scaling = pixel_size)
     qmiz.update_runtime(start)
 
     ## EXPAND CELL LUMENS UNTIL JUNCTION WITH ADJACENT CELLS : Expand labels in 

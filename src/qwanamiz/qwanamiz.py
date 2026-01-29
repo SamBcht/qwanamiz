@@ -92,6 +92,14 @@ def measure_cells(cell_df, expanded_labels, spacing):
 
     return cell_df
 
+# Measure distance from cell wall pixels to nearest lumen pixel
+def measure_distance(labeled_image, scaling):
+    distance_map, nearest_label_coords = distance_transform_edt(labeled_image == 0,
+                                                                sampling = scaling,
+                                                                return_indices = True)
+
+    return distance_map, nearest_label_coords
+
 # Split merged cells that have not been properly recognized as distinct at the image binarization stage
 def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solidity_threshold = 0.95):
 
