@@ -19,7 +19,7 @@ import skimage.measure
 # local qwanamiz imports
 import qwanamiz.qwanamiz as qmiz
 
-def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
+def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = None, dir_ncols = None,
                        convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
 
     # Determining start time of the analysis to compute run time
@@ -95,10 +95,24 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.5504269059
     ### Directionality analysis
     print("Analyzing directionality and classifying edges")
 
-    # Automatically determining the number of rows and columns in the image for the directionality analysis
-    nb_rows, nb_cols = qmiz.calculate_grid(image_width = img_width, 
-                                           image_height = img_height, 
-                                           pixel_to_micron = pixel_size)
+    # Automatically determining the number of rows and columns in the image for
+    # the directionality analysis unless the parameters were explicitly set
+    if dir_nrows is None or dir_ncols is None:
+        if dir_nrows is not None:
+            print("Warning: --dir-nrows was set but not --dir-ncols. Ignoring --dir-nrows argument")
+
+        if dir_ncols is not None:
+            print("Warning: --dir-ncols was set but not --dir-nrows. Ignoring --dir-ncols argument")
+
+        nb_rows, nb_cols = qmiz.calculate_grid(image_width = img_width, 
+                                               image_height = img_height, 
+                                               pixel_to_micron = pixel_size)
+
+    else:
+        nb_rows = dir_nrows
+        nb_cols = dir_ncols
+
+    
 
     # Determining the directionality angle for each part of the image
     adjacency, vm_parameters = qmiz.directionality(adjacency,
@@ -172,11 +186,13 @@ def main():
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
 
-    parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = 4,
-                        help = """Number of rows to split the image into for the directionality analysis. Defaults to 4.""")
+    parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = None,
+                        help = """Number of rows to split the image into for the directionality analysis.
+                                  If None (the default), the number of rows and colums is automatically determined.""")
 
-    parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = 8,
-                        help = """Number of columns to split the image into for the directionality analysis. Defaults to 8.""")
+    parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = None,
+                        help = """Number of columns to split the image into for the directionality analysis.
+                                  If None (the default), the number of rows and colums is automatically determined.""")
 
     parser.add_argument("--disable-plots", dest = "noplots", action = "store_true",
                         help = """Specify this flag to disable the generation of angle plots. By default they will be produced.""")
