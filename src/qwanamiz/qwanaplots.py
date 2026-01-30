@@ -9,6 +9,63 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from qwanamiz.vonmisesmix import density
+
+# A function that shows the empirical distribution of angles
+# and the one esimated by the von Mises distributions for
+# each of the subsets (num_rows x num_cols) of the image
+def plot_angles(params, num_rows, num_cols):
+
+    # Create a figure to display the histograms
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(20, 10))
+
+    # Looping over the rows and columns
+    for i in range(num_rows):
+        for j in range(num_cols):
+
+            # Extracting the relevant data from the set of parameters
+            x_histo = params[f'{i+1}_{j+1}']['x_histo']
+            y_histo = params[f'{i+1}_{j+1}']['y_histo']
+            mu = params[f'{i+1}_{j+1}']['mu']
+            kappa = params[f'{i+1}_{j+1}']['kappa']
+            m = params[f'{i+1}_{j+1}']['vonmisses_params']
+            lower_bound = params[f'{i+1}_{j+1}']['bounds'][0]
+            upper_bound = params[f'{i+1}_{j+1}']['bounds'][1]
+
+            # Plotting
+            ax = axes[i, j]
+            
+            # Plot the empirical distribution
+            ax.plot(x_histo, y_histo, label='Raw', color='blue')
+            
+            # Plot the distribution using the parameters obtained from the EM algorithm
+            f = np.zeros(len(x_histo))
+            for k in range(m.shape[1]):
+                f += m[0, k] * density(x_histo, m[1, k], m[2, k])
+            ax.plot(x_histo, f / np.sum(f), label='Fit', color='red')
+
+            # Add the 99% interval bounds as vertical lines
+            ax.axvline(lower_bound, color='green', linestyle='--')
+            ax.axvline(upper_bound, color='green', linestyle='--')
+            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
+
+            # Set limits and title
+            ax.set_xlim(-np.pi/2, np.pi/2)
+            ax.set_xticks([-np.pi/2, -np.pi/4, 0, np.pi/4, np.pi/2])
+            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
+            ax.set_title(f"Subsample ({i+1}, {j+1})")
+
+            # Display the legend
+            #ax.legend()
+
+    # Adjust layout
+    fig.tight_layout()
+
+    return fig 
+
 
 def draw_rings(
     prediction,
