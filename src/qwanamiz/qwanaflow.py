@@ -150,18 +150,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
                                             nprocesses = ncores)
     qmiz.update_runtime(start)
 
-    # Inserting before last column for compatibility with older qwanaflow version
-    # Should probably be inserted last or even at the beginning of the DataFrame
-    cell_df.insert(loc = len(cell_df.columns) - 1, column = 'SampleId', value = sampleID)
-    
-    cell_df = cell_df.drop(
-        columns = [
-            'image',
-            'bbox-0',
-            'bbox-1',
-            'bbox-2',
-            'bbox-3'])
-    
+    # A function that prepares the cell DataFrame for output
+    cell_df = qmiz.prepare_cell_output(cells = cell_df, sampleID = sampleID)
+
     print("Successfully run")
     
     return cell_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols

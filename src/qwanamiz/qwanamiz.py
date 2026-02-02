@@ -1251,3 +1251,21 @@ def write_qwanaflow_outputs(output, base_name, prediction, distance_map,
 
     return
 
+# A function that prepares the DataFrame of metadata on cells for output by removing
+# columns that are not needed and adding the SampleID column
+def prepare_cell_output(cells, sampleID):
+
+    # Inserting before last column for compatibility with older qwanaflow version
+    # Should probably be inserted last or even at the beginning of the DataFrame
+    cells.insert(loc = len(cells.columns) - 1, column = 'SampleId', value = sampleID)
+    
+    cells = cells.drop(
+        columns = [
+            'image',
+            'bbox-0',
+            'bbox-1',
+            'bbox-2',
+            'bbox-3'])
+    
+    return cells
+
