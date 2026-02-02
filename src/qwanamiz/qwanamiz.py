@@ -160,10 +160,10 @@ def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solid
     return labeled_image, cell_df, watershed_result
 
 # Simili expand_labels function to avoid calculation of the distance map a second time
-def expand_cells(label_image, distances, indices, distance = 1, spacing = 1,):
+def expand_cells(label_image, distances, indices, max_distance = 10):
     
     labels_out = np.zeros_like(label_image)
-    dilate_mask = distances <= distance
+    dilate_mask = distances <= max_distance
     # build the coordinates to find nearest labels,
     # in contrast to [1] this implementation supports label arrays
     # of any dimension
