@@ -19,7 +19,7 @@ import skimage.measure
 # local qwanamiz imports
 import qwanamiz.qwanamiz as qmiz
 
-def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = None, dir_ncols = None,
+def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows = None, dir_ncols = None,
                        convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
 
     # Determining start time of the analysis to compute run time
@@ -182,8 +182,8 @@ def main():
 
     parser.add_argument("output", help = """A directory to write output files to.""")
     
-    parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
-                        help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
+    parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 1,
+                        help = """Conversion factor from of a single pixel to the desired measurement unit. Defaults to 1 (measurements in pixels).""")
 
 
     parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = None,
