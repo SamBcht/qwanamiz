@@ -21,7 +21,8 @@ import qwanamiz.qwanamiz as qmiz
 
 def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows = None, dir_ncols = None,
                        area_threshold = 500, solidity_threshold = 0.95, max_wall_distance = 10,
-                       convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
+                       convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20,
+                       scan_width = None, ncores = 1):
 
     # Determining start time of the analysis to compute run time
     start = datetime.datetime.now()
@@ -113,8 +114,6 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
         nb_rows = dir_nrows
         nb_cols = dir_ncols
 
-    
-
     # Determining the directionality angle for each part of the image
     adjacency, vm_parameters = qmiz.directionality(adjacency,
                                                    image_height = img_height, 
@@ -145,9 +144,8 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
     cell_df, adjacency = qmiz.measure_walls(cell_df,
                                             adjacency,
                                             distance_map,
-                                            auto_pixelwidth = True,
                                             scale = pixel_size,
-                                            scan_width = 75,
+                                            scan_width = scan_width,
                                             nprocesses = ncores)
     qmiz.update_runtime(start)
 
@@ -222,6 +220,12 @@ def main():
                                   in stitching together radial files and should therefore use a more permissive
                                   angle threshold.""")
 
+    parser.add_argument("--scan-width", dest = "scan_width", type = int, default = None,
+                        help = """The width (in pixels) of the rectangle to use when computing wall thickness at the boundary
+                                  between two cells. If None (the default), qwanaflow dynamically computes the scan width
+                                  for each cell pair to 75%% of the average of the two cells' diameter. Explicitly setting the
+                                  scan width provides faster computation but is potentially less accurate.""")
+
     parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
                         help = """The number of processes to launch for multiprocessing for computing wall thickness.
                         Defaults to 1 (no multiprocessing).""")
@@ -268,6 +272,7 @@ def main():
                                                                                             convergence_threshold = args.vmthreshold,
                                                                                             angle_tolerance = args.angle,
                                                                                             stitch_angle_tolerance = args.stitch_angle,
+                                                                                            scan_width = args.scan_width,
                                                                                             ncores = args.ncores)
         
         print('Saving outputs')

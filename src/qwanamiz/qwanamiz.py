@@ -479,20 +479,18 @@ def directionality(adj_df,
 
 #########################################################################
 # Cell Wall Measurements
-def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
+def thickness_between_centroids(row, dist_map, scaling = 1, scan_width = 10):
     
     # Use automatically computed pixelwidth if available in row
-    if pixelwidth == "auto" and "pixelwidth_dynamic" in row:
-        pixelwidth = int(row["pixelwidth_dynamic"])
-    elif pixelwidth is int:
-        pixelwidth = pixelwidth
+    if scan_width is None and "pixelwidth_dynamic" in row:
+        scan_width = int(row["pixelwidth_dynamic"])
     
     # Define profile line between centroids
     mid_line = skimage.measure.profile_line(
         dist_map,
         row['pix_centroid1'],
         row['pix_centroid2'],
-        linewidth = pixelwidth,
+        linewidth = scan_width,
         order = 0,
         reduce_func = None)
     
@@ -515,7 +513,7 @@ def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
 
     return max_thickness
 
-def measure_walls(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width = 10, scale = 1, nprocesses = 1):
+def measure_walls(cell_df, adj_df, dist_map, scan_width = None, scale = 1, nprocesses = 1):
 
     # First we assign up and down neighbors to each cell
     cell_df, adj_df = get_radial_walls(cell_df, adj_df)
@@ -572,7 +570,7 @@ def measure_walls(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width
     wall_df['pix_centroid2'] = wall_df['centroid2'].apply(lambda x: (x[0] / scale, x[1] / scale))
     
     # Calculate the width of the profile line automatically based on cell diameters
-    if auto_pixelwidth:
+    if scan_width is None:
         # Fetch diameters for each label
         diameter_rad = cell_df.set_index('label')['diameter_rad']
         diameter_tan = cell_df.set_index('label')['diameter_tan']
@@ -593,19 +591,17 @@ def measure_walls(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width
                 avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])  # Fallback
                 
             if not np.isnan(avg_diameter):
-                return int(np.ceil((scan_width/100) * (avg_diameter / scale)))  # convert to pixels and round up
+                return int(np.ceil(0.75 * avg_diameter / scale))  # convert to pixels and round up
             
             else:
                 return 1
 
         wall_df['pixelwidth_dynamic'] = wall_df.apply(determine_pixelwidth, axis=1)
-        
-        scan_width = "auto"
 
     # The case for multiprocessing
     if(nprocesses > 1):
         with Pool(processes = nprocesses) as p:
-            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, pixelwidth = scan_width, scaling = scale)
+            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, scan_width = scan_width, scaling = scale)
             wall_df['wall_thickness'] = p.map(multi_thickness, [row for index,row in wall_df.iterrows()])
     
     # Otherwise with only one process
@@ -613,7 +609,7 @@ def measure_walls(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width
         wall_df['wall_thickness'] = wall_df.apply(
                 lambda row: thickness_between_centroids(row,
                                                         dist_map = dist_map,
-                                                        pixelwidth = scan_width,
+                                                        scan_width = scan_width,
                                                         scaling = scale),
                 axis=1)
 
