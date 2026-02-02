@@ -20,6 +20,7 @@ import skimage.measure
 import qwanamiz.qwanamiz as qmiz
 
 def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows = None, dir_ncols = None,
+                       area_threshold = 500, solidity_threshold = 0.95,
                        convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
 
     # Determining start time of the analysis to compute run time
@@ -53,7 +54,8 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
     #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
     print("Splitting cells using watershed algorithm")
     labeled_image, cell_df, watershed_result = qmiz.adjust_labels(labeled_image, cell_df, scale = pixel_size,
-                                                                  area_threshold = 500, solidity_threshold = 0.95)
+                                                                  area_threshold = area_threshold,
+                                                                  solidity_threshold = solidity_threshold)
     qmiz.update_runtime(start)
 
     ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell wall pixels,
@@ -188,6 +190,17 @@ def main():
     parser.add_argument("--disable-plots", dest = "noplots", action = "store_true",
                         help = """Specify this flag to disable the generation of angle plots. By default they will be produced.""")
 
+    parser.add_argument("--area-threshold", dest = "area_threshold", type = float, default = 500,
+                        help = """Lumen area above which a cell can be considered for splitting into several cells using
+                                  the watershed segmentation algorithm. For a cell to be selected, it must also be below the
+                                  solidity threshold. Defaults to 500.""")
+
+    parser.add_argument("--solidity-threshold", dest = "solidity_threshold", type = float, default = 0.95,
+                        help = """Solidity threshold below which a cell can be considered for splitting into several cells
+                                  using the watershed segmentation algorithm. Higher values (closer to 1) indicate a more convex shape
+                                  whereas lower values (closer to 0) indicate concavity (presence of indentations).
+                                  For a cell to be selected, it must also be above the lumen area threshold. Defaults to 0.95.""")
+
     parser.add_argument("--vm-threshold", dest = "vmthreshold", type = float, default = 0.001,
                         help = """The convergence threshold in the search of von Mises distribution parameters.
                                   Lower values result in more precise results but slower convergence.
@@ -245,6 +258,8 @@ def main():
                                                                                             pixel_size = args.pixel,
                                                                                             dir_nrows = args.nrows,
                                                                                             dir_ncols = args.ncols,
+                                                                                            area_threshold = args.area_threshold,
+                                                                                            solidity_threshold = args.solidity_threshold,
                                                                                             convergence_threshold = args.vmthreshold,
                                                                                             angle_tolerance = args.angle,
                                                                                             stitch_angle_tolerance = args.stitch_angle,
