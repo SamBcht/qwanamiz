@@ -941,8 +941,19 @@ def measure_diameters(complete_df, spacing = 1, nprocesses = 1):
     if nprocesses > 1:
         measure_partial = partial(measure_diameter_df, spacing = spacing)
 
-        with Pool(processes = nprocesses)as p:
-            complete_df = pd.concat(p.map(measure_partial, np.array_split(complete_df, nprocesses)))
+        # We need to split the DataFrame into as many parts as there are processes
+        # This is necessary because np.array_split gives a deprecation warning so we need to do it by hand
+        nrows = len(complete_df)
+        breakpoints = np.linspace(0, nrows, nprocesses + 1, dtype = int)
+        breakpoints[-1] = nrows
+
+        sub_df = list()
+
+        for i in range(nprocesses):
+            sub_df.append(complete_df.iloc[breakpoints[i]:breakpoints[i + 1]])
+
+        with Pool(processes = nprocesses) as p:
+            complete_df = pd.concat(p.map(measure_partial, sub_df))
 
     else:
         complete_df = measure_diameter_df(complete_df, spacing = spacing)
