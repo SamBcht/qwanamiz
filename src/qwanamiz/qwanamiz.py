@@ -12,6 +12,7 @@ from multiprocessing import Pool
 from functools import partial
 
 # scikit-image imports
+import skimage.io
 import skimage.measure
 from skimage import measure, segmentation
 from skimage.draw import line
@@ -32,6 +33,14 @@ from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdf
 import qwanamiz.qwanaplots as qplots
 
 ##########################################################################
+
+# A wrapper around skimage.io.imread that reads the binarized (black/white) image
+def read_image(img_path):
+    return skimage.io.imread(img_path, as_gray = True)
+
+# A wrapper around skimage.measure.label that labels the cells in a binarized black & white image
+def label_cells(bw_image):
+    return skimage.measure.label(bw_image)
 
 # A wrapper around skimage.measure.regionprops_table that measures the properties of cell lumens
 def measure_lumens(labeled_image, spacing, nprocesses = 1):
@@ -346,19 +355,25 @@ def calculate_grid(image_width, image_height, pixel_to_micron, row_min_height = 
 
 # Directionality modeling
 def directionality(adj_df,
-                    image_height,
-                    image_width,
-                    spacing = 1,
-                    num_rows = 4,
-                    num_cols = 8,
-                    # Threshold for acceptable difference between mu and the peak angle
-                    mu_threshold = 5,  # in degrees
-                    max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
-                    convergence_threshold = 0.001,
-                    k_threshold = 50):
+                   image_height,
+                   image_width,
+                   spacing = 1,
+                   num_rows = None,
+                   num_cols = None,
+                   # Threshold for acceptable difference between mu and the peak angle
+                   mu_threshold = 5,  # in degrees
+                   max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
+                   convergence_threshold = 0.001,
+                   k_threshold = 50):
+
+    # Determining the number of rows and columns automatically if either num_rows or num_cols are None
+    if num_rows is None or num_cols is None:
+        num_rows, num_cols = calculate_grid(image_width = image_width,
+                                            image_height = image_height,
+                                            pixel_to_micron = spacing)
     
-    row_height = (image_height*spacing) / num_rows
-    col_width = (image_width*spacing) / num_cols
+    row_height = (image_height * spacing) / num_rows
+    col_width = (image_width * spacing) / num_cols
 
     # Subsampling image and filtering of edges based on von Mises distributions
 
@@ -475,7 +490,7 @@ def directionality(adj_df,
 
     merged_df = pd.merge(adj_df, df, left_index = True, right_index = True)
     
-    return merged_df, subsample_params
+    return merged_df, subsample_params, num_rows, num_cols
 
 #########################################################################
 # Cell Wall Measurements

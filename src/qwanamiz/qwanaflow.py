@@ -12,10 +12,6 @@ import argparse
 import glob
 import datetime
 
-# scikit-image imports
-import skimage.io
-import skimage.measure
-
 # local qwanamiz imports
 import qwanamiz.qwanamiz as qmiz
 
@@ -29,10 +25,9 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
 
     #### Step 1 : Cell labeling and measurements
 
-    # 'prediction' is a numpy array of float64 resulting from the binarization of the original image.
+    # 'bw_image' is a numpy array of float64 resulting from the binarization of the original image.
     print("Reading input image")
-    prediction = skimage.io.imread(img_path, as_gray = True)
-    img_height, img_width = prediction.shape
+    bw_image = qmiz.read_image(img_path)
     qmiz.update_runtime(start)
 
     ## CELL LUMEN DETECTION : the label function from scikit.image package
@@ -40,7 +35,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
     # Two pixels are connected e.g. belong to the same cell lumen
     # when they are neighbors and have the same value (here 'black' or 'white').
     print("Labeling individual cells")
-    labeled_image = skimage.measure.label(prediction)
+    labeled_image = qmiz.label_cells(bw_image)
     qmiz.update_runtime(start)
 
     ## CELL LUMEN MEASUREMENTS : the function 'measure_lumens' measures lumen 
@@ -97,31 +92,15 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
     ### Directionality analysis
     print("Analyzing directionality and classifying edges")
 
-    # Automatically determining the number of rows and columns in the image for
-    # the directionality analysis unless the parameters were explicitly set
-    if dir_nrows is None or dir_ncols is None:
-        if dir_nrows is not None:
-            print("Warning: --dir-nrows was set but not --dir-ncols. Ignoring --dir-nrows argument")
-
-        if dir_ncols is not None:
-            print("Warning: --dir-ncols was set but not --dir-nrows. Ignoring --dir-ncols argument")
-
-        nb_rows, nb_cols = qmiz.calculate_grid(image_width = img_width, 
-                                               image_height = img_height, 
-                                               pixel_to_micron = pixel_size)
-
-    else:
-        nb_rows = dir_nrows
-        nb_cols = dir_ncols
 
     # Determining the directionality angle for each part of the image
-    adjacency, vm_parameters = qmiz.directionality(adjacency,
-                                                   image_height = img_height, 
-                                                   image_width = img_width,
-                                                   spacing = pixel_size,
-                                                   num_rows = nb_rows,
-                                                   num_cols = nb_cols,
-                                                   convergence_threshold = convergence_threshold)
+    adjacency, vm_parameters, nb_rows, nb_cols = qmiz.directionality(adjacency,
+                                                                     image_height = bw_image.shape[0],
+                                                                     image_width = bw_image.shape[1],
+                                                                     spacing = pixel_size,
+                                                                     num_rows = dir_nrows,
+                                                                     num_cols = dir_ncols,
+                                                                     convergence_threshold = convergence_threshold)
 
     # Edge classification and filtering
     qmiz.classify_edges(adjacency, tolerance = angle_tolerance)
@@ -154,7 +133,7 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
 
     print("Successfully run")
     
-    return cell_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
+    return cell_df, adjacency, vm_parameters, bw_image, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
 
 def get_basename(input_file, remove = '.png'):
     base_name = os.path.basename(input_file)
@@ -233,6 +212,13 @@ def main():
     # Parse the arguments
     args = parser.parse_args()
 
+    # Argument checking
+    if args.nrows is None and args.ncols is not None:
+            print("Warning: --dir-cols was set but not --dir-nrows. Ignoring --dir-ncols argument")
+
+    elif args.ncols is None and args.nrows is not None:
+            print("Warning: --dir-nrows was set but not --dir-ncols. Ignoring --dir-nrows argument")
+
     # If 'input' is a directory then all images ending in .png in that directory will be processed
     if(os.path.isdir(args.input)):
         # Process each .png image in the input folder
@@ -260,7 +246,7 @@ def main():
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        cell_df, adjacency, vm_parameters, prediction, distance_map, \
+        cell_df, adjacency, vm_parameters, bw_image, distance_map, \
                 expanded_labels, labeled_image, watershed_result, nrows, ncols = batch_measurements(img_path, 
                                                                                             sampleID = base_name,
                                                                                             pixel_size = args.pixel,
@@ -279,7 +265,7 @@ def main():
         
         qmiz.write_qwanaflow_outputs(output = args.output,
                                      base_name = base_name,
-                                     prediction = prediction,
+                                     prediction = bw_image,
                                      distance_map = distance_map,
                                      expanded_labels = expanded_labels,
                                      labeled_image = labeled_image,
