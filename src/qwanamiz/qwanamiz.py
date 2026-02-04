@@ -531,7 +531,7 @@ def thickness_between_centroids(row, dist_map, scaling = 1, scan_width = 10):
 def measure_walls(cell_df, adj_df, dist_map, scan_width = None, scale = 1, nprocesses = 1):
 
     # First we assign up and down neighbors to each cell
-    cell_df, adj_df = get_radial_walls(cell_df, adj_df)
+    cell_df = get_radial_walls(cell_df, adj_df)
     
     # Initializing the columns for wall thickness
     cell_df['left_wall_thickness'] = 0.0
@@ -598,12 +598,12 @@ def measure_walls(cell_df, adj_df, dist_map, scan_width = None, scale = 1, nproc
 
         # Determine pixelwidth based on direction
         def determine_pixelwidth(row):
-            if row['wall_classification'] == 'radial_sel':
-                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])
-            elif row['wall_classification'] == 'tangential':
+            # If the adjacency is in the radial direction then compute scan width according to tangential diameter
+            if row['direction'] == 'radial':
                 avg_diameter = 0.5 * (row['diameter1_tan'] + row['diameter2_tan'])
+            # Otherwise we compute scan width according to radial diameter
             else:
-                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])  # Fallback
+                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])
                 
             if not np.isnan(avg_diameter) and avg_diameter != 0:
                 return int(np.ceil(0.75 * avg_diameter / scale))  # convert to pixels and round up
@@ -658,7 +658,7 @@ def classify_edges(df, tolerance = 5):
     ub = df["upper_bound"] + np.radians(tolerance)
 
     # Using np.where to classify the edges in a vectorized way
-    df["wall_classification"] = np.where(np.logical_and(angle >= lb, angle <= ub), 'tangential', 'radial')
+    df["direction"] = np.where(np.logical_and(angle >= lb, angle <= ub), 'radial', 'tangential')
 
     return df
 
@@ -780,8 +780,8 @@ def get_starting_nodes(candidates, graph, cell_data):
 def join_files(radial_files, edge_df, angle_tolerance = 20):
     # We start by building the graph of possible adjacencies from the edge_df and angle tolerance
     edge_df = classify_edges(edge_df, tolerance = angle_tolerance)
-    tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
-    fwd_graph = get_forward_graph(tangential_edges)
+    radial_edges = edge_df[edge_df["direction"] == "radial"]
+    fwd_graph = get_forward_graph(radial_edges)
 
     # We loop over the radial files as long as we haven't reached the end
     i = 0
@@ -823,10 +823,10 @@ def join_files(radial_files, edge_df, angle_tolerance = 20):
 # graph that contains only edges going from left to right
 def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
 
-    # We extract tangential edges from the edge DataFrame
-    tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
+    # We extract radial edges from the edge DataFrame
+    radial_edges = edge_df[edge_df["direction"] == "radial"]
 
-    fwd_graph = get_forward_graph(tangential_edges)
+    fwd_graph = get_forward_graph(radial_edges)
 
     # We identify starting nodes as edges for which no cell points to
     starting_nodes = get_starting_nodes(cell_df["label"], fwd_graph, cell_df)
@@ -848,7 +848,7 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
 
             # We increment the current radial file as long as we do not meet a dead-end
             while current_node is not None and current_node in fwd_graph:
-                current_node = get_next_node(fwd_graph, current_node, previous_node, tangential_edges, visited)
+                current_node = get_next_node(fwd_graph, current_node, previous_node, radial_edges, visited)
 
                 # Storing a variable for the previous node, deleting it from the graph, and adding it to the visited set
                 previous_node = radial_files[current_file - 1][-1]
@@ -877,7 +877,7 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                               angle_tolerance = stitch_angle_tolerance)
 
     # Assigning the radial files and file rank into the input cell DataFrame
-    # Also assigning left and right neighbors as well as tangential wall thickness
+    # Also assigning left and right neighbors
     cell_df.set_index(cell_df["label"], inplace = True, drop = False)
 
     cell_df['classification'] = None
@@ -928,9 +928,9 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                 
                 cell_df.at[cell_idx, 'right_angle'] = edge_df.at[right_edge, 'angle']
 
-                # All edges that are part of a radial file are considered tangential
+                # All edges that are part of a radial file are considered radial
                 # for use in downstream functions
-                edge_df.at[right_edge, "wall_classification"] = 'tangential'
+                edge_df.at[right_edge, "direction"] = 'radial'
 
     return cell_df, edge_df
 
@@ -1188,11 +1188,11 @@ def get_updown_graph(df, direction):
 
     return(updown_graph)
 
-# Attribute the correct up and down radial wall measurements to each tracheid
+# Attribute the correct up and down neighbors to each tracheid for radial wall measurement purposes
 def get_radial_walls(cells_df, walls_df):
     
     # Generate graphs that contain adjacencies towards the upward or downward direction
-    edges_df = walls_df[walls_df['wall_classification'] == 'radial']
+    edges_df = walls_df[walls_df['direction'] == 'tangential']
     up_graph = get_updown_graph(edges_df, direction = "up")
     down_graph = get_updown_graph(edges_df, direction = "down")
     
@@ -1219,16 +1219,14 @@ def get_radial_walls(cells_df, walls_df):
             up_neighbor = closest_cell(cell = label, neighbors = up_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
             up_edge = tuple(sorted([label, up_neighbor]))
             cells_df.at[idx, 'up_neighbor'] = up_neighbor
-            walls_df.at[up_edge, 'wall_classification'] = 'radial_sel'
         
         # Assigning the downwards neighbor and wall data if the cell has any
         if label in down_graph:
             down_neighbor = closest_cell(cell = label, neighbors = down_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
             down_edge = tuple(sorted([label, down_neighbor]))
             cells_df.at[idx, 'down_neighbor'] = down_neighbor
-            walls_df.at[down_edge, 'wall_classification'] = 'radial_sel'
         
-    return cells_df, walls_df
+    return cells_df
 
 # A simple function that updates the user on total run time
 def update_runtime(start_time):

@@ -264,7 +264,7 @@ def plot_adjacencies(base_image, adjacency, scaling, adj_type = None, color = 'b
         y2, x2 = row["centroid2"]
 
         # Displaying the adjacency as a line if it is the selected type
-        if adj_type is None or row["wall_classification"] == adj_type:
+        if adj_type is None or row["direction"] == adj_type:
             plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = color, linewidth = linewidth)
 
     return

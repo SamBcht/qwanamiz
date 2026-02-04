@@ -189,13 +189,13 @@ def main():
 
     parser.add_argument("--angle-tolerance", dest = "angle", type = float, default = 5,
                         help = """The tolerance (in degrees) around the lower and upper bounds found by the
-                                  directionality algorithm in determining which cell adjacencies are tangential and
-                                  which are radial. A higher value means potentially longer, but inexact, radial files.""")
+                                  directionality algorithm in determining which cell adjacencies are radial and
+                                  which are tangential. A higher value means potentially longer, but inexact, radial files.""")
 
     parser.add_argument("--stitch-angle-tolerance", dest = "stitch_angle", type = float, default = 20,
                         help = """The tolerance (in degrees) around the lower and upper bounds found by the
-                                  directionality algorithm in determining which cell adjacencies are tangential and
-                                  which are radial. This angle is applied after the initial radial file assignment
+                                  directionality algorithm in determining which cell adjacencies are radial and
+                                  which are tangential. This angle is applied after the initial radial file assignment
                                   in stitching together radial files and should therefore use a more permissive
                                   angle threshold.""")
 
