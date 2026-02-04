@@ -207,8 +207,12 @@ can be used to control the cell measurement workflow:
 ```plaintext
 usage: qwanaflow [-h] [--pixel-size PIXEL] [--dir-nrows NROWS]
                  [--dir-ncols NCOLS] [--disable-plots]
+                 [--area-threshold AREA_THRESHOLD]
+                 [--solidity-threshold SOLIDITY_THRESHOLD]
+                 [--max-wall-distance MAX_WALL_DISTANCE]
                  [--vm-threshold VMTHRESHOLD] [--angle-tolerance ANGLE]
-                 [--stitch-angle-tolerance STITCH_ANGLE] [--ncores NCORES]
+                 [--stitch-angle-tolerance STITCH_ANGLE]
+                 [--scan-width SCAN_WIDTH] [--ncores NCORES]
                  input output
 
 positional arguments:
@@ -221,16 +225,41 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
-                        Defaults to 0.55042690590734 micrometers.
+  --pixel-size PIXEL    Conversion factor from of a single pixel to the
+                        desired measurement unit. Defaults to 1 (measurements
+                        in pixels).
   --dir-nrows, -r NROWS
                         Number of rows to split the image into for the
-                        directionality analysis. Defaults to 4.
+                        directionality analysis. If None (the default), the
+                        number of rows and colums is automatically determined.
   --dir-ncols, -c NCOLS
                         Number of columns to split the image into for the
-                        directionality analysis. Defaults to 8.
+                        directionality analysis. If None (the default), the
+                        number of rows and colums is automatically determined.
   --disable-plots       Specify this flag to disable the generation of angle
                         plots. By default they will be produced.
+  --area-threshold AREA_THRESHOLD
+                        Lumen area above which a cell can be considered for
+                        splitting into several cells using the watershed
+                        segmentation algorithm. For a cell to be selected, it
+                        must also be below the solidity threshold. Defaults to
+                        500.
+  --solidity-threshold SOLIDITY_THRESHOLD
+                        Solidity threshold below which a cell can be
+                        considered for splitting into several cells using the
+                        watershed segmentation algorithm. Higher values
+                        (closer to 1) indicate a more convex shape whereas
+                        lower values (closer to 0) indicate concavity
+                        (presence of indentations). For a cell to be selected,
+                        it must also be above the lumen area threshold.
+                        Defaults to 0.95.
+  --max-wall-distance MAX_WALL_DISTANCE
+                        The maximum distance (in the target measurement unit
+                        defined by --pixel-size) between a cell wall pixel and
+                        the nearest cell lumen for that pixel to be considered
+                        as belonging to the cell. This parameter effectively
+                        puts a cap on the maximum possible cell wall
+                        thickness. Defaults to 10.
   --vm-threshold VMTHRESHOLD
                         The convergence threshold in the search of von Mises
                         distribution parameters. Lower values result in more
@@ -239,19 +268,28 @@ options:
   --angle-tolerance ANGLE
                         The tolerance (in degrees) around the lower and upper
                         bounds found by the directionality algorithm in
-                        determining which cell adjacencies are tangential and
-                        which are radial. A higher value means potentially
-                        longer, but inexact, radial files.
+                        determining which cell adjacencies are radial and
+                        which are tangential. A higher value means potentially
+                        longer, but inexact, radial files. Defaults to 5.
   --stitch-angle-tolerance STITCH_ANGLE
                         The tolerance (in degrees) around the lower and upper
                         bounds found by the directionality algorithm in
-                        determining which cell adjacencies are tangential and
-                        which are radial. This angle is applied after the
+                        determining which cell adjacencies are radial and
+                        which are tangential. This angle is applied after the
                         initial radial file assignment in stitching together
                         radial files and should therefore use a more
-                        permissive angle threshold.
+                        permissive angle threshold. Defaults to 20.
+  --scan-width SCAN_WIDTH
+                        The width (in pixels) of the rectangle to use when
+                        computing wall thickness at the boundary between two
+                        cells. If None (the default), qwanaflow dynamically
+                        computes the scan width for each cell pair to 75% of
+                        the average of the two cells' diameter. Explicitly
+                        setting the scan width provides faster computation
+                        (especially for lower values) but is potentially less
+                        accurate.
   --ncores NCORES       The number of processes to launch for multiprocessing
-                        for computing wall thickness. Defaults to 1 (no
+                        during some cell measurement steps. Defaults to 1 (no
                         multiprocessing).
 ```
 
@@ -314,18 +352,23 @@ project, you agree to abide by its terms.
 
 ## License
 
-`qwanamiz` was developed by the Canadian Research Chair in dendroecology and 
-dendroclimatology by Samuel Bouchut, Marc-André Lemay, 
-and Fabio Gennaretti.
-
-The Canadian Research Chair in dendroecology and dendroclimatology is based 
-at the Groupe de Recherche en Écologie de la MRC Abitibi, 
-Institut de Recherche sur les Forêts, Université du Québec en 
-Abitibi-Témiscamingue, Amos, Québec J9T 2L8, Canada.
-
-It is licensed under the terms of the GNU General Public License v3.0 license.
+`qwanamiz` is licensed under the terms of the GNU General Public License v3.0
+license.
 
 ## Credits
+
+`qwanamiz` was developed by the Canadian Research Chair in dendroecology and
+dendroclimatology by Samuel Bouchut, Marc-André Lemay, and Fabio Gennaretti.
+
+The Canadian Research Chair in dendroecology and dendroclimatology has been
+based at the Groupe de Recherche en Écologie de la MRC Abitibi, Institut de
+Recherche sur les Forêts, Université du Québec en Abitibi-Témiscamingue, Amos,
+Québec, Canada. The mission of the Chair will end in 2026.
+
+Please refer to the researchers' current affiliation. Fabio Gennaretti is now
+affiliated at the Department of Agricultural, Food and Environmental Sciences,
+Università Politecnica delle Marche, Area Sistemi Forestali, Via Brecce Bianche
+10, 60131, Ancona, Italy.
 
 `qwanamiz` was created with
 [`cookiecutter`](https://cookiecutter.readthedocs.io/en/latest/) and the

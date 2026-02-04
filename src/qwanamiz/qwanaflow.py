@@ -190,24 +190,26 @@ def main():
     parser.add_argument("--angle-tolerance", dest = "angle", type = float, default = 5,
                         help = """The tolerance (in degrees) around the lower and upper bounds found by the
                                   directionality algorithm in determining which cell adjacencies are radial and
-                                  which are tangential. A higher value means potentially longer, but inexact, radial files.""")
+                                  which are tangential. A higher value means potentially longer, but inexact, radial files.
+                                  Defaults to 5.""")
 
     parser.add_argument("--stitch-angle-tolerance", dest = "stitch_angle", type = float, default = 20,
                         help = """The tolerance (in degrees) around the lower and upper bounds found by the
                                   directionality algorithm in determining which cell adjacencies are radial and
                                   which are tangential. This angle is applied after the initial radial file assignment
                                   in stitching together radial files and should therefore use a more permissive
-                                  angle threshold.""")
+                                  angle threshold. Defaults to 20.""")
 
     parser.add_argument("--scan-width", dest = "scan_width", type = int, default = None,
                         help = """The width (in pixels) of the rectangle to use when computing wall thickness at the boundary
                                   between two cells. If None (the default), qwanaflow dynamically computes the scan width
                                   for each cell pair to 75%% of the average of the two cells' diameter. Explicitly setting the
-                                  scan width provides faster computation but is potentially less accurate.""")
+                                  scan width provides faster computation (especially for lower values) but is potentially
+                                  less accurate.""")
 
     parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
-                        help = """The number of processes to launch for multiprocessing for computing wall thickness.
-                        Defaults to 1 (no multiprocessing).""")
+                        help = """The number of processes to launch for multiprocessing during some cell measurement steps.
+                                  Defaults to 1 (no multiprocessing).""")
 
     # Parse the arguments
     args = parser.parse_args()
