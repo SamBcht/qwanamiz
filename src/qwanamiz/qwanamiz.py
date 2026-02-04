@@ -605,7 +605,7 @@ def measure_walls(cell_df, adj_df, dist_map, scan_width = None, scale = 1, nproc
             else:
                 avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])  # Fallback
                 
-            if not np.isnan(avg_diameter):
+            if not np.isnan(avg_diameter) and avg_diameter != 0:
                 return int(np.ceil(0.75 * avg_diameter / scale))  # convert to pixels and round up
             
             else:
