@@ -9,7 +9,6 @@ Created on Sun Mar 23 14:40:54 2025
 # Generic python imports
 import os
 import datetime
-#from collections import defaultdict
 import argparse
 import pickle
 
@@ -17,12 +16,12 @@ import pickle
 import numpy as np
 import pandas as pd
 import networkx as nx
+from skimage.measure import regionprops_table
 
 # qwanamiz-specific imports
-#import qwanamiz.qwanamiz
+from qwanamiz import qwanamiz as qmiz
 from qwanamiz import rings_functions as qrings
 from qwanamiz import qwanaplots as qplots
-from skimage.measure import regionprops_table
 
 def main():
 
@@ -31,10 +30,6 @@ def main():
     parser.add_argument("--input_dir", required=True,
                     help="""Path to the main directory containing subfolders for each processed image. 
                     Suffixes '_imgs.npz', '_cells.csv' and '_adjacency.csv' must be in the subfolders to obtain the input files.""")
-
-
-    #parser.add_argument("--prefix", help = """The prefix of the files to use for the analysis. Suffixes '_imgs.npz', '_cells.csv' and
-    #                                          '_adjacency.csv' will be added to that prefix to obtain the input files.""")
 
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
@@ -95,7 +90,7 @@ def main():
         celldata = qrings.morks_index(celldata)
         
         # Get lastcells in rings based on diameter and woodzone cell features
-        lastcells_labels, rightcells_labels, leftcells_labels = qrings.get_lastcells(celldata, adjacency)
+        lastcells_labels, rightcells_labels = qrings.get_lastcells(celldata, adjacency)
     
         # Create a mask where pixels belong to lastcells or their right_neighbors
         rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
@@ -172,8 +167,7 @@ def main():
         # unwanted groupings by using a single line of cells
         right_to_region, region_to_right = qrings.map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
     
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
         
         ###### FIND PROBLEMATIC BOUNDARY REGIONS
         # Problematic regions are those where there is more than one rightcell (or lastcell)
@@ -294,8 +288,7 @@ def main():
         # Find the extrmities of the new ring segments
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
         
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
     
         ############################################################################
         # FIND ADJACENCIES BETWEEN RING SEGMENTS AFTER ADDITION OF CELLS
@@ -373,8 +366,6 @@ def main():
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
         new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
     
-        #viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
-    
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
         incompatible_pairs = set()
@@ -399,8 +390,8 @@ def main():
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
         new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
         
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
+
         ################################################################################
         # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE WITH ELLIPSE
         
@@ -408,9 +399,6 @@ def main():
     
         region_classes, ring_regions, seq = qrings.classify_regions_by_axis(new_boundaries, pix_to_um)
         
-        #print("Top sequence:", seq["top"])
-        #print("Bottom sequence:", seq["bottom"])
-    
         ###############################################################################
         # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
@@ -426,17 +414,10 @@ def main():
                                                                                                                                  pix_to_um = pix_to_um)
     
         # Result
-        #print("Upper border regions (left to right):", upper_region_sequence)
-        #print("Lower border regions (left to right):", lower_region_sequence)
-        #print("Matching upper regions :", matched_up)
-        #print("Matching lower regions :", matched_down)
-        
         y_positions, sequences = qrings.get_region_sequences(new_boundaries, n_lines=20)
     
     
         aligned, regions = qrings.align_region_sequences(sequences, gap_value=None, upper_seq=seq["top"], lower_seq=seq["bottom"])
-    
-        #plot_alignment(aligned, regions, names=None)
     
         candidates, cu, cl = qrings.find_merge_candidates(
             seq["top"], seq["bottom"]
@@ -446,12 +427,8 @@ def main():
     
         cleaned_matrix = qrings.remove_singleton_columns(aligned)
     
-        #plot_alignment(cleaned_matrix, regions, names=None)
-    
         filled = qrings.fill_columns(cleaned_matrix, candidates, 0.79, region_classes)
     
-        #qrings.plot_alignment(filled, regions, names=None)
-        
         incomplete = qrings.find_incomplete_regions(filled)
         
         final_merge = qrings.filter_incomplete_regions(incomplete_info=incomplete, 
@@ -494,11 +471,10 @@ def main():
         celltemp = celldata.copy()
         celltemp.set_index('label', inplace = True)
         year_dict = celltemp['year'].to_dict()
-        #year_image = np.vectorize(year_dict.get)(expanded_labels)
         year_image = np.vectorize(lambda x: np.nan if year_dict.get(x) is None else year_dict.get(x))(expanded_labels)
         
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
+
         ###############################################################################
         # RINGWIDTH & RING-LEVEL MEASUREMENTS
         
@@ -562,8 +538,6 @@ def main():
             .cumcount() + 1  # starts from 1
         )
     
-    
-    
         celldata = qrings.filter_radial_files(celldata)
         
         ringprops_df = qrings.add_radialfile_stats(celldata, ringprops_df)
@@ -581,7 +555,6 @@ def main():
         sampleID = celldata["SampleId"].unique()
         ringprops_df['SampleId'] = sampleID[0]
     
-    
         celldata = celldata.drop(
             columns = [
                 'next_diameter_rad',
@@ -589,16 +562,13 @@ def main():
                 'next_woodzone'])
         
         filtered_celldata = celldata[celldata["valid_radial_file"]].copy()
-        # Optional: reset index if you want
-        #filtered_celldata.reset_index(drop=True, inplace=True)
     
         # Make a blank mask same size as your labeled image
         filtered_mask = np.zeros_like(expanded_labels, dtype=bool)
         filtered_labels = filtered_celldata.index
         filtered_mask[np.isin(expanded_labels, filtered_labels)] = True
     
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
     
         ###########################################################################
         print("save outputs")
@@ -638,6 +608,6 @@ def main():
         )
         
         print(f"Saved workflow output to {outdir}")
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
-            
+        
+        qmiz.update_runtime(start)
+

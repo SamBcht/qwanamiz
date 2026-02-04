@@ -97,7 +97,6 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
         adjacency.index.get_level_values("label2").isin(transition_labels)
     ]
 
-
     # Start with direct neighbors of lastcells, using transition_adjacency
     direct_neighbors = transition_adjacency[
         transition_adjacency.index.get_level_values("label1").isin(set(lastcell_labels)) |
@@ -162,9 +161,8 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     # Get the labels of lastcells and their right_neighbors
     lastcells_labels = new_lastcells["label"].values
     rightcells_labels = new_lastcells["right_neighbor"].values
-    leftcells_labels = new_lastcells["left_neighbor"].values
     
-    return lastcells_labels, rightcells_labels, leftcells_labels
+    return lastcells_labels, rightcells_labels
 
 def parse_centroid(centroid_str):
     return eval(centroid_str)  # Safe here because it's internal and always np.float64
