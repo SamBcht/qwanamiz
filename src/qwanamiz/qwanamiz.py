@@ -646,7 +646,7 @@ def measure_walls(cell_df, adj_df, dist_map, scan_width = None, scale = 1, nproc
 
     cell_df["WallThickness"] = cell_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis = 1, skipna = True)
     
-    return cell_df, adj_df
+    return cell_df
 
 #########################################################################
 # Classify cell walls between radial and tangential

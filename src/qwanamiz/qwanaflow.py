@@ -120,12 +120,12 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
 
     # Compute cell wall thickness between centroids of adjacent cells
     print("Measuring wall thickness")
-    cell_df, adjacency = qmiz.measure_walls(cell_df,
-                                            adjacency,
-                                            distance_map,
-                                            scale = pixel_size,
-                                            scan_width = scan_width,
-                                            nprocesses = ncores)
+    cell_df = qmiz.measure_walls(cell_df,
+                                 adjacency,
+                                 distance_map,
+                                 scale = pixel_size,
+                                 scan_width = scan_width,
+                                 nprocesses = ncores)
     qmiz.update_runtime(start)
 
     # A function that prepares the cell DataFrame for output
@@ -216,7 +216,7 @@ def main():
 
     # Argument checking
     if args.nrows is None and args.ncols is not None:
-            print("Warning: --dir-cols was set but not --dir-nrows. Ignoring --dir-ncols argument")
+            print("Warning: --dir-ncols was set but not --dir-nrows. Ignoring --dir-ncols argument")
 
     elif args.ncols is None and args.nrows is not None:
             print("Warning: --dir-nrows was set but not --dir-ncols. Ignoring --dir-nrows argument")
