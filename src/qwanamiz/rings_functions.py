@@ -5,6 +5,7 @@ Created on Thu Jun 12 18:05:51 2025
 @author: sambo
 """
 
+import os
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -23,6 +24,33 @@ from skimage.morphology import skeletonize
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 #from typing import Dict, List, Tuple, Any
+
+# A function that reads the inputs needed for qwanarings
+# These are outputs from qwanaflow
+def read_qwanarings_inputs(prefix):
+
+    # Setting the paths to the input files
+    imgs_path = f"{prefix}_imgs.npz"
+    cells_path = f"{prefix}_cells.csv"
+    adjacency_path = f"{prefix}_adjacency.csv"
+    
+    if not all([os.path.exists(p) for p in [imgs_path, cells_path, adjacency_path]]):
+        print(f"Missing required files for prefix {prefix}\n")
+        exit()
+
+    # Reading the input CSV files
+    celldata = pd.read_csv(cells_path)
+    adjacency = pd.read_csv(adjacency_path)
+
+    # Reading input numpy arrays
+    images = np.load(imgs_path)
+    expanded_labels = images['explabs']
+    prediction = images['bw_img']
+    
+    # Explicitly setting the double index on the adjacency DataFrame
+    adjacency.set_index(['label1', 'label2'], inplace = True)
+    
+    return celldata, adjacency, expanded_labels, prediction
 
 def morks_index(cell_df):
     """

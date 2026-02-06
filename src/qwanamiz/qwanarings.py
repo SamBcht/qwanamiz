@@ -41,6 +41,8 @@ def main():
                         help = """The calendar year when the first ring was formed, used for assigning cells to years. Defaults to 1 (year unknown).""")
 
     args = parser.parse_args()
+
+    pix_to_um = args.pixel
     
     # --- Find all directories ending with "_outputs" ---
     output_dirs = sorted([
@@ -55,33 +57,17 @@ def main():
         
     # --- Process each directory ---
     for outdir in output_dirs:
-        base_name = os.path.basename(outdir).replace("_outputs", "")
-        prefix = os.path.join(outdir, base_name)
     
         start = datetime.datetime.now()
-        print(f"Processing {base_name}...")
-    
-        imgs_path = f"{prefix}_imgs.npz"
-        cells_path = f"{prefix}_cells.csv"
-        adjacency_path = f"{prefix}_adjacency.csv"
-    
-        missing = [p for p in [imgs_path, cells_path, adjacency_path] if not os.path.exists(p)]
-        if missing:
-            print(f"Skipping {base_name} — missing files: {', '.join(os.path.basename(m) for m in missing)}\n")
-            continue
 
-        # Reading the input data
-        images = np.load(imgs_path)
-        celldata = pd.read_csv(cells_path)
-        adjacency = pd.read_csv(adjacency_path)
-    
-        # Explicitly setting the double index on the adjacency DataFrame
-        adjacency.set_index(['label1', 'label2'], inplace=True)
-    
-        # Giving an explicit variable name to the expanded labels image
-        expanded_labels = images['explabs']
-    
-        pix_to_um = args.pixel
+        base_name = os.path.basename(outdir).replace("_outputs", "")
+        print(f"Processing {base_name}...")
+
+        # Reading the data needed for the analysis
+        print("Reading input files")
+        prefix = os.path.join(outdir, base_name)
+        celldata, adjacency, expanded_labels, prediction = qrings.read_qwanarings_inputs(prefix)
+        qmiz.update_runtime(start)
     
         ##############################################################################
         # Detection of tree-ring transitions by comparing successive cells properties
@@ -594,8 +580,6 @@ def main():
         # --- Save DataFrames as CSV ---
         celldata.to_csv(f"{base_prefix}_ringcells.csv", index=True)
         ringprops_df.to_csv(f"{base_prefix}_rings.csv", index=False)
-        
-        prediction = images['bw_img']
         
         # --- Draw rings to an image ---
         qplots.draw_rings(
