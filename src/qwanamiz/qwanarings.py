@@ -72,86 +72,19 @@ def main():
         ##############################################################################
         # Detection of tree-ring transitions by comparing successive cells properties
         # (radial diameter and early-latewood classification)
-        print("Find boundary cells & connected components")
-        celldata = qrings.morks_index(celldata)
-        
+        print("Identifying the first and last cells of each ring")
+
         # Get lastcells in rings based on diameter and woodzone cell features
+        celldata = qrings.morks_index(celldata)
         lastcells, rightcells = qrings.get_lastcells(celldata, adjacency)
-    
-        # Create a mask where pixels belong to lastcells or their right_neighbors
-        rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-        rightcells_mask[np.isin(expanded_labels, list(rightcells))] = True
-    
-        ###############################################################################
-        # Now we can filter the cell and adjacency dataframes based on cell classification
-        # This allow us to filter the edges (adjacencies) and nodes (cells) involved in
-        # a ring transition
-    
-        # Keep only cells whose label is in right_neighbor_labels
-        rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
-        # Extract the lastcell labels as a set
+
+        qmiz.update_runtime(start)
     
         ###############################################################################
         #### RING BOUNDARY GRAPH & CONNECTED COMPONENTS ####
     
-        #### The method use in this section could be an elegant way to handle several
-        #following steps of the scripts.
-    
-        # This could allow us to write the workflow independantly from the image arrays
-        # (expanded_labels), just taking the informations from the adajcency and cells dataframes
-    
-        # The idea would be to add or remove nodes and edges if they can or not be 
-        # considered with sufficient confidence to belong to a ring boundary or to be excluded
-    
-        #### We could use it to separate problematic regions by finding edges to remove
-        # to avoid connecting cells of the same radial file
-    
-        #### Similarly we could use it to integrate successively cells and edges we can
-        # confidently attribute to ring boundaries but that are not detected at first
-        # because of too restricting criteria
-        # See Common Neighbors & Up-Down Pairs sections of the script
-    
-        # Now we can construct the graph using previously filtered nodes and edges
-        graph = qrings.boundary_graph(celldata, adjacency, lastcells, rightcells)
-    
-        # Find connected components (as sets of nodes)
-        # This will group all cells that are connected by a path along retained edges
-        # So it will segregate ring boundaries and group togeteher cells belonging to
-        # a same boundary
-        connected_components = list(nx.connected_components(graph))
-    
-        # Create a mapping from node to component ID
-        node_to_component = {}
-        for i, component in enumerate(connected_components):
-            for node in component:
-                node_to_component[node] = i + 1 # i + 1 to avoid the 0 label reserved for background
-    
-        # Now we can assign component (boundary) IDs as a node attribute
-        nx.set_node_attributes(graph, node_to_component, 'component_id')
-    
-        # Finally we can visualize the results of the grouping
-        # We thus have a first image with labels corresponding to cells groups of cells
-        # expected to belong to a ring transition
-    
-        # Prepare a mask of pixels whose cell label is in label_to_region
-        target_labels = np.array(list(node_to_component.keys()))
-        target_mask = np.isin(expanded_labels, target_labels)
-    
-        # Get region IDs for those cell labels
-        label_array = expanded_labels[target_mask]
-        region_array = np.vectorize(node_to_component.get)(label_array)
-    
-        # Make a copy to avoid modifying in-place unless you want to
-        boundary_labeled = np.zeros_like(expanded_labels, dtype=int)
-    
-        # Update boundary-labeled values at those positions
-        boundary_labeled[target_mask] = region_array
-    
-        # Now we will work mostly with rightcells
-        # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
-        # unwanted groupings by using a single line of cells
-        right_to_region, region_to_right = qrings.map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
-    
+        print("Finding connected components from adjacency graph of first/last cells to identify ring boundaries")
+        graph, boundaries, right_to_region, region_to_right = qrings.find_boundaries(celldata, adjacency, lastcells, rightcells, expanded_labels)
         qmiz.update_runtime(start)
         
         ###### FIND PROBLEMATIC BOUNDARY REGIONS
@@ -167,6 +100,7 @@ def main():
         print("Find boundary segments to merge with adjacency")
     
         # Step 1: Map lastcell labels to their corresponding boundary region
+        rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
         rightcells_df["boundary_region"] = rightcells_df["label"].map(right_to_region)
     
         # Step 2: Count unique lastcell labels per (radial_file, boundary_region)
@@ -549,9 +483,8 @@ def main():
         filtered_celldata = celldata[celldata["valid_radial_file"]].copy()
     
         # Make a blank mask same size as your labeled image
-        filtered_mask = np.zeros_like(expanded_labels, dtype=bool)
         filtered_labels = filtered_celldata.index
-        filtered_mask[np.isin(expanded_labels, filtered_labels)] = True
+        filtered_mask = np.isin(expanded_labels, filtered_labels)
     
         qmiz.update_runtime(start)
     

@@ -195,8 +195,48 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
 def parse_centroid(centroid_str):
     return eval(centroid_str)  # Safe here because it's internal and always np.float64
 
-def boundary_graph(celldata, adjacency, lastcells, rightcells):
+# A function that identified boundary cells (the first cells in a ring)
+# by finding connection components of the first and last cells in a ring
+def find_boundaries(celldata, adjacency, lastcells, rightcells, expanded_labels):
+
+    # We can construct a graph using previously the first and last cells of each ring
+    graph = boundary_graph(celldata, adjacency, lastcells, rightcells)
     
+    # Find connected components (as sets of nodes)
+    # This will group all cells that are connected by a path along retained edges
+    # So it will segregate ring boundaries and group togeteher cells belonging to
+    # a same boundary
+    connected_components = list(nx.connected_components(graph))
+    
+    # Create a mapping from node to component ID
+    node_to_component = {}
+    for i, component in enumerate(connected_components):
+        for node in component:
+            node_to_component[node] = i + 1 # i + 1 to avoid the 0 label reserved for background
+    
+    # Prepare a mask of pixels whose cell label is in label_to_region
+    target_labels = np.array(list(node_to_component.keys()))
+    target_mask = np.isin(expanded_labels, target_labels)
+    
+    # Get region IDs for those cell labels
+    label_array = expanded_labels[target_mask]
+    region_array = np.vectorize(node_to_component.get)(label_array)
+    
+    # Make a copy to avoid modifying in-place unless you want to
+    boundary_labeled = np.zeros_like(expanded_labels, dtype = int)
+    
+    # Update boundary-labeled values at those positions
+    boundary_labeled[target_mask] = region_array
+    
+    # Now we will work mostly with rightcells
+    # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
+    # unwanted groupings by using a single line of cells
+    rightcells_mask = np.isin(expanded_labels, list(rightcells))
+    right_to_region, region_to_right = map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
+
+    return graph, boundary_labeled, right_to_region, region_to_right
+
+def boundary_graph(celldata, adjacency, lastcells, rightcells):
     
     # Keep only cells whose label is in right_neighbor_labels
     lastcells_df = celldata[celldata["label"].isin(lastcells)].copy()
