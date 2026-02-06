@@ -95,14 +95,14 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     )
 
     # Filter the cells where condition is met
-    lastcells = celldata[celldata["condition_met"]].copy()
+    lastcells_df = celldata[celldata["condition_met"]].copy()
 
 
     # Extract the coordinates (centroid-0 and centroid-1) of the flagged cells
     #coordinates = lastcells[['centroid-0', 'centroid-1']].values
 
     # Get the labels of lastcells and their right_neighbors
-    lastcell_labels = lastcells["label"].values
+    lastcell_labels = lastcells_df["label"].values
 
     ##### STRICT LATEWOOD TO EARLYWOOD TRANSITION
     # Apply the conditions
@@ -171,7 +171,7 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
 
     ######### UNITE ALL LASTCELLS
     # Create a backup of lastcells
-    new_lastcells = lastcells.copy()
+    new_lastcells = lastcells_df.copy()
 
     # Convert sets to lists for indexing
     direct_neighbor_labels = list(direct_neighbor_labels)
@@ -187,31 +187,31 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     new_lastcells = pd.concat([new_lastcells, direct_neighbors_df, connected_transition_df], ignore_index=True)
     
     # Get the labels of lastcells and their right_neighbors
-    lastcells_labels = new_lastcells["label"].values
-    rightcells_labels = new_lastcells["right_neighbor"].values
+    lastcells = new_lastcells["label"].values
+    rightcells = new_lastcells["right_neighbor"].values
     
-    return lastcells_labels, rightcells_labels
+    return set(lastcells), set(rightcells)
 
 def parse_centroid(centroid_str):
     return eval(centroid_str)  # Safe here because it's internal and always np.float64
 
-def boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels):
+def boundary_graph(celldata, adjacency, lastcells, rightcells):
     
     
     # Keep only cells whose label is in right_neighbor_labels
-    lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
-    rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
+    lastcells_df = celldata[celldata["label"].isin(lastcells)].copy()
+    rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
     
     # Filter using MultiIndex levels
     adjacency_lastcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(lastcells_labels) &
-        adjacency.index.get_level_values("label2").isin(lastcells_labels)
+        adjacency.index.get_level_values("label1").isin(lastcells) &
+        adjacency.index.get_level_values("label2").isin(lastcells)
     ].copy()
     
     # Filter using MultiIndex levels
     adjacency_rightcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(rightcells_labels) &
-        adjacency.index.get_level_values("label2").isin(rightcells_labels)
+        adjacency.index.get_level_values("label1").isin(rightcells) &
+        adjacency.index.get_level_values("label2").isin(rightcells)
     ].copy()
     
     # Step 1: Create set of lastcell-right_neighbor pairs (ignoring NaNs)
@@ -580,7 +580,7 @@ def integrate_updown(upward_neighbors, downward_neighbors, up_down_pairs, last_l
     return final_boundary_labeled
 
 
-def get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8):
+def get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8):
     
     # Create a lookup dictionary for cellID -> diameter_rad
     diameter_lookup = celldata.set_index("label")["diameter_rad"].to_dict()
@@ -589,12 +589,12 @@ def get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_f
     woodzone_transition = celldata[celldata["lw-ew_transition"]].copy()
 
     # Exclude labels that are in lastcells from woodzone_transition
-    woodzone_transition = woodzone_transition[~woodzone_transition["label"].isin(set(lastcells_labels))]
+    woodzone_transition = woodzone_transition[~woodzone_transition["label"].isin(lastcells)]
     # Extract the labels from woodzone_transition
     transition_labels = set(woodzone_transition["label"])
     
     # Step 1: Identify remaining_labels in transition_labels
-    remaining_in_transition = remaining_labels & set(lastcells_labels)
+    remaining_in_transition = remaining_labels & lastcells
 
     # Step 2: Map left_neighbor and diameter_rad for remaining labels
     left_neighbors = celldata.loc[celldata["label"].isin(remaining_labels), ["label", "left_neighbor", "diameter_rad"]]

@@ -76,11 +76,11 @@ def main():
         celldata = qrings.morks_index(celldata)
         
         # Get lastcells in rings based on diameter and woodzone cell features
-        lastcells_labels, rightcells_labels = qrings.get_lastcells(celldata, adjacency)
+        lastcells, rightcells = qrings.get_lastcells(celldata, adjacency)
     
         # Create a mask where pixels belong to lastcells or their right_neighbors
         rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-        rightcells_mask[np.isin(expanded_labels, rightcells_labels)] = True
+        rightcells_mask[np.isin(expanded_labels, list(rightcells))] = True
     
         ###############################################################################
         # Now we can filter the cell and adjacency dataframes based on cell classification
@@ -88,9 +88,8 @@ def main():
         # a ring transition
     
         # Keep only cells whose label is in right_neighbor_labels
-        rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
+        rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
         # Extract the lastcell labels as a set
-        rightcells_labels = set(rightcells_df["label"])
     
         ###############################################################################
         #### RING BOUNDARY GRAPH & CONNECTED COMPONENTS ####
@@ -113,7 +112,7 @@ def main():
         # See Common Neighbors & Up-Down Pairs sections of the script
     
         # Now we can construct the graph using previously filtered nodes and edges
-        graph = qrings.boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels)
+        graph = qrings.boundary_graph(celldata, adjacency, lastcells, rightcells)
     
         # Find connected components (as sets of nodes)
         # This will group all cells that are connected by a path along retained edges
@@ -243,7 +242,7 @@ def main():
     
         # We find in the remaining cells adjacent to extremities the ones that show
         # characteristics of ring transition
-        labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
+        labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8)
     
         # Cells retained for integration are the ones with their direct left neighbor
         # showing a X times lower diameter
