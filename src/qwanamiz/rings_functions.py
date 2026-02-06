@@ -323,9 +323,9 @@ def map_cell_to_region(boundary_regions, boundary_labeled, expanded_labels):
         
     return cell_to_region, region_to_cells
 
-def update_boundary_labels(boundary_labeled, label_to_region, cell_labels):
+def create_boundary_array(label_to_region, cell_labels):
     # Make a copy to avoid modifying in-place unless you want to
-    boundary_corrected = boundary_labeled.copy()
+    boundaries = np.zeros_like(cell_labels, dtype = int)
 
     # Prepare a mask of pixels whose cell label is in label_to_region
     target_labels = np.array(list(label_to_region.keys()))
@@ -336,10 +336,9 @@ def update_boundary_labels(boundary_labeled, label_to_region, cell_labels):
     region_array = np.vectorize(label_to_region.get)(label_array)
 
     # Update boundary-labeled values at those positions
-    boundary_corrected[target_mask] = region_array
+    boundaries[target_mask] = region_array
     
-    return boundary_corrected
-
+    return boundaries
 
 def get_extremities(region_to_cell, cells_df):
     upward_cells = {}

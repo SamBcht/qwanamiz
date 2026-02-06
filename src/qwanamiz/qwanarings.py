@@ -115,13 +115,14 @@ def main():
         # the subgraph of the region. The idea would be to find the minimum edges to 
         # remove to resolve the problem
         ###############################################################################
+
         #### Now the objective will be to add progressively new cells at the extremities
         # ring boundary groups. We can then use these cells and their adjacencies to group
         # ring boundary segments that we can think with confidence they belong to a same 
         # ring boundary
     
         # We update the boundary_labeled image image to keep only rightcells
-        rightcells_boundary = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
+        rightcells_boundary = qrings.create_boundary_array(right_to_region, expanded_labels)
     
         #### Now we find the most up- and downward cells in each ring boundary segments
         up_extremities, down_extremities = qrings.get_extremities(region_to_right, rightcells_df)
@@ -259,7 +260,7 @@ def main():
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
-        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
     
         
         ###############################################################################
@@ -283,7 +284,7 @@ def main():
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
-        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
     
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
@@ -307,7 +308,7 @@ def main():
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
-        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
         
         qmiz.update_runtime(start)
 
