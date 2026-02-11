@@ -9,6 +9,63 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from qwanamiz.vonmisesmix import density
+
+# A function that shows the empirical distribution of angles
+# and the one esimated by the von Mises distributions for
+# each of the subsets (num_rows x num_cols) of the image
+def plot_angles(params, num_rows, num_cols):
+
+    # Create a figure to display the histograms
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(20, 10))
+
+    # Looping over the rows and columns
+    for i in range(num_rows):
+        for j in range(num_cols):
+
+            # Extracting the relevant data from the set of parameters
+            x_histo = params[f'{i+1}_{j+1}']['x_histo']
+            y_histo = params[f'{i+1}_{j+1}']['y_histo']
+            mu = params[f'{i+1}_{j+1}']['mu']
+            kappa = params[f'{i+1}_{j+1}']['kappa']
+            m = params[f'{i+1}_{j+1}']['vonmisses_params']
+            lower_bound = params[f'{i+1}_{j+1}']['bounds'][0]
+            upper_bound = params[f'{i+1}_{j+1}']['bounds'][1]
+
+            # Plotting
+            ax = axes[i, j]
+            
+            # Plot the empirical distribution
+            ax.plot(x_histo, y_histo, label='Raw', color='blue')
+            
+            # Plot the distribution using the parameters obtained from the EM algorithm
+            f = np.zeros(len(x_histo))
+            for k in range(m.shape[1]):
+                f += m[0, k] * density(x_histo, m[1, k], m[2, k])
+            ax.plot(x_histo, f / np.sum(f), label='Fit', color='red')
+
+            # Add the 99% interval bounds as vertical lines
+            ax.axvline(lower_bound, color='green', linestyle='--')
+            ax.axvline(upper_bound, color='green', linestyle='--')
+            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
+
+            # Set limits and title
+            ax.set_xlim(-np.pi/2, np.pi/2)
+            ax.set_xticks([-np.pi/2, -np.pi/4, 0, np.pi/4, np.pi/2])
+            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
+            ax.set_title(f"Subsample ({i+1}, {j+1})")
+
+            # Display the legend
+            #ax.legend()
+
+    # Adjust layout
+    fig.tight_layout()
+
+    return fig 
+
 
 def draw_rings(
     prediction,
@@ -152,3 +209,124 @@ def draw_rings(
     # --- Save final image ---
     combined.save(output_path)
     print(f"✅ Final PNG image saved : {output_path}")
+
+# A function that plots the main direction of each panel after running directionality function
+# base_image: an numpy array of an image to use as a background
+# vm_params: a dictionary of von Mises parameters returned by directionality
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_directionality(base_image, vm_params, scaling, cmap = 'gray'):
+    
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Looping over each panel on which the von Mises parameters wer fitted
+    for _, params in vm_params.items():
+
+        # Drawing a rectangle that shows the extent of the panel
+        x = np.array(params['x'])[[0, 1, 1, 0, 0]] / scaling
+        y = np.array(params['y'])[[0, 0, 1, 1, 1]] / scaling
+        plt.plot(x, y, linewidth = 2, c = 'red')
+
+        # Determining arrow coordinates starting from the middle of each panel
+        # Arrows will display the angle determined as the radial angle in this panel
+        # Here the arrow length is hard-coded to be 1/4 of the panel width; this could be adjusted if needed
+        center = np.array([params['x'][0] + params['x'][1], params['y'][0] + params['y'][1]]) / 2 / scaling
+        arrow_length = (params['x'][1] - params['x'][0]) / 4 / scaling
+        arrow_end = center + np.array([np.cos(params['mu']), np.sin(params['mu'])]) * arrow_length
+
+        # Drawing the arrow
+        plt.annotate('',
+                     xytext = np.array([center[0], center[1]]),
+                     xy = np.array([arrow_end[0], arrow_end[1]]),
+                     arrowprops = dict(arrowstyle = "->", color = 'red', lw = 2))
+
+    return
+
+# A function that plots adjacency edges and allows for selecting adjacency type
+# base_image: an numpy array of an image to use as a background
+# adjacency: a DataFrame of adjacencies, such as returned
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# adj_type: the type of adjacency to display on the plot. If None (default), then all are displayed
+# color: the color to use for displaying adjacencies, defaults to 'blue'
+# linewidth: the line width to use for displaying adjacencies, defaults to 1
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_adjacencies(base_image, adjacency, scaling, adj_type = None, color = 'blue', linewidth = 1, cmap = 'gray'):
+
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Looping over the adjacencies
+    for _, row in adjacency.iterrows():
+
+        # Extracting the endpoints of the adjacencies
+        y1, x1 = row["centroid1"]
+        y2, x2 = row["centroid2"]
+
+        # Displaying the adjacency as a line if it is the selected type
+        if adj_type is None or row["direction"] == adj_type:
+            plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = color, linewidth = linewidth)
+
+    return
+
+# A function that plots lines representing radial files
+# base_image: an numpy array of an image to use as a background
+# cells: a DataFrame of individual cell measurements, with columns 'radial_file' and 'file_rank'
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# linewidth: the line width to use for displaying radial files, defaults to 1
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_radial_files(base_image, cells, scaling, linewidth = 1, cmap = 'gray'):
+
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Extracting the set of radial file IDs
+    radial_file_ids = np.unique([i for i in cells['radial_file'] if i is not None])
+
+    # Looping over the radial files
+    for i in radial_file_ids:
+
+        # Extracting a DataFrame with only cells in a given radial file
+        radial_file_df = cells[cells['radial_file'] == i]
+
+        # It is not worth displaying cells that are the only member of their radial file
+        if(len(radial_file_df) == 1):
+            continue
+
+        # Sorting the cells by file rank so the lines are drawn in the right order
+        radial_file_df = radial_file_df.sort_values(by = 'file_rank')
+
+        # Displaying the lines
+        plt.plot(radial_file_df['centroid-1'] / scaling, radial_file_df['centroid-0'] / scaling, linewidth = linewidth)
+
+    return
+
+# A function that plots lines representing the cell diameters that were measured
+# base_image: an numpy array of an image to use as a background
+# cells: a DataFrame of individual cell measurements, with columns 'diameter_rad', 'diameter_tan', 'extr_rad', and 'extr_tan'
+# scaling: the size of each pixel in the measurement unit used, for scaling back to image coordinates
+# linewidth: the line width to use for displaying diameters, defaults to 1
+# cmap: the color map to use for the background image, defaults to 'gray' (grayscale)
+def plot_diameters(base_image, cells, scaling, linewidth = 1, cmap = 'gray'):
+
+    # Displaying the background image
+    plt.imshow(base_image, cmap = cmap)
+
+    # Looping over the cells
+    for index, row in cells.iterrows():
+        
+        # We only display the radial diameter if it was measured
+        if row['diameter_rad'] is not None:
+            point1, point2 = row['extr_rad']
+            y1, x1 = point1
+            y2, x2 = point2
+            plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = 'blue', linewidth = linewidth)
+
+        # We only display the tangential diameter if it was measured
+        if row['diameter_tan'] is not None:
+            point1, point2 = row['extr_tan']
+            y1, x1 = point1
+            y2, x2 = point2
+            plt.plot(np.array([x1, x2]) / scaling, np.array([y1, y2]) / scaling, c = 'green', linewidth = linewidth)
+
+    return
