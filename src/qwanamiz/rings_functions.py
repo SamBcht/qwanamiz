@@ -234,7 +234,11 @@ def find_boundaries(celldata, adjacency, lastcells, rightcells, expanded_labels)
     rightcells_mask = np.isin(expanded_labels, list(rightcells))
     right_to_region, region_to_right = map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
 
-    return graph, boundary_labeled, right_to_region, region_to_right
+    # We extract a DataFrame with only right cells (first cells of a growth ring)
+    rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
+    rightcells_df["boundary_region"] = rightcells_df["label"].map(right_to_region)
+
+    return graph, boundary_labeled, right_to_region, region_to_right, rightcells_df
 
 def boundary_graph(celldata, adjacency, lastcells, rightcells):
     
@@ -298,6 +302,12 @@ def boundary_graph(celldata, adjacency, lastcells, rightcells):
     
     return G
 
+# A function that returns a list with problematic regions
+# Problematic regions are those with more than one lastcell in the same radial_file
+def get_problematic_regions(rightcells_df):
+    region_counts = rightcells_df.groupby(["radial_file", "boundary_region"])["label"].nunique()
+    problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_region"].unique()
+    return problematic_regions
 
 #### MAP CELLS WITH THE CORRESPONDING BOUNDARY REGION
 def map_cell_to_region(boundary_regions, boundary_labeled, expanded_labels):

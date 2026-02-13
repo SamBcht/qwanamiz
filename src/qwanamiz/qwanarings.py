@@ -84,7 +84,11 @@ def main():
         #### RING BOUNDARY GRAPH & CONNECTED COMPONENTS ####
     
         print("Finding connected components from adjacency graph of first/last cells to identify ring boundaries")
-        graph, boundaries, right_to_region, region_to_right = qrings.find_boundaries(celldata, adjacency, lastcells, rightcells, expanded_labels)
+        graph, boundaries, right_to_region, region_to_right, rightcells_df = qrings.find_boundaries(celldata,
+                                                                                                   adjacency,
+                                                                                                   lastcells,
+                                                                                                   rightcells,
+                                                                                                   expanded_labels)
         qmiz.update_runtime(start)
         
         ###### FIND PROBLEMATIC BOUNDARY REGIONS
@@ -96,19 +100,7 @@ def main():
     
         # Problems very often arrive when 2 rightcells in radial files above each other
         # are adjacent by a little corner touching
-        
-        print("Find boundary segments to merge with adjacency")
-    
-        # Step 1: Map lastcell labels to their corresponding boundary region
-        rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
-        rightcells_df["boundary_region"] = rightcells_df["label"].map(right_to_region)
-    
-        # Step 2: Count unique lastcell labels per (radial_file, boundary_region)
-        region_counts = rightcells_df.groupby(["radial_file", "boundary_region"])["label"].nunique()
-    
-        # Step 3: Filter for regions with more than one lastcell in the same radial_file
-        problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_region"].unique()
-    
+        problematic_regions = qrings.get_problematic_regions(rightcells_df)
         print("Regions with multiple lastcells in the same radial_file:", problematic_regions)
     
         # Here we can define a function to correct the problematic regions based on
@@ -120,6 +112,8 @@ def main():
         # ring boundary groups. We can then use these cells and their adjacencies to group
         # ring boundary segments that we can think with confidence they belong to a same 
         # ring boundary
+
+        print("Find boundary segments to merge with adjacency")
     
         # We update the boundary_labeled image image to keep only rightcells
         rightcells_boundary = qrings.create_boundary_array(right_to_region, expanded_labels)
