@@ -360,13 +360,9 @@ def get_extremities(region_to_cell, cells_df):
     upward_cells = {}
     downward_cells = {}
 
-    # Sorting the cells by y-coordinates so it is easier to identify the upmost and downmost cell in a region
-    cells = cells_df.copy()
-    cells = cells.sort_values(by = "centroid-0")
-
     for region, cell_labels in region_to_cell.items():
         # Select only the cells belonging to this region
-        region_labels = cells[cells["label"].isin(cell_labels)]["label"].tolist()
+        region_labels = cells_df.loc[list(cell_labels)].sort_values(by = "centroid-0")['label'].tolist()
         
         if len(region_labels):
             # Find the most upward and downward cells based on y-coordinate
@@ -383,18 +379,14 @@ def get_extremity_neighbors(upward_cells, downward_cells, cells_df):
     # Iterate through the upward cells and get their up neighbors
     for region, up_label in upward_cells.items():
         # Retrieve the row corresponding to the upward cell in earlywood_cells dataframe
-        up_cell_row = cells_df[cells_df["label"] == up_label]
-        
-        up_neighbor = up_cell_row["up_neighbor"].values[0]
+        up_neighbor = cells_df.loc[up_label, "up_neighbor"]
         # Store the region and its up neighbor
         upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
 
     # Iterate through the downward cells and get their down neighbors
     for region, down_label in downward_cells.items():
         # Retrieve the row corresponding to the downward cell in earlywood_cells dataframe
-        down_cell_row = cells_df[cells_df["label"] == down_label]
-        
-        down_neighbor = down_cell_row["down_neighbor"].values[0]
+        down_neighbor = cells_df.loc[down_label, "down_neighbor"]
         # Store the region and its down neighbor
         downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
 
