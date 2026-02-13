@@ -49,6 +49,9 @@ def read_qwanarings_inputs(prefix):
     
     # Explicitly setting the double index on the adjacency DataFrame
     adjacency.set_index(['label1', 'label2'], inplace = True)
+
+    # And explicitly setting label as an index on cell data
+    celldata.set_index('label', drop = False, inplace = True)
     
     return celldata, adjacency, expanded_labels, prediction
 
@@ -351,24 +354,24 @@ def create_boundary_array(label_to_region, cell_labels):
     return boundaries
 
 def get_extremities(region_to_cell, cells_df):
+
+    # Creating dictionaries that link each boundary region to the cells that are
+    # located at the extremities
     upward_cells = {}
     downward_cells = {}
 
-    # Filter earlywood cells
-    #earlywood_cells = celldata[celldata["woodzone"] == "earlywood"]
+    # Sorting the cells by y-coordinates so it is easier to identify the upmost and downmost cell in a region
+    cells = cells_df.copy()
+    cells = cells.sort_values(by = "centroid-0")
 
     for region, cell_labels in region_to_cell.items():
         # Select only the cells belonging to this region
-        region_cells = cells_df[cells_df["label"].isin(cell_labels)]
+        region_labels = cells[cells["label"].isin(cell_labels)]["label"].tolist()
         
-        if not region_cells.empty:
+        if len(region_labels):
             # Find the most upward and downward cells based on y-coordinate
-            upward_cell = region_cells.loc[region_cells["centroid-0"].idxmin(), "label"]
-            downward_cell = region_cells.loc[region_cells["centroid-0"].idxmax(), "label"]
-            
-            # Store in dictionaries
-            upward_cells[region] = upward_cell
-            downward_cells[region] = downward_cell
+            upward_cells[region] = region_labels[0]
+            downward_cells[region] = region_labels[-1]
             
     return upward_cells, downward_cells
 
@@ -382,20 +385,18 @@ def get_extremity_neighbors(upward_cells, downward_cells, cells_df):
         # Retrieve the row corresponding to the upward cell in earlywood_cells dataframe
         up_cell_row = cells_df[cells_df["label"] == up_label]
         
-        if not up_cell_row.empty:
-            up_neighbor = up_cell_row["up_neighbor"].values[0]
-            # Store the region and its up neighbor
-            upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
+        up_neighbor = up_cell_row["up_neighbor"].values[0]
+        # Store the region and its up neighbor
+        upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
 
     # Iterate through the downward cells and get their down neighbors
     for region, down_label in downward_cells.items():
         # Retrieve the row corresponding to the downward cell in earlywood_cells dataframe
         down_cell_row = cells_df[cells_df["label"] == down_label]
         
-        if not down_cell_row.empty:
-            down_neighbor = down_cell_row["down_neighbor"].values[0]
-            # Store the region and its down neighbor
-            downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
+        down_neighbor = down_cell_row["down_neighbor"].values[0]
+        # Store the region and its down neighbor
+        downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
 
     # The resulting dictionaries will contain region-to-cell mappings for upward and downward cells with their respective neighbors
 
@@ -1334,6 +1335,7 @@ def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum 
 
         # We subset the cells that are within the bounding box so we only need to test those
         cell_indices = np.where((cells['centroid-0'] >= bbox[0]) & (cells['centroid-0'] <= bbox[1]) & (cells['centroid-1'] >= bbox[2]) & (cells['centroid-1'] <= bbox[3]))[0]
+        cell_indices = cells.index[cell_indices]
 
         # We introduce a small shift to the left in x-coordinates because we want the cells to be included in the current ring
         xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) + magic_shift
