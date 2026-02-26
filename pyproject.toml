@@ -10,7 +10,10 @@ dependencies = ["numpy (>=2.0.0,<3.0.0)", "scikit-image (>=0.25.0,<0.27.0)", "pa
 
 [project.optional-dependencies]
 viz  = ["napari[all] (>=0.6.0,<0.8.0)"]
-docs = ["jupyter (>=1.1.1)", "myst-nb (>=1.3.0)", "sphinx-autoapi (>=3.6.1)", "sphinx-rtd-theme (>=3.0.2)"]
+docs = ["myst-nb (>=1.3.0)",
+	"sphinx-autoapi (>=3.6.1)",
+	"sphinx-rtd-theme (>=3.0.2)"]
+dev = ["jupyter (>=1.1.1)"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
