@@ -13,7 +13,7 @@ viz  = ["napari[all] (>=0.6.0,<0.8.0)"]
 docs = ["myst-nb (>=1.3.0)",
 	"sphinx-autoapi (>=3.6.1)",
 	"sphinx-rtd-theme (>=3.0.2)"]
-dev = ["jupyter (>=1.1.1)"]
+dev = ["notebook (>=7.5.0)", "ipykernel (>=6.31.0)"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
