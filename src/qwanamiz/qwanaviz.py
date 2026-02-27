@@ -7,13 +7,19 @@ Created on Thu Jul 11 13:46:49 2024
 
 import os
 import argparse
-import napari
 import numpy as np
 import pandas as pd
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 import ast
 import pickle
+
+# We enable an informative message for users who have not installed napari
+try:
+    import napari
+    HAS_NAPARI = True
+except ImportError:
+    HAS_NAPARI = False
 
 def qwa_napari_view(img_path, cells_path, ring_path, ring_pickle, polygon_pickle, pix_to_um):
     
@@ -202,6 +208,10 @@ def qwa_napari_view(img_path, cells_path, ring_path, ring_pickle, polygon_pickle
 
 def main():
 
+    # We check if importing napari has succeded; if it has not, we print an informative message
+    if not HAS_NAPARI:
+        print("Error: the napari module must be installed for qwanaviz functionality. Re-install qwanamiz with the viz extra (pip install qwanamiz[viz])")
+        return
 
     # Set the command line arguments
     parser = argparse.ArgumentParser()

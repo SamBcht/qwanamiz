@@ -1072,11 +1072,11 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     downward_df = cells_df[cells_df["label"].isin(downward_labels)]
 
     # Upward cells touching top of the image
-    upward_border_df = upward_df[upward_df["centroid-0"] <= border_margin*pix_to_um]
+    upward_border_df = upward_df.copy()[upward_df["centroid-0"] <= border_margin*pix_to_um]
     upward_border_cells = set(upward_border_df["label"])
 
     # Downward cells touching bottom of the image
-    downward_border_df = downward_df[downward_df["centroid-0"] >= (image_height - border_margin)*pix_to_um]
+    downward_border_df = downward_df.copy()[downward_df["centroid-0"] >= (image_height - border_margin)*pix_to_um]
     downward_border_cells = set(downward_border_df["label"])
 
     # -------- LEFT/RIGHT borders --------
