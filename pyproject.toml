@@ -2,7 +2,14 @@
 name = "qwanamiz"
 version = "0.1.0"
 description = "Quantitative Wood Anatomy Measurements"
-authors = [{name = "Samuel Bouchut"}]
+authors = [{name = "Samuel Bouchut"},
+           {name = "Lucie Barbier"},
+           {name = "Marc-André Lemay"},
+           {name = "Enrico Tonelli"},
+           {name = "Dominique Arseneault"},
+           {name = "Marco Carrer"},
+           {name = "Fabio Gennaretti"}
+	   ]
 license = "GNU General Public License v3.0"
 readme = "README.md"
 requires-python=">=3.11"
@@ -16,7 +23,7 @@ docs = ["myst-nb (>=1.1.0)",
 dev = ["notebook (>=7.5.0)", "ipykernel (>=6.31.0)"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project.scripts]
