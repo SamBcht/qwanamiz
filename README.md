@@ -90,7 +90,7 @@ assigns cells to radial files.
 `qwanaflow` can be launched from the command line as follows:
 
 ```bash
-qwanaflow test_image.png output
+qwanaflow --pixel-size 0.55 test_image.png output
 ```
 
 where the two mandatory positional arguments are an image to analyze and the
@@ -105,7 +105,7 @@ boundaries from the cells and adjacency graph using the `qwanarings`
 command-line tool:
 
 ```bash
-qwanarings --input_dir output
+qwanarings --pixel-size 0.55 --input_dir output
 ```
 
 where the mandatory `--input_dir` argument is the name of the directory where
