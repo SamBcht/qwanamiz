@@ -5,275 +5,140 @@ Created on Thu Jun 27 11:16:40 2024
 @author: sambo
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 21 13:28:00 2024
-
-@author: sambo
-"""
+# Python base library imports
 import os
 import sys
 import argparse
 import glob
 import datetime
-import numpy as np
-import pandas as pd
-import skimage.io
-import skimage.measure
-import skimage.color
-# import cv2
-# from PIL import Image
-#from skimage import img_as_ubyte
-from scipy.ndimage import distance_transform_edt
-import matplotlib
-matplotlib.use('Agg') # this avoids matplotlib hanging in command-line environments
-import matplotlib.pyplot as plt
-#import networkx as nx
-import skimage.graph
-import skimage.util
-import qwanamiz.qwanamiz
-#from tools import histogram
-#from mixture import density, vonmises_pdfit, mixture_pdfit, pdfit
-#from typing import Tuple 
-#from scipy.special import i0
-#from scipy.special import iv
-#from scipy.optimize import fsolve
-#from scipy.stats import vonmises
 
-def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 0.55042690590734, dir_nrows = 4, dir_ncols = 8,
-                       convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20, ncores = 1):
+# local qwanamiz imports
+import qwanamiz.qwanamiz as qmiz
 
+def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows = None, dir_ncols = None,
+                       area_threshold = 500, solidity_threshold = 0.95, max_wall_distance = 10,
+                       convergence_threshold = 0.001, angle_tolerance = 5, stitch_angle_tolerance = 20,
+                       scan_width = None, ncores = 1):
+
+    # Determining start time of the analysis to compute run time
     start = datetime.datetime.now()
 
+    #### Step 1 : Cell labeling and measurements
 
-    ##############################################################################
-    # Image processing and lumen preliminary measurements
-    print("Image processing and lumen measurements")
-
-    ##### Load the input array
-    ## INPUT : 'prediction' is a numpy array of float64, output of roxasAI algorithm
-    # it is the result of the binarization of the original image.
-    # The array has the same size as the original image
-    prediction = skimage.io.imread(img_path)
-
-    ## IMAGE METADATA AND RESOLUTION :
-    # 10x scans have a resolution of 46146 dpi. We can define a scaling factor
-    # with conversion : 1 Pixel = 0.55042690590734 Microns
-    pix_to_um = pixel_size
-
-    #################################################################################
-    #### Step 1: Cell Labeling and Measurements
+    # 'bw_image' is a numpy array of float64 resulting from the binarization of the original image.
+    print("Reading input image")
+    bw_image = qmiz.read_image(img_path)
+    qmiz.update_runtime(start)
 
     ## CELL LUMEN DETECTION : the label function from scikit.image package
-    # compute a connected components analysis on the binary image.
+    # computes a connected components analysis on the binary image.
     # Two pixels are connected e.g. belong to the same cell lumen
     # when they are neighbors and have the same value (here 'black' or 'white').
-    # See scikit-image documentation for more information
-    # Adjust the connectivity if needed. By default, connectivity is defined by 
-    # prediction.ndim = 2
-    labeled_image = skimage.measure.label(prediction)
+    print("Labeling individual cells")
+    labeled_image = qmiz.label_cells(bw_image)
+    qmiz.update_runtime(start)
 
-    ## CELL LUMEN MEASUREMENTS : the function 'regionprops_table measure the lumen 
-    # traits listed in properties. Return a pandas dataframe with measurements
-    # in microns if spacing is set with the scaling factor.
-    # See scikit-image documentation for more information
-    # See also additionnal properties that could be computed in the documentation
-    regionprops_df = pd.DataFrame(
-        skimage.measure.regionprops_table(
-            labeled_image,
-            spacing = pix_to_um,
-            properties = (
-                'label',
-                'area',
-                'major_axis_length',
-                'minor_axis_length',
-                'centroid',
-                'orientation',
-                'perimeter_crofton',
-                'image',
-                'bbox',
-                'solidity')))
-    
-    #regionprops_df['SampleId'] = sampleID
+    ## CELL LUMEN MEASUREMENTS : the function 'measure_lumens' measures lumen 
+    # traits. Returns a pandas dataframe with measurements in microns if
+    # spacing is set with the scaling factor.
+    print("Measuring lumen-related features")
+    cell_df = qmiz.measure_lumens(labeled_image, spacing = pixel_size, nprocesses = ncores)
+    qmiz.update_runtime(start)
 
     ## Splitting merged cells using watershed segmentation
-    #  This step needs to return updated cell measurements (regionprops_df)
+    #  This step needs to return updated cell measurements (cell_df)
     #  and labeled_image. It also returns an array that contains the result of the watershed segmentation
-    labeled_image, regionprops_df, watershed_result = qwanamiz.qwanamiz.adjust_labels(labeled_image, regionprops_df, scale = pix_to_um,
-                                                                             area_threshold = 500, solidity_threshold = 0.95)
+    print("Splitting cells using watershed algorithm")
+    labeled_image, cell_df, watershed_result = qmiz.adjust_labels(labeled_image, cell_df, scale = pixel_size,
+                                                                  area_threshold = area_threshold,
+                                                                  solidity_threshold = solidity_threshold)
+    qmiz.update_runtime(start)
 
-    ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell walls pixels,
-    # e.g. background pixels. Return an image where each back ground pixel takes
+    ## DISTANCE MAP OF CELL WALLS : Compute the distance map of cell wall pixels,
+    # e.g. background pixels. Return an image where each background pixel takes
     # the value of the distance to the nearest cell lumen in microns with the 
     # sampling parameter set to the scaling factor.
-    distance_map, nearest_label_coords = distance_transform_edt(labeled_image == 0,
-                                          sampling = pix_to_um,
-                                          return_indices = True)
+    print("Compute distance from cell wall pixel to nearest lumen")
+    distance_map, nearest_label_coords = qmiz.measure_distance(labeled_image = labeled_image, scaling = pixel_size)
+    qmiz.update_runtime(start)
 
     ## EXPAND CELL LUMENS UNTIL JUNCTION WITH ADJACENT CELLS : Expand labels in 
     # label image by distance pixels without overlapping.
     # The distance parameter can be considered as a cell wall thickness threshold
     # Two lumens separated by more than two times the distance won't be considered
     # as adjacent.
-    expanded_labels = qwanamiz.qwanamiz.expand_cells(labeled_image,
-                                            distance_map,
-                                            nearest_label_coords,
-                                            distance = 10,
-                                            spacing = pix_to_um)
+    print("Measuring whole cell-related features")
+
+    # Producing an array with integers corresponding to individual cells (both lumen and wall)
+    expanded_labels = qmiz.expand_cells(labeled_image,
+                                        distance_map,
+                                        nearest_label_coords,
+                                        max_distance = max_wall_distance)
+
+    # Measuring properties on whole cells
+    cell_df = qmiz.measure_cells(cell_df, expanded_labels, spacing = pixel_size)
     
-    expandprops_df = pd.DataFrame(
-        skimage.measure.regionprops_table(
-            expanded_labels,
-            spacing = pix_to_um,
-            properties = (
-                'label',
-                'area')
-            )
-        )
+    qmiz.update_runtime(start)
 
-    regionprops_df = regionprops_df.join(expandprops_df.set_index('label'), 
-                        on = 'label',  
-                        lsuffix = '_lumen',
-                        rsuffix = '_cell',
-                        validate = '1:1')
+    #### Step 2 : Cell adjacency analysis and radial files
+
+    ## REGION ADJACENCY GRAPH
+    # The returned DataFrame is indexed by label pairs corresponding
+    # to edges in the graph, with metadata on the adjacencies in various columns
+    print("Producing region adjacency graph")
+    adjacency = qmiz.adjacency_dataframe(expanded_labels, cell_df)
+    qmiz.update_runtime(start)
+
+    ### Directionality analysis
+    print("Analyzing directionality and classifying edges")
 
 
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-    ####################################################################################
+    # Determining the directionality angle for each part of the image
+    adjacency, vm_parameters, nb_rows, nb_cols = qmiz.directionality(adjacency,
+                                                                     image_height = bw_image.shape[0],
+                                                                     image_width = bw_image.shape[1],
+                                                                     spacing = pixel_size,
+                                                                     num_rows = dir_nrows,
+                                                                     num_cols = dir_ncols,
+                                                                     convergence_threshold = convergence_threshold)
 
-    ##################################################################################
-    #### Step 2 : Cell adjacency analysis
-    print("Adjacency analysis")
-
-    ## REGION ADJACENCY GRAPH : The get_adjacent_labels function compute a simplified
-    # Region Adjacency Graph. Return a set of adjacent cells pairs e.g. each pair
-    # of labels that share a common border.
-    adj_graph = qwanamiz.qwanamiz.get_adjacent_labels(expanded_labels)
-
-    # Transform the set of label pairs in a dataframe, retrieve label centroid
-    # coordinates and measure edge angle, length and center
-    adjacency = qwanamiz.qwanamiz.adjacency_dataframe(adj_graph, regionprops_df)
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-    ###############################################################################
-
-    ##############################################################################
-    # Directionnality analysis
-    print("Directionnality analysis")
-
-    # Determine the bounds of the subsamples
-    img_height, img_width = prediction.shape
-    
-    nb_rows, nb_cols = qwanamiz.qwanamiz.calculate_grid(image_width = img_width, 
-                                      image_height = img_height, 
-                                      pixel_to_micron = pix_to_um)
-
-    adjacency, vm_parameters = qwanamiz.qwanamiz.directionnality(
-        adjacency,
-        image_height = img_height, 
-        image_width = img_width,
-        spacing = pix_to_um,
-        num_rows = nb_rows,
-        num_cols = nb_cols,
-        convergence_threshold = convergence_threshold)
-
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
-    ############################################################################
-
-    ################################################################################
     # Edge classification and filtering
-    print("Edge classification")
+    qmiz.classify_edges(adjacency, tolerance = angle_tolerance)
 
-    qwanamiz.qwanamiz.classify_edges(adjacency, tolerance = angle_tolerance)
+    qmiz.update_runtime(start)
 
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
-    ###################################################################################
-
-    ###################################################################################
-    # Radial files grouping
-    print("Radial files detection")
+    # Assign cells to radial files
+    print("Assigning cells to radial files")
+    cell_df, adjacency = qmiz.assign_radial_files(cell_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
+    qmiz.update_runtime(start)
     
-    regionprops_df, adjacency = qwanamiz.qwanamiz.assign_radial_files(regionprops_df, adjacency, stitch_angle_tolerance = stitch_angle_tolerance)
+    #### Step 3: Measure lumen diameters and cell walls
 
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-    
-    ######################################################################
-    # FIND POTENTIAL RAYS & RESIN DUCTS
-    #print("Rays and Resin Ducts possibility")
-    
-    #rays_ducts_table, rays_ducts_map = qwanamiz.qwanamiz.rays_and_ducts(expanded_labels, scale = pix_to_um,min_duct_area = 80,min_duct_width = 10, min_ray_ecc = 0.8, min_ray_aspect = 2.5)   
+    print("Measuring lumen diameters")
+    cell_df = qmiz.measure_diameters(cell_df, spacing = pixel_size, nprocesses = ncores)
+    qmiz.update_runtime(start)
 
-
-    #rays_adj, duct_adj, unk_adj = qwanamiz.qwanamiz.artefact_adjacent(expanded_labels, rays_ducts_map)
-
-    #regionprops_df = qwanamiz.qwanamiz.adjacent_type_column(regionprops_df,  rays_adj,  duct_adj, unk_adj)
-    
-    #endTime = datetime.datetime.now()
-    #print(f'runtime : {endTime - start}')
-    
-    ######################################################################
-    # MEASURE DIAMETERS & CELL WALLS
-
-    print("labels and edges correspondance")
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
-    print("Measure lumen diameters")
-    qwanamiz.qwanamiz.measure_diameters(regionprops_df, spacing = pix_to_um)
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-    
-    print("Get radial walls")
-    qwanamiz.qwanamiz.get_radial_walls(regionprops_df, adjacency)
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
-    ######################################################################################
     # Compute cell wall thickness between centroids of adjacent cells
-    print("Wall thickness measurements")
-    regionprops_df = qwanamiz.qwanamiz.measure_wallthickness(regionprops_df, adjacency, distance_map, auto_pixelwidth=True, scale = pix_to_um, scan_width = 75, nprocesses = ncores)
+    print("Measuring wall thickness")
+    cell_df = qmiz.measure_walls(cell_df,
+                                 adjacency,
+                                 distance_map,
+                                 scale = pixel_size,
+                                 scan_width = scan_width,
+                                 nprocesses = ncores)
+    qmiz.update_runtime(start)
+
+    # A function that prepares the cell DataFrame for output
+    cell_df = qmiz.prepare_cell_output(cells = cell_df, sampleID = sampleID)
+
+    print("Successfully run")
     
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
-    regionprops_df['SampleId'] = sampleID
-    
-    regionprops_df = regionprops_df.drop(
-        columns = [
-            'image',
-            'bbox-0',
-            'bbox-1',
-            'bbox-2',
-            'bbox-3'])
-    
-    regionprops_df["WallThickness"] = regionprops_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis=1, skipna=True)
-
-    endTime = datetime.datetime.now()
-    print(f'runtime : {endTime - start}')
-
-
-    print("successfully run")
-    
-    return regionprops_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
-
+    return cell_df, adjacency, vm_parameters, bw_image, distance_map, expanded_labels, labeled_image, watershed_result, nb_rows, nb_cols
 
 def get_basename(input_file, remove = '.png'):
     base_name = os.path.basename(input_file)
     base_name = base_name.replace(remove, '')
     return base_name
-
 
 def main():
 
@@ -286,18 +151,36 @@ def main():
 
     parser.add_argument("output", help = """A directory to write output files to.""")
     
-    parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
-                        help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
+    parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 1,
+                        help = """Conversion factor from of a single pixel to the desired measurement unit. Defaults to 1 (measurements in pixels).""")
 
 
-    parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = 4,
-                        help = """Number of rows to split the image into for the directionality analysis. Defaults to 4.""")
+    parser.add_argument("--dir-nrows", "-r", dest = "nrows", type = int, default = None,
+                        help = """Number of rows to split the image into for the directionality analysis.
+                                  If None (the default), the number of rows and colums is automatically determined.""")
 
-    parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = 8,
-                        help = """Number of columns to split the image into for the directionality analysis. Defaults to 8.""")
+    parser.add_argument("--dir-ncols", "-c", dest = "ncols", type = int, default = None,
+                        help = """Number of columns to split the image into for the directionality analysis.
+                                  If None (the default), the number of rows and colums is automatically determined.""")
 
     parser.add_argument("--disable-plots", dest = "noplots", action = "store_true",
                         help = """Specify this flag to disable the generation of angle plots. By default they will be produced.""")
+
+    parser.add_argument("--area-threshold", dest = "area_threshold", type = float, default = 500.0,
+                        help = """Lumen area above which a cell can be considered for splitting into several cells using
+                                  the watershed segmentation algorithm. For a cell to be selected, it must also be below the
+                                  solidity threshold. Defaults to 500.""")
+
+    parser.add_argument("--solidity-threshold", dest = "solidity_threshold", type = float, default = 0.95,
+                        help = """Solidity threshold below which a cell can be considered for splitting into several cells
+                                  using the watershed segmentation algorithm. Higher values (closer to 1) indicate a more convex shape
+                                  whereas lower values (closer to 0) indicate concavity (presence of indentations).
+                                  For a cell to be selected, it must also be above the lumen area threshold. Defaults to 0.95.""")
+
+    parser.add_argument("--max-wall-distance", dest = "max_wall_distance", type = float, default = 10.0,
+                        help = """The maximum distance (in the target measurement unit defined by --pixel-size) between a cell
+                                  wall pixel and the nearest cell lumen for that pixel to be considered as belonging to the cell.
+                                  This parameter effectively puts a cap on the maximum possible cell wall thickness. Defaults to 10.""")
 
     parser.add_argument("--vm-threshold", dest = "vmthreshold", type = float, default = 0.001,
                         help = """The convergence threshold in the search of von Mises distribution parameters.
@@ -306,22 +189,37 @@ def main():
 
     parser.add_argument("--angle-tolerance", dest = "angle", type = float, default = 5,
                         help = """The tolerance (in degrees) around the lower and upper bounds found by the
-                                  directionality algorithm in determining which cell adjacencies are tangential and
-                                  which are radial. A higher value means potentially longer, but inexact, radial files.""")
+                                  directionality algorithm in determining which cell adjacencies are radial and
+                                  which are tangential. A higher value means potentially longer, but inexact, radial files.
+                                  Defaults to 5.""")
 
     parser.add_argument("--stitch-angle-tolerance", dest = "stitch_angle", type = float, default = 20,
                         help = """The tolerance (in degrees) around the lower and upper bounds found by the
-                                  directionality algorithm in determining which cell adjacencies are tangential and
-                                  which are radial. This angle is applied after the initial radial file assignment
+                                  directionality algorithm in determining which cell adjacencies are radial and
+                                  which are tangential. This angle is applied after the initial radial file assignment
                                   in stitching together radial files and should therefore use a more permissive
-                                  angle threshold.""")
+                                  angle threshold. Defaults to 20.""")
+
+    parser.add_argument("--scan-width", dest = "scan_width", type = int, default = None,
+                        help = """The width (in pixels) of the rectangle to use when computing wall thickness at the boundary
+                                  between two cells. If None (the default), qwanaflow dynamically computes the scan width
+                                  for each cell pair to 75%% of the average of the two cells' diameter. Explicitly setting the
+                                  scan width provides faster computation (especially for lower values) but is potentially
+                                  less accurate.""")
 
     parser.add_argument("--ncores", dest = "ncores", type = int, default = 1,
-                        help = """The number of processes to launch for multiprocessing for computing wall thickness.
-                        Defaults to 1 (no multiprocessing).""")
+                        help = """The number of processes to launch for multiprocessing during some cell measurement steps.
+                                  Defaults to 1 (no multiprocessing).""")
 
     # Parse the arguments
     args = parser.parse_args()
+
+    # Argument checking
+    if args.nrows is None and args.ncols is not None:
+            print("Warning: --dir-ncols was set but not --dir-nrows. Ignoring --dir-ncols argument")
+
+    elif args.ncols is None and args.nrows is not None:
+            print("Warning: --dir-nrows was set but not --dir-ncols. Ignoring --dir-nrows argument")
 
     # If 'input' is a directory then all images ending in .png in that directory will be processed
     if(os.path.isdir(args.input)):
@@ -345,82 +243,44 @@ def main():
     start_save = datetime.datetime.now()
     for img_path in img_paths:
         
-        
-        
         # Adapt the parameter to the input file type
         base_name = get_basename(img_path, remove = '.png')
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
-        regionprops_df, adjacency, vm_parameters, prediction, distance_map, expanded_labels, labeled_image, watershed_result, nrows, ncols = batch_measurements(img_path, 
-                                                                                                                                                            sampleID = base_name,
-                                                                                                                                                            pixel_size = args.pixel,
-                                                                                                                                                            dir_nrows = args.nrows,
-                                                                                                                                                            dir_ncols = args.ncols,
-                                                                                                                                                            convergence_threshold = args.vmthreshold,
-                                                                                                                                                            angle_tolerance = args.angle,
-                                                                                                                                                            stitch_angle_tolerance = args.stitch_angle,
-                                                                                                                                                            ncores = args.ncores)
+        cell_df, adjacency, vm_parameters, bw_image, distance_map, \
+                expanded_labels, labeled_image, watershed_result, nrows, ncols = batch_measurements(img_path, 
+                                                                                            sampleID = base_name,
+                                                                                            pixel_size = args.pixel,
+                                                                                            dir_nrows = args.nrows,
+                                                                                            dir_ncols = args.ncols,
+                                                                                            area_threshold = args.area_threshold,
+                                                                                            solidity_threshold = args.solidity_threshold,
+                                                                                            max_wall_distance = args.max_wall_distance,
+                                                                                            convergence_threshold = args.vmthreshold,
+                                                                                            angle_tolerance = args.angle,
+                                                                                            stitch_angle_tolerance = args.stitch_angle,
+                                                                                            scan_width = args.scan_width,
+                                                                                            ncores = args.ncores)
         
-        print('save outputs')
+        print('Saving outputs')
         
+        qmiz.write_qwanaflow_outputs(output = args.output,
+                                     base_name = base_name,
+                                     prediction = bw_image,
+                                     distance_map = distance_map,
+                                     expanded_labels = expanded_labels,
+                                     labeled_image = labeled_image,
+                                     watershed_result = watershed_result,
+                                     vm_parameters = vm_parameters,
+                                     nrows = nrows,
+                                     ncols = ncols,
+                                     cell_df = cell_df,
+                                     adjacency = adjacency,
+                                     noplots = args.noplots)
         
-        # Save the workflow output images
         output_dir = os.path.join(args.output, f"{base_name}_outputs")
-        os.makedirs(output_dir, exist_ok=True)
-        
-        output_path=os.path.join(output_dir, f"{base_name}_imgs")
-        np.savez_compressed(output_path,
-                            bw_img = prediction,
-                            dmap = distance_map, 
-                            explabs = expanded_labels, 
-                            labs = labeled_image,
-                            watershed = watershed_result#,
-                            #rd_map = rays_and_ducts
-                            )
-        #np.save(output_path, distance_map)
-        
-        #output_path = os.path.join(args.output, f"{base_name}_explabs.npy")
-        #np.save(output_path, expanded_labels)
-        
-        #output_path = os.path.join(args.output, f"{base_name}_labs.npy")
-        #np.save(output_path, labeled_image)
-        
-        if not args.noplots:
-            angle_plot = qwanamiz.qwanamiz.plot_angles(params = vm_parameters, 
-                                              num_rows = nrows, 
-                                              num_cols = ncols)
-            output_path = os.path.join(output_dir, f"{base_name}_angles.png")
-            angle_plot.savefig(output_path)
-        
-        # Save the cell measurements dataframe
-        output_path = os.path.join(output_dir, f"{base_name}_cells.csv")
-        # Filter "isolated" cells and those without radial_file
-        filtered_data = regionprops_df[(regionprops_df['classification'] == 'isolated') | (regionprops_df['radial_file'].isna())]
-
-        celldata = regionprops_df.copy()
-        # Remove "isolated" cells and those without radial_file from the main dataframe
-        celldata = celldata.dropna(subset=['radial_file'])
-
-        # Filter out "isolated" cells
-        celldata = celldata[celldata['classification'] != 'isolated']
-        celldata.to_csv(output_path, index=False)
-        
-        output_path = os.path.join(output_dir, f"{base_name}_filtered.csv")
-        filtered_data.to_csv(output_path, index=False)
-        
-        # Save the adjacency dataframe
-        output_path = os.path.join(output_dir, f"{base_name}_adjacency.csv")
-        adjacency.to_csv(output_path, index=True)
-        
-        #output_path = os.path.join(output_dir, f"{base_name}_rays.csv")
-        #rd_table.to_csv(output_path, index=True)
-        
-        output_path = os.path.join(output_dir, f"{base_name}_params.csv")
-        (pd.DataFrame.from_dict(data=vm_parameters, orient='index')
-         .to_csv(output_path, header=True))
-        
         print(f"Saved workflow output to {output_dir}")
-        endTime = datetime.datetime.now()
-        print(f'Total runtime : {endTime - start_save}')
+
+        qmiz.update_runtime(start_save)
 

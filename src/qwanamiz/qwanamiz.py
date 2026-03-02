@@ -5,22 +5,109 @@ Created on Mon Jun 10 13:32:21 2024
 @author: sambo
 """
 
-import numpy as np
-import skimage.measure
-from skimage import measure, segmentation
-import pandas as pd
-from skimage.draw import line
-from skimage.filters import gaussian
-from scipy.ndimage import distance_transform_edt
-from skimage.feature import peak_local_max
-from scipy.stats import circmean
-import matplotlib.pyplot as plt
-#from tools import histogram
-from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
-from scipy.stats import vonmises
+# Python standard library imports
+import datetime
+import os
 from multiprocessing import Pool
 from functools import partial
+
+# scikit-image imports
+import skimage.io
+import skimage.measure
+from skimage import measure, segmentation
+from skimage.draw import line
+from skimage.filters import gaussian
+from skimage.feature import peak_local_max
+
+# scipy imports
+from scipy.stats import vonmises
+from scipy.ndimage import distance_transform_edt
+from scipy.stats import circmean
+
+# Other third-party library imports
+import numpy as np
+import pandas as pd
+
+# qwanamiz-related imports
+from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
+import qwanamiz.qwanaplots as qplots
+
 ##########################################################################
+
+# A wrapper around skimage.io.imread that reads the binarized (black/white) image
+def read_image(img_path):
+    return skimage.io.imread(img_path, as_gray = True)
+
+# A wrapper around skimage.measure.label that labels the cells in a binarized black & white image
+def label_cells(bw_image):
+    return skimage.measure.label(bw_image)
+
+# A wrapper around skimage.measure.regionprops_table that measures the properties of cell lumens
+def measure_lumens(labeled_image, spacing, nprocesses = 1):
+
+    # Fork depending on multiprocessing or not
+    if nprocesses > 1:
+        # We create subsets of the image where different number of cells are masked as zeroes
+        nlabels = np.max(labeled_image)
+        breakpoints = np.linspace(0, nlabels, nprocesses + 1, dtype = int)
+        breakpoints[-1] = nlabels + 1
+
+        images = list()
+
+        for i in range(nprocesses):
+            images.append(labeled_image.copy())
+            images[i][~np.logical_and(images[i] >= breakpoints[i], images[i] < breakpoints[i + 1])] = 0
+
+        parallel_prop = partial(measure_properties, spacing = spacing)
+        
+        with Pool(processes = nprocesses) as p:
+            cell_df = pd.concat(p.map(parallel_prop, images))
+            
+    else:
+        cell_df = measure_properties(labeled_image, spacing)
+
+    return cell_df
+
+def measure_properties(labeled_image, spacing):
+    cells = pd.DataFrame(
+        skimage.measure.regionprops_table(
+            labeled_image,
+            spacing = spacing,
+            properties = ('label', 'area', 'major_axis_length', 'minor_axis_length',
+                          'centroid', 'orientation', 'perimeter_crofton', 'image',
+                          'bbox', 'solidity')
+        )
+    )
+
+    return cells
+    
+
+# Measure dimensions of whole cells after they have been expanded to their cell wall
+def measure_cells(cell_df, expanded_labels, spacing):
+    # Measure cell area including the cell wall
+    expandprops_df = pd.DataFrame(
+        skimage.measure.regionprops_table(
+            expanded_labels,
+            spacing = spacing,
+            properties = ('label', 'area')
+            )
+        )
+
+    cell_df = cell_df.join(expandprops_df.set_index('label'), 
+                           on = 'label',  
+                           lsuffix = '_lumen',
+                           rsuffix = '_cell',
+                           validate = '1:1')
+
+    return cell_df
+
+# Measure distance from cell wall pixels to nearest lumen pixel
+def measure_distance(labeled_image, scaling):
+    distance_map, nearest_label_coords = distance_transform_edt(labeled_image == 0,
+                                                                sampling = scaling,
+                                                                return_indices = True)
+
+    return distance_map, nearest_label_coords
 
 # Split merged cells that have not been properly recognized as distinct at the image binarization stage
 def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solidity_threshold = 0.95):
@@ -82,10 +169,10 @@ def adjust_labels(labeled_image, cell_df, scale = 1, area_threshold = 500, solid
     return labeled_image, cell_df, watershed_result
 
 # Simili expand_labels function to avoid calculation of the distance map a second time
-def expand_cells(label_image, distances, indices, distance = 1, spacing = 1,):
+def expand_cells(label_image, distances, indices, max_distance = 10):
     
     labels_out = np.zeros_like(label_image)
-    dilate_mask = distances <= distance
+    dilate_mask = distances <= max_distance
     # build the coordinates to find nearest labels,
     # in contrast to [1] this implementation supports label arrays
     # of any dimension
@@ -95,10 +182,6 @@ def expand_cells(label_image, distances, indices, distance = 1, spacing = 1,):
     nearest_labels = label_image[tuple(masked_nearest_label_coords)]
     labels_out[dilate_mask] = nearest_labels
     return labels_out
-
-
-
-
 
 ###########################################################################
 # Function to get the adjacent cells
@@ -152,7 +235,10 @@ def compute_edge_properties(centroid1, centroid2):
 
 ########################################################################
 # Arrange the adjacency graph in a dataframe with edges characteristics
-def adjacency_dataframe(rag, lumen_props):
+def adjacency_dataframe(expanded_labels, lumen_props):
+
+    # Compute the adjacencies
+    rag = get_adjacent_labels(expanded_labels)
     
     # Create a DataFrame from the set of label tuples
     adj_df = pd.DataFrame(rag, columns=['label1', 'label2'])
@@ -267,21 +353,27 @@ def calculate_grid(image_width, image_height, pixel_to_micron, row_min_height = 
     return int(num_rows), int(num_cols)
 
 
-# Directionnality modelisation
-def directionnality(adj_df,
-                    image_height,
-                    image_width,
-                    spacing = 1,
-                    num_rows = 4,
-                    num_cols = 8,
-                    # Threshold for acceptable difference between mu and the peak angle
-                    mu_threshold = 5,  # in degrees
-                    max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
-                    convergence_threshold = 0.001,
-                    k_threshold = 50):
+# Directionality modeling
+def directionality(adj_df,
+                   image_height,
+                   image_width,
+                   spacing = 1,
+                   num_rows = None,
+                   num_cols = None,
+                   # Threshold for acceptable difference between mu and the peak angle
+                   mu_threshold = 5,  # in degrees
+                   max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
+                   convergence_threshold = 0.001,
+                   k_threshold = 50):
+
+    # Determining the number of rows and columns automatically if either num_rows or num_cols are None
+    if num_rows is None or num_cols is None:
+        num_rows, num_cols = calculate_grid(image_width = image_width,
+                                            image_height = image_height,
+                                            pixel_to_micron = spacing)
     
-    row_height = (image_height*spacing) / num_rows
-    col_width = (image_width*spacing) / num_cols
+    row_height = (image_height * spacing) / num_rows
+    col_width = (image_width * spacing) / num_cols
 
     # Subsampling image and filtering of edges based on von Mises distributions
 
@@ -398,79 +490,22 @@ def directionnality(adj_df,
 
     merged_df = pd.merge(adj_df, df, left_index = True, right_index = True)
     
-    return merged_df, subsample_params
-
-# A function that shows the empirical distribution of angles
-# and the one esimated by the von Mises distributions for
-# each of the subsets (num_rows x num_cols) of the image
-def plot_angles(params, num_rows, num_cols):
-
-    # Create a figure to display the histograms
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(20, 10))
-
-    # Looping over the rows and columns
-    for i in range(num_rows):
-        for j in range(num_cols):
-
-            # Extracting the relevant data from the set of parameters
-            x_histo = params[f'{i+1}_{j+1}']['x_histo']
-            y_histo = params[f'{i+1}_{j+1}']['y_histo']
-            mu = params[f'{i+1}_{j+1}']['mu']
-            kappa = params[f'{i+1}_{j+1}']['kappa']
-            m = params[f'{i+1}_{j+1}']['vonmisses_params']
-            lower_bound = params[f'{i+1}_{j+1}']['bounds'][0]
-            upper_bound = params[f'{i+1}_{j+1}']['bounds'][1]
-
-            # Plotting
-            ax = axes[i, j]
-            
-            # Plot the empirical distribution
-            ax.plot(x_histo, y_histo, label='Raw', color='blue')
-            
-            # Plot the distribution using the parameters obtained from the EM algorithm
-            f = np.zeros(len(x_histo))
-            for k in range(m.shape[1]):
-                f += m[0, k] * density(x_histo, m[1, k], m[2, k])
-            ax.plot(x_histo, f / np.sum(f), label='Fit', color='red')
-
-            # Add the 99% interval bounds as vertical lines
-            ax.axvline(lower_bound, color='green', linestyle='--')
-            ax.axvline(upper_bound, color='green', linestyle='--')
-            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
-
-            # Set limits and title
-            ax.set_xlim(-np.pi/2, np.pi/2)
-            ax.set_xticks([-np.pi/2, -np.pi/4, 0, np.pi/4, np.pi/2])
-            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
-            ax.set_title(f"Subsample ({i+1}, {j+1})")
-
-            # Display the legend
-            #ax.legend()
-
-    # Adjust layout
-    fig.tight_layout()
-
-    return fig 
+    return merged_df, subsample_params, num_rows, num_cols
 
 #########################################################################
 # Cell Wall Measurements
-def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
+def thickness_between_centroids(row, dist_map, scaling = 1, scan_width = 10):
     
     # Use automatically computed pixelwidth if available in row
-    if pixelwidth == "auto" and "pixelwidth_dynamic" in row:
-        pixelwidth = int(row["pixelwidth_dynamic"])
-    elif pixelwidth is int:
-        pixelwidth = pixelwidth
+    if scan_width is None and "pixelwidth_dynamic" in row:
+        scan_width = int(row["pixelwidth_dynamic"])
     
     # Define profile line between centroids
     mid_line = skimage.measure.profile_line(
         dist_map,
         row['pix_centroid1'],
         row['pix_centroid2'],
-        linewidth = pixelwidth,
+        linewidth = scan_width,
         order = 0,
         reduce_func = None)
     
@@ -493,8 +528,11 @@ def thickness_between_centroids(row, dist_map, scaling = 1, pixelwidth = 10):
 
     return max_thickness
 
-def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, scan_width = 10, scale = 1, nprocesses = 1):
+def measure_walls(cell_df, adj_df, dist_map, scan_width = None, scale = 1, nprocesses = 1):
 
+    # First we assign up and down neighbors to each cell
+    cell_df = get_radial_walls(cell_df, adj_df)
+    
     # Initializing the columns for wall thickness
     cell_df['left_wall_thickness'] = 0.0
     cell_df['right_wall_thickness'] = 0.0
@@ -547,7 +585,7 @@ def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, sc
     wall_df['pix_centroid2'] = wall_df['centroid2'].apply(lambda x: (x[0] / scale, x[1] / scale))
     
     # Calculate the width of the profile line automatically based on cell diameters
-    if auto_pixelwidth:
+    if scan_width is None:
         # Fetch diameters for each label
         diameter_rad = cell_df.set_index('label')['diameter_rad']
         diameter_tan = cell_df.set_index('label')['diameter_tan']
@@ -560,27 +598,25 @@ def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, sc
 
         # Determine pixelwidth based on direction
         def determine_pixelwidth(row):
-            if row['wall_classification'] == 'radial_sel':
-                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])
-            elif row['wall_classification'] == 'tangential':
+            # If the adjacency is in the radial direction then compute scan width according to tangential diameter
+            if row['direction'] == 'radial':
                 avg_diameter = 0.5 * (row['diameter1_tan'] + row['diameter2_tan'])
+            # Otherwise we compute scan width according to radial diameter
             else:
-                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])  # Fallback
+                avg_diameter = 0.5 * (row['diameter1_rad'] + row['diameter2_rad'])
                 
-            if not np.isnan(avg_diameter):
-                return int(np.ceil((scan_width/100) * (avg_diameter / scale)))  # convert to pixels and round up
+            if not np.isnan(avg_diameter) and avg_diameter != 0:
+                return int(np.ceil(0.75 * avg_diameter / scale))  # convert to pixels and round up
             
             else:
                 return 1
 
         wall_df['pixelwidth_dynamic'] = wall_df.apply(determine_pixelwidth, axis=1)
-        
-        scan_width = "auto"
 
     # The case for multiprocessing
     if(nprocesses > 1):
         with Pool(processes = nprocesses) as p:
-            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, pixelwidth = scan_width, scaling = scale)
+            multi_thickness = partial(thickness_between_centroids, dist_map = dist_map, scan_width = scan_width, scaling = scale)
             wall_df['wall_thickness'] = p.map(multi_thickness, [row for index,row in wall_df.iterrows()])
     
     # Otherwise with only one process
@@ -588,7 +624,7 @@ def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, sc
         wall_df['wall_thickness'] = wall_df.apply(
                 lambda row: thickness_between_centroids(row,
                                                         dist_map = dist_map,
-                                                        pixelwidth = scan_width,
+                                                        scan_width = scan_width,
                                                         scaling = scale),
                 axis=1)
 
@@ -607,6 +643,8 @@ def measure_wallthickness(cell_df, adj_df, dist_map, auto_pixelwidth = False, sc
 
         if label in down_edges:
             cell_df.at[idx, 'down_wall_thickness'] = wall_df.at[down_edges[label], 'wall_thickness']
+
+    cell_df["WallThickness"] = cell_df[["left_wall_thickness", "right_wall_thickness"]].mean(axis = 1, skipna = True)
     
     return cell_df
 
@@ -620,7 +658,7 @@ def classify_edges(df, tolerance = 5):
     ub = df["upper_bound"] + np.radians(tolerance)
 
     # Using np.where to classify the edges in a vectorized way
-    df["wall_classification"] = np.where(np.logical_and(angle >= lb, angle <= ub), 'tangential', 'radial')
+    df["direction"] = np.where(np.logical_and(angle >= lb, angle <= ub), 'radial', 'tangential')
 
     return df
 
@@ -742,8 +780,8 @@ def get_starting_nodes(candidates, graph, cell_data):
 def join_files(radial_files, edge_df, angle_tolerance = 20):
     # We start by building the graph of possible adjacencies from the edge_df and angle tolerance
     edge_df = classify_edges(edge_df, tolerance = angle_tolerance)
-    tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
-    fwd_graph = get_forward_graph(tangential_edges)
+    radial_edges = edge_df[edge_df["direction"] == "radial"]
+    fwd_graph = get_forward_graph(radial_edges)
 
     # We loop over the radial files as long as we haven't reached the end
     i = 0
@@ -785,10 +823,10 @@ def join_files(radial_files, edge_df, angle_tolerance = 20):
 # graph that contains only edges going from left to right
 def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
 
-    # We extract tangential edges from the edge DataFrame
-    tangential_edges = edge_df[edge_df["wall_classification"] == "tangential"]
+    # We extract radial edges from the edge DataFrame
+    radial_edges = edge_df[edge_df["direction"] == "radial"]
 
-    fwd_graph = get_forward_graph(tangential_edges)
+    fwd_graph = get_forward_graph(radial_edges)
 
     # We identify starting nodes as edges for which no cell points to
     starting_nodes = get_starting_nodes(cell_df["label"], fwd_graph, cell_df)
@@ -810,7 +848,7 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
 
             # We increment the current radial file as long as we do not meet a dead-end
             while current_node is not None and current_node in fwd_graph:
-                current_node = get_next_node(fwd_graph, current_node, previous_node, tangential_edges, visited)
+                current_node = get_next_node(fwd_graph, current_node, previous_node, radial_edges, visited)
 
                 # Storing a variable for the previous node, deleting it from the graph, and adding it to the visited set
                 previous_node = radial_files[current_file - 1][-1]
@@ -839,7 +877,7 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                               angle_tolerance = stitch_angle_tolerance)
 
     # Assigning the radial files and file rank into the input cell DataFrame
-    # Also assigning left and right neighbors as well as tangential wall thickness
+    # Also assigning left and right neighbors
     cell_df.set_index(cell_df["label"], inplace = True, drop = False)
 
     cell_df['classification'] = None
@@ -890,16 +928,43 @@ def assign_radial_files(cell_df, edge_df, stitch_angle_tolerance = 20):
                 
                 cell_df.at[cell_idx, 'right_angle'] = edge_df.at[right_edge, 'angle']
 
-                # All edges that are part of a radial file are considered tangential
+                # All edges that are part of a radial file are considered radial
                 # for use in downstream functions
-                edge_df.at[right_edge, "wall_classification"] = 'tangential'
+                edge_df.at[right_edge, "direction"] = 'radial'
 
     return cell_df, edge_df
+
+# Multiprocessing-enabled diameter measurements
+def measure_diameters(complete_df, spacing = 1, nprocesses = 1):
+
+    # Checking if we are multiprocessing or not
+    if nprocesses > 1:
+        measure_partial = partial(measure_diameter_df, spacing = spacing)
+
+        # We need to split the DataFrame into as many parts as there are processes
+        # This is necessary because np.array_split gives a deprecation warning so we need to do it by hand
+        nrows = len(complete_df)
+        breakpoints = np.linspace(0, nrows, nprocesses + 1, dtype = int)
+        breakpoints[-1] = nrows
+
+        sub_df = list()
+
+        for i in range(nprocesses):
+            sub_df.append(complete_df.iloc[breakpoints[i]:breakpoints[i + 1]])
+
+        with Pool(processes = nprocesses) as p:
+            complete_df = pd.concat(p.map(measure_partial, sub_df))
+
+    else:
+        complete_df = measure_diameter_df(complete_df, spacing = spacing)
+
+    return complete_df
+    
 
 ######################################################################################
 # Measure radial and tangential diameters relative to the cell angle
 
-def measure_diameters(complete_df, spacing = 1):
+def measure_diameter_df(complete_df, spacing = 1):
     """
     Measure the diameters of objects along specified angles and their perpendiculars.
     
@@ -1123,11 +1188,11 @@ def get_updown_graph(df, direction):
 
     return(updown_graph)
 
-# Attribute the correct up and down radial wall measurements to each tracheid
+# Attribute the correct up and down neighbors to each tracheid for radial wall measurement purposes
 def get_radial_walls(cells_df, walls_df):
     
     # Generate graphs that contain adjacencies towards the upward or downward direction
-    edges_df = walls_df[walls_df['wall_classification'] == 'radial']
+    edges_df = walls_df[walls_df['direction'] == 'tangential']
     up_graph = get_updown_graph(edges_df, direction = "up")
     down_graph = get_updown_graph(edges_df, direction = "down")
     
@@ -1154,176 +1219,73 @@ def get_radial_walls(cells_df, walls_df):
             up_neighbor = closest_cell(cell = label, neighbors = up_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
             up_edge = tuple(sorted([label, up_neighbor]))
             cells_df.at[idx, 'up_neighbor'] = up_neighbor
-            walls_df.at[up_edge, 'wall_classification'] = 'radial_sel'
         
         # Assigning the downwards neighbor and wall data if the cell has any
         if label in down_graph:
             down_neighbor = closest_cell(cell = label, neighbors = down_graph[label], edge_df = walls_df, angle = angle_deg, perp_angle = perpendicular_angle)
             down_edge = tuple(sorted([label, down_neighbor]))
             cells_df.at[idx, 'down_neighbor'] = down_neighbor
-            walls_df.at[down_edge, 'wall_classification'] = 'radial_sel'
         
-    return cells_df, walls_df
+    return cells_df
 
-###############################################################################
-def rays_and_ducts(labels, 
-                   scale = 1, 
-                   min_duct_area = 80, 
-                   min_duct_width = 20, 
-                   min_ray_ecc = 0.8, 
-                   min_ray_aspect = 2.5):
+# A simple function that updates the user on total run time
+def update_runtime(start_time):
+    print(f'runtime : {datetime.datetime.now() - start_time}')
+    return
+
+def write_qwanaflow_outputs(output, base_name, prediction, distance_map,
+                            expanded_labels, labeled_image, watershed_result,
+                            vm_parameters, nrows, ncols, cell_df, adjacency, noplots):
+
+    # Create the output directory if it does not already exist
+    output_dir = os.path.join(output, f"{base_name}_outputs")
+    os.makedirs(output_dir, exist_ok = True)
+
+    # Saving the numpy images in compressed format
+    np.savez_compressed(os.path.join(output_dir, f"{base_name}_imgs"),
+                        bw_img = prediction,
+                        dmap = distance_map,
+                        explabs = expanded_labels,
+                        labs = labeled_image,
+                        watershed = watershed_result)
+
+    # Optionally saving the directionality diagnostics plot
+    if not noplots:
+        angle_plot = qplots.plot_angles(params = vm_parameters, num_rows = nrows, num_cols = ncols)
+        angle_plot.savefig(os.path.join(output_dir, f"{base_name}_angles.png"))
+
+    # Save a DataFrame of "isolated" cells and those without radial_file
+    filtered_data = cell_df[(cell_df['classification'] == 'isolated') | (cell_df['radial_file'].isna())]
+    filtered_data.to_csv(os.path.join(output_dir, f"{base_name}_filtered.csv"), index = False)
+
+    # Save a DataFrame of cells that do have a radial file and are not isolated
+    cell_df = cell_df.dropna(subset=['radial_file'])
+    cell_df = cell_df[cell_df['classification'] != 'isolated']
+    cell_df.to_csv(os.path.join(output_dir, f"{base_name}_cells.csv"), index = False)
+
+    # Save the adjacency dataframe
+    adjacency.to_csv(os.path.join(output_dir, f"{base_name}_adjacency.csv"), index = True)
+
+    # Save the von Mises parameters found by the directionality analysis
+    pd.DataFrame.from_dict(data = vm_parameters, orient = 'index').to_csv(os.path.join(output_dir, f"{base_name}_params.csv"), header = True)
+
+    return
+
+# A function that prepares the DataFrame of metadata on cells for output by removing
+# columns that are not needed and adding the SampleID column
+def prepare_cell_output(cells, sampleID):
+
+    # Inserting before last column for compatibility with older qwanaflow version
+    # Should probably be inserted last or even at the beginning of the DataFrame
+    cells.insert(loc = len(cells.columns) - 1, column = 'SampleId', value = sampleID)
     
-    # Define a binary mask for the background (i.e., areas you suspect are either rays or resin ducts)
-    background_mask = labels == 0
-
-    # Identify regions (connected components) in the background
-    background_labels = skimage.measure.label(background_mask)
+    cells = cells.drop(
+        columns = [
+            'image',
+            'bbox-0',
+            'bbox-1',
+            'bbox-2',
+            'bbox-3'])
     
-    properties = skimage.measure.regionprops_table(
-        background_labels, 
-        properties=['label',
-                    'centroid',
-                    'area', 
-                    'eccentricity', 
-                    'minor_axis_length', 
-                    'major_axis_length', 
-                    'orientation'],
-        spacing=scale  # Include spacing if needed for calibration
-        )
+    return cells
 
-    # Convert to arrays for faster processing
-    labels = properties['label']
-    areas = properties['area']
-    eccentricities = properties['eccentricity']
-    minor_axis_lengths = properties['minor_axis_length']
-    major_axis_lengths = properties['major_axis_length']
-    orientations = properties['orientation']
-
-    # Pre-calculate constants
-    pi_by_3 = np.pi / 3
-    inf_aspect_ratio = np.inf
-
-    # Initialize a classification array (numeric for performance reasons)
-    classifications = np.full_like(labels, fill_value=3, dtype=int)
-    
-    # Compute aspect ratios (avoiding division by zero)
-    aspect_ratios = np.divide(major_axis_lengths, minor_axis_lengths, out=np.full_like(major_axis_lengths, inf_aspect_ratio), where=minor_axis_lengths != 0)
-    
-    # Classify "horizontal" regions: orientation more or less horizontal
-    horizontal = np.abs(orientations) > np.abs(pi_by_3)
-    
-    # Rays: horizontal, high aspect ratio, and high eccentricity
-    rays_mask = (horizontal) & (aspect_ratios > min_ray_aspect) & (eccentricities > min_ray_ecc)
-    classifications[rays_mask] = 1  # 1 for Ray
-    
-    # Resin ducts: lower aspect ratio and larger area
-    resin_ducts_mask = (areas > min_duct_area) & (eccentricities < 0.98) & (minor_axis_lengths > min_duct_width) & (~rays_mask)
-    classifications[resin_ducts_mask] = 2  # 2 for Resin Duct
-    
-    
-    unknown_mask = (~resin_ducts_mask) & (~rays_mask)
-    
-    # Initialize classified_mask (using the labels and classifications)
-    classified_mask = np.zeros_like(background_labels)
-
-    # Assign the ray classification (1) and resin duct classification (2)
-    classified_mask[np.isin(background_labels, labels[rays_mask])] = 1
-    classified_mask[np.isin(background_labels, labels[resin_ducts_mask])] = 2
-    classified_mask[np.isin(background_labels, labels[unknown_mask])] = 3
-        
-    properties['classification'] = classifications
-    
-    properties_df = pd.DataFrame(properties)
-    
-    return properties_df, classified_mask
-
-
-#########
-def artefact_adjacent(labeled_image, classified_mask, ray_class=1, resin_duct_class=2, unknown_class=3):
-    # Initialize sets to store adjacent labels for each class
-    rays_adjacent = set()
-    ducts_adjacent = set()
-    unknown_adjacent = set()
-
-    # Create shifted classified_mask images to check adjacencies
-    vshift1 = classified_mask[:-1, :]
-    vshift2 = classified_mask[1:, :]
-    hshift1 = classified_mask[:, :-1]
-    hshift2 = classified_mask[:, 1:]
-
-    # Corresponding labeled image shifts
-    label_vshift1 = labeled_image[:-1, :]
-    label_vshift2 = labeled_image[1:, :]
-    label_hshift1 = labeled_image[:, :-1]
-    label_hshift2 = labeled_image[:, 1:]
-
-    # Vertical adjacencies
-    v_adj = vshift1 != vshift2
-    v_ind = np.where(v_adj)
-
-    for i in range(len(v_ind[0])):
-        class1, class2 = vshift1[v_ind[0][i], v_ind[1][i]], vshift2[v_ind[0][i], v_ind[1][i]]
-        label1, label2 = label_vshift1[v_ind[0][i], v_ind[1][i]], label_vshift2[v_ind[0][i], v_ind[1][i]]
-
-        # Add labels based on classified_mask class
-        if class1 == ray_class or class2 == ray_class:
-            rays_adjacent.update([label1, label2])
-        if class1 == resin_duct_class or class2 == resin_duct_class:
-            ducts_adjacent.update([label1, label2])
-        if class1 == unknown_class or class2 == unknown_class:
-            unknown_adjacent.update([label1, label2])
-
-    # Horizontal adjacencies
-    h_adj = hshift1 != hshift2
-    h_ind = np.where(h_adj)
-
-    for i in range(len(h_ind[0])):
-        class1, class2 = hshift1[h_ind[0][i], h_ind[1][i]], hshift2[h_ind[0][i], h_ind[1][i]]
-        label1, label2 = label_hshift1[h_ind[0][i], h_ind[1][i]], label_hshift2[h_ind[0][i], h_ind[1][i]]
-
-        # Add labels based on classified_mask class
-        if class1 == ray_class or class2 == ray_class:
-            rays_adjacent.update([label1, label2])
-        if class1 == resin_duct_class or class2 == resin_duct_class:
-            ducts_adjacent.update([label1, label2])
-        if class1 == unknown_class or class2 == unknown_class:
-            unknown_adjacent.update([label1, label2])
-
-    # Convert sets to lists
-    return list(rays_adjacent), list(ducts_adjacent), list(unknown_adjacent)
-
-def adjacent_type_column(complete_df, 
-                             rays_adjacent, 
-                             duct_adjacent, 
-                             unk_adjacent):
-    # Create a new column 'adj_type' initialized with NaN
-    complete_df['adj_type'] = np.nan
-    
-    # Set the column value to 1 if the label is in rays_adj
-    complete_df.loc[complete_df['label'].isin(rays_adjacent), 'adj_type'] = 1
-    
-    # Set the column value to 2 if the label is in duct_adj
-    complete_df.loc[complete_df['label'].isin(duct_adjacent), 'adj_type'] = 2
-    
-    # Set the column value to 3 if the label is in unk_adj
-    complete_df.loc[complete_df['label'].isin(unk_adjacent), 'adj_type'] = 3
-
-    return complete_df
-
-
-
-def morks_index(cell_df):
-    """
-    Classify cells as earlywood or latewood based on Mork's index.
-
-    Parameters:
-    cell_df (pd.DataFrame): Dataframe with 'WallThickness' and 'LumenLength' columns.
-
-    Returns:
-    pd.DataFrame: The same dataframe with an added 'woodzone' column.
-    """
-    cell_df = cell_df.copy()  # Avoid modifying original dataframe
-    cell_df["woodzone"] = np.where(
-        (cell_df["WallThickness"] * 4 >= cell_df["diameter_rad"]), "latewood", "earlywood"
-    )
-    return cell_df

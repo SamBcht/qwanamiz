@@ -1,5 +1,6 @@
 # Test data generated from the test image
 tests/data/test_output/
+tests/large_tests/
 docs/test_output/
 
 # Byte-compiled / optimized / DLL files
