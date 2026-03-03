@@ -355,20 +355,30 @@ def create_boundary_array(label_to_region, cell_labels):
 
 def get_extremities(region_to_cell, cells_df):
 
-    # Creating dictionaries that link each boundary region to the cells that are
-    # located at the extremities
     upward_cells = {}
     downward_cells = {}
 
+    # Precompute valid index for speed
+    valid_index = cells_df.index
+
     for region, cell_labels in region_to_cell.items():
-        # Select only the cells belonging to this region
-        region_labels = cells_df.loc[list(cell_labels)].sort_values(by = "centroid-0")['label'].tolist()
-        
-        if len(region_labels):
-            # Find the most upward and downward cells based on y-coordinate
+
+        # Keep only labels that still exist
+        valid_labels = list(set(cell_labels) & set(valid_index))
+
+        if not valid_labels:
+            continue
+
+        region_labels = (
+            cells_df.loc[valid_labels]
+            .sort_values(by="centroid-0")["label"]
+            .tolist()
+        )
+
+        if region_labels:
             upward_cells[region] = region_labels[0]
             downward_cells[region] = region_labels[-1]
-            
+
     return upward_cells, downward_cells
 
 def get_extremity_neighbors(upward_cells, downward_cells, cells_df):
