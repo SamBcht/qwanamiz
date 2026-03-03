@@ -5,6 +5,7 @@ Created on Thu Jun 12 18:05:51 2025
 @author: sambo
 """
 
+import os
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -23,6 +24,36 @@ from skimage.morphology import skeletonize
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 #from typing import Dict, List, Tuple, Any
+
+# A function that reads the inputs needed for qwanarings
+# These are outputs from qwanaflow
+def read_qwanarings_inputs(prefix):
+
+    # Setting the paths to the input files
+    imgs_path = f"{prefix}_imgs.npz"
+    cells_path = f"{prefix}_cells.csv"
+    adjacency_path = f"{prefix}_adjacency.csv"
+    
+    if not all([os.path.exists(p) for p in [imgs_path, cells_path, adjacency_path]]):
+        print(f"Missing required files for prefix {prefix}\n")
+        exit()
+
+    # Reading the input CSV files
+    celldata = pd.read_csv(cells_path)
+    adjacency = pd.read_csv(adjacency_path)
+
+    # Reading input numpy arrays
+    images = np.load(imgs_path)
+    expanded_labels = images['explabs']
+    prediction = images['bw_img']
+    
+    # Explicitly setting the double index on the adjacency DataFrame
+    adjacency.set_index(['label1', 'label2'], inplace = True)
+
+    # And explicitly setting label as an index on cell data
+    celldata.set_index('label', drop = False, inplace = True)
+    
+    return celldata, adjacency, expanded_labels, prediction
 
 def morks_index(cell_df):
     """
@@ -67,14 +98,14 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     )
 
     # Filter the cells where condition is met
-    lastcells = celldata[celldata["condition_met"]].copy()
+    lastcells_df = celldata[celldata["condition_met"]].copy()
 
 
     # Extract the coordinates (centroid-0 and centroid-1) of the flagged cells
     #coordinates = lastcells[['centroid-0', 'centroid-1']].values
 
     # Get the labels of lastcells and their right_neighbors
-    lastcell_labels = lastcells["label"].values
+    lastcell_labels = lastcells_df["label"].values
 
     ##### STRICT LATEWOOD TO EARLYWOOD TRANSITION
     # Apply the conditions
@@ -96,7 +127,6 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
         adjacency.index.get_level_values("label1").isin(transition_labels) |
         adjacency.index.get_level_values("label2").isin(transition_labels)
     ]
-
 
     # Start with direct neighbors of lastcells, using transition_adjacency
     direct_neighbors = transition_adjacency[
@@ -144,7 +174,7 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
 
     ######### UNITE ALL LASTCELLS
     # Create a backup of lastcells
-    new_lastcells = lastcells.copy()
+    new_lastcells = lastcells_df.copy()
 
     # Convert sets to lists for indexing
     direct_neighbor_labels = list(direct_neighbor_labels)
@@ -160,32 +190,75 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     new_lastcells = pd.concat([new_lastcells, direct_neighbors_df, connected_transition_df], ignore_index=True)
     
     # Get the labels of lastcells and their right_neighbors
-    lastcells_labels = new_lastcells["label"].values
-    rightcells_labels = new_lastcells["right_neighbor"].values
-    leftcells_labels = new_lastcells["left_neighbor"].values
+    lastcells = new_lastcells["label"].values
+    rightcells = new_lastcells["right_neighbor"].values
     
-    return lastcells_labels, rightcells_labels, leftcells_labels
+    return set(lastcells), set(rightcells)
 
 def parse_centroid(centroid_str):
     return eval(centroid_str)  # Safe here because it's internal and always np.float64
 
-def boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels):
+# A function that identified boundary cells (the first cells in a ring)
+# by finding connection components of the first and last cells in a ring
+def find_boundaries(celldata, adjacency, lastcells, rightcells, expanded_labels):
+
+    # We can construct a graph using previously the first and last cells of each ring
+    graph = boundary_graph(celldata, adjacency, lastcells, rightcells)
     
+    # Find connected components (as sets of nodes)
+    # This will group all cells that are connected by a path along retained edges
+    # So it will segregate ring boundaries and group togeteher cells belonging to
+    # a same boundary
+    connected_components = list(nx.connected_components(graph))
+    
+    # Create a mapping from node to component ID
+    node_to_component = {}
+    for i, component in enumerate(connected_components):
+        for node in component:
+            node_to_component[node] = i + 1 # i + 1 to avoid the 0 label reserved for background
+    
+    # Prepare a mask of pixels whose cell label is in label_to_region
+    target_labels = np.array(list(node_to_component.keys()))
+    target_mask = np.isin(expanded_labels, target_labels)
+    
+    # Get region IDs for those cell labels
+    label_array = expanded_labels[target_mask]
+    region_array = np.vectorize(node_to_component.get)(label_array)
+    
+    # Make a copy to avoid modifying in-place unless you want to
+    boundary_labeled = np.zeros_like(expanded_labels, dtype = int)
+    
+    # Update boundary-labeled values at those positions
+    boundary_labeled[target_mask] = region_array
+    
+    # Now we will work mostly with rightcells
+    # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
+    # unwanted groupings by using a single line of cells
+    rightcells_mask = np.isin(expanded_labels, list(rightcells))
+    right_to_region, region_to_right = map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
+
+    # We extract a DataFrame with only right cells (first cells of a growth ring)
+    rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
+    rightcells_df["boundary_region"] = rightcells_df["label"].map(right_to_region)
+
+    return graph, boundary_labeled, right_to_region, region_to_right, rightcells_df
+
+def boundary_graph(celldata, adjacency, lastcells, rightcells):
     
     # Keep only cells whose label is in right_neighbor_labels
-    lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
-    rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
+    lastcells_df = celldata[celldata["label"].isin(lastcells)].copy()
+    rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
     
     # Filter using MultiIndex levels
     adjacency_lastcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(lastcells_labels) &
-        adjacency.index.get_level_values("label2").isin(lastcells_labels)
+        adjacency.index.get_level_values("label1").isin(lastcells) &
+        adjacency.index.get_level_values("label2").isin(lastcells)
     ].copy()
     
     # Filter using MultiIndex levels
     adjacency_rightcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(rightcells_labels) &
-        adjacency.index.get_level_values("label2").isin(rightcells_labels)
+        adjacency.index.get_level_values("label1").isin(rightcells) &
+        adjacency.index.get_level_values("label2").isin(rightcells)
     ].copy()
     
     # Step 1: Create set of lastcell-right_neighbor pairs (ignoring NaNs)
@@ -232,6 +305,12 @@ def boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels):
     
     return G
 
+# A function that returns a list with problematic regions
+# Problematic regions are those with more than one lastcell in the same radial_file
+def get_problematic_regions(rightcells_df):
+    region_counts = rightcells_df.groupby(["radial_file", "boundary_region"])["label"].nunique()
+    problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_region"].unique()
+    return problematic_regions
 
 #### MAP CELLS WITH THE CORRESPONDING BOUNDARY REGION
 def map_cell_to_region(boundary_regions, boundary_labeled, expanded_labels):
@@ -257,9 +336,9 @@ def map_cell_to_region(boundary_regions, boundary_labeled, expanded_labels):
         
     return cell_to_region, region_to_cells
 
-def update_boundary_labels(boundary_labeled, label_to_region, cell_labels):
+def create_boundary_array(label_to_region, cell_labels):
     # Make a copy to avoid modifying in-place unless you want to
-    boundary_corrected = boundary_labeled.copy()
+    boundaries = np.zeros_like(cell_labels, dtype = int)
 
     # Prepare a mask of pixels whose cell label is in label_to_region
     target_labels = np.array(list(label_to_region.keys()))
@@ -270,30 +349,25 @@ def update_boundary_labels(boundary_labeled, label_to_region, cell_labels):
     region_array = np.vectorize(label_to_region.get)(label_array)
 
     # Update boundary-labeled values at those positions
-    boundary_corrected[target_mask] = region_array
+    boundaries[target_mask] = region_array
     
-    return boundary_corrected
-
+    return boundaries
 
 def get_extremities(region_to_cell, cells_df):
+
+    # Creating dictionaries that link each boundary region to the cells that are
+    # located at the extremities
     upward_cells = {}
     downward_cells = {}
 
-    # Filter earlywood cells
-    #earlywood_cells = celldata[celldata["woodzone"] == "earlywood"]
-
     for region, cell_labels in region_to_cell.items():
         # Select only the cells belonging to this region
-        region_cells = cells_df[cells_df["label"].isin(cell_labels)]
+        region_labels = cells_df.loc[list(cell_labels)].sort_values(by = "centroid-0")['label'].tolist()
         
-        if not region_cells.empty:
+        if len(region_labels):
             # Find the most upward and downward cells based on y-coordinate
-            upward_cell = region_cells.loc[region_cells["centroid-0"].idxmin(), "label"]
-            downward_cell = region_cells.loc[region_cells["centroid-0"].idxmax(), "label"]
-            
-            # Store in dictionaries
-            upward_cells[region] = upward_cell
-            downward_cells[region] = downward_cell
+            upward_cells[region] = region_labels[0]
+            downward_cells[region] = region_labels[-1]
             
     return upward_cells, downward_cells
 
@@ -305,22 +379,16 @@ def get_extremity_neighbors(upward_cells, downward_cells, cells_df):
     # Iterate through the upward cells and get their up neighbors
     for region, up_label in upward_cells.items():
         # Retrieve the row corresponding to the upward cell in earlywood_cells dataframe
-        up_cell_row = cells_df[cells_df["label"] == up_label]
-        
-        if not up_cell_row.empty:
-            up_neighbor = up_cell_row["up_neighbor"].values[0]
-            # Store the region and its up neighbor
-            upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
+        up_neighbor = cells_df.loc[up_label, "up_neighbor"]
+        # Store the region and its up neighbor
+        upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
 
     # Iterate through the downward cells and get their down neighbors
     for region, down_label in downward_cells.items():
         # Retrieve the row corresponding to the downward cell in earlywood_cells dataframe
-        down_cell_row = cells_df[cells_df["label"] == down_label]
-        
-        if not down_cell_row.empty:
-            down_neighbor = down_cell_row["down_neighbor"].values[0]
-            # Store the region and its down neighbor
-            downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
+        down_neighbor = cells_df.loc[down_label, "down_neighbor"]
+        # Store the region and its down neighbor
+        downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
 
     # The resulting dictionaries will contain region-to-cell mappings for upward and downward cells with their respective neighbors
 
@@ -554,7 +622,7 @@ def integrate_updown(upward_neighbors, downward_neighbors, up_down_pairs, last_l
     return final_boundary_labeled
 
 
-def get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8):
+def get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8):
     
     # Create a lookup dictionary for cellID -> diameter_rad
     diameter_lookup = celldata.set_index("label")["diameter_rad"].to_dict()
@@ -563,12 +631,12 @@ def get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_f
     woodzone_transition = celldata[celldata["lw-ew_transition"]].copy()
 
     # Exclude labels that are in lastcells from woodzone_transition
-    woodzone_transition = woodzone_transition[~woodzone_transition["label"].isin(set(lastcells_labels))]
+    woodzone_transition = woodzone_transition[~woodzone_transition["label"].isin(lastcells)]
     # Extract the labels from woodzone_transition
     transition_labels = set(woodzone_transition["label"])
     
     # Step 1: Identify remaining_labels in transition_labels
-    remaining_in_transition = remaining_labels & set(lastcells_labels)
+    remaining_in_transition = remaining_labels & lastcells
 
     # Step 2: Map left_neighbor and diameter_rad for remaining labels
     left_neighbors = celldata.loc[celldata["label"].isin(remaining_labels), ["label", "left_neighbor", "diameter_rad"]]
@@ -1004,11 +1072,11 @@ def get_border_cells(cells_df, cell_to_region_merged, upward_cells, downward_cel
     downward_df = cells_df[cells_df["label"].isin(downward_labels)]
 
     # Upward cells touching top of the image
-    upward_border_df = upward_df[upward_df["centroid-0"] <= border_margin*pix_to_um]
+    upward_border_df = upward_df.copy()[upward_df["centroid-0"] <= border_margin*pix_to_um]
     upward_border_cells = set(upward_border_df["label"])
 
     # Downward cells touching bottom of the image
-    downward_border_df = downward_df[downward_df["centroid-0"] >= (image_height - border_margin)*pix_to_um]
+    downward_border_df = downward_df.copy()[downward_df["centroid-0"] >= (image_height - border_margin)*pix_to_um]
     downward_border_cells = set(downward_border_df["label"])
 
     # -------- LEFT/RIGHT borders --------
@@ -1259,6 +1327,7 @@ def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum 
 
         # We subset the cells that are within the bounding box so we only need to test those
         cell_indices = np.where((cells['centroid-0'] >= bbox[0]) & (cells['centroid-0'] <= bbox[1]) & (cells['centroid-1'] >= bbox[2]) & (cells['centroid-1'] <= bbox[3]))[0]
+        cell_indices = cells.index[cell_indices]
 
         # We introduce a small shift to the left in x-coordinates because we want the cells to be included in the current ring
         xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) + magic_shift

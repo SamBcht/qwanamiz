@@ -46,6 +46,24 @@ cd qwanamiz
 pip install .
 ```
 
+The above command will only enable functionality for the `qwanaflow` and
+`qwanarings` command-line utilities. To enable `qwanaviz` functionality, which
+requires significantly more dependencies, you can add the `viz` set of extra
+dependencies when installing with `pip`:
+
+```bash
+pip install .[viz]
+```
+
+Similarly, the `docs` and `dev` sets of extra dependencies will repectively
+enable the generation of package documentation and other modules used for
+development:
+
+```
+# As shown here, several dependency extras can be separated by commas
+pip install .[docs,dev]
+```
+
 To run the examples of the **Quick start** section using the test image shipped
 with `qwanamiz`, first move to the test data directory:
 
@@ -72,7 +90,7 @@ assigns cells to radial files.
 `qwanaflow` can be launched from the command line as follows:
 
 ```bash
-qwanaflow test_image.png output
+qwanaflow --pixel-size 0.55 test_image.png output
 ```
 
 where the two mandatory positional arguments are an image to analyze and the
@@ -87,7 +105,7 @@ boundaries from the cells and adjacency graph using the `qwanarings`
 command-line tool:
 
 ```bash
-qwanarings --input_dir output
+qwanarings --pixel-size 0.55 --input_dir output
 ```
 
 where the mandatory `--input_dir` argument is the name of the directory where
@@ -99,8 +117,9 @@ and process them.
 
 The results produced by `qwanaflow` and `qwanarings` can be visualized using
 `qwanaviz`, which uses the [`napari`](https://napari.org/stable/) module for
-interactive visualization.  This script can be launched from the command line
-using the prefix of the sample to visualize as input:
+interactive visualization. This script can be launched from the command line
+using the prefix of the sample to visualize as input, provided that `qwanamiz`
+was installed with the `viz` set of dependencies:
 
 ```bash
 qwanaviz output/test_image_outputs/test_image
@@ -178,16 +197,24 @@ Users who want to better understand the detailed workflow of `qwanaflow` and
 * `qwanaflow_example.ipynb`
 * `qwanarings_example.ipynb`
 
-These can be run as interactive Jupyter notebooks or compiled by navigating to
-the `docs` folder and running the command `make html`. Either way, you first need
-to install a few dependencies with `pip`.
+These can be run as interactive Jupyter notebooks or compiled as HTML
+documents. You will need to install `qwanamiz` with the `dev` extra set of
+dependencies to enable Jupyter notebook or the `docs` set to compile the
+documentation yourself.
 
 ```bash
-# Installing development dependencies with pip
-pip install jupyter myst-nb sphinx-autoapi sphinx-rtd-theme
+# If you want to run the documents interactively, run the following command
+# from the root of qwanamiz and open the notebooks within Jupyter
+jupyter notebook
 
-# Compiling the documentation
+# Instead, to compile the documents, first navigate to the docs directory from
+# the root of the package
+cd docs
+
+# And compile the documentation with the following command
+# Expect this step to take a few minutes
 make html
+
 ```
 
 After compiling the documents, you should be able to access them under
