@@ -91,12 +91,15 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
 
     ### Directionality analysis
     print("Analyzing directionality and classifying edges")
+    
+    hull_mask, close_c, hull_c = qmiz.get_sample_contour(expanded_labels)
 
 
     # Determining the directionality angle for each part of the image
     adjacency, vm_parameters, nb_rows, nb_cols = qmiz.directionality(adjacency,
                                                                      image_height = bw_image.shape[0],
                                                                      image_width = bw_image.shape[1],
+                                                                     sample_mask=hull_mask,
                                                                      spacing = pixel_size,
                                                                      num_rows = dir_nrows,
                                                                      num_cols = dir_ncols,

@@ -23,6 +23,10 @@ def plot_angles(params, num_rows, num_cols):
     for i in range(num_rows):
         for j in range(num_cols):
 
+            # Skip subimages with no edges
+            if params[f'{i+1}_{j+1}']['nb_cells'] == 0:
+                continue
+            
             # Extracting the relevant data from the set of parameters
             x_histo = params[f'{i+1}_{j+1}']['x_histo']
             y_histo = params[f'{i+1}_{j+1}']['y_histo']
@@ -47,8 +51,8 @@ def plot_angles(params, num_rows, num_cols):
             # Add the 99% interval bounds as vertical lines
             ax.axvline(lower_bound, color='green', linestyle='--')
             ax.axvline(upper_bound, color='green', linestyle='--')
-            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(lower_bound * 0.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(upper_bound * 1.5, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
             ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
             ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
 
