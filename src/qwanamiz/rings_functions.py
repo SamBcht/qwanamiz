@@ -1208,6 +1208,25 @@ def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
 
     for region in ring_regions:
         rings[region] = sorted_cells[sorted_cells["label"].isin(region_to_cells[region])]["label"].to_list()
+        
+    # Handle start/end regions that are different but should merge
+    if upper_sequence[0] != lower_sequence[0]:
+        # Merge first regions
+        u0 = upper_sequence[0]
+        l0 = lower_sequence[0]
+        rings[u0] = (
+            sorted_cells[sorted_cells["label"].isin(region_to_cells[u0])]["label"].to_list() +
+            sorted_cells[sorted_cells["label"].isin(region_to_cells[l0])]["label"].to_list()
+        )
+
+    if upper_sequence[-1] != lower_sequence[-1]:
+        # Merge last regions
+        u1 = upper_sequence[-1]
+        l1 = lower_sequence[-1]
+        rings[u1] = (
+            sorted_cells[sorted_cells["label"].isin(region_to_cells[u1])]["label"].to_list() +
+            sorted_cells[sorted_cells["label"].isin(region_to_cells[l1])]["label"].to_list()
+        )
 
     # We then need to find spots in-between ring boundaries with unlinked boundaries
 
@@ -1764,6 +1783,41 @@ def fill_columns(aligned_matrix, merge_candidates=set(), min_fraction=0.7, regio
             for row in range(n_rows):
                 if filled_matrix[row][col_idx] is None:
                     filled_matrix[row][col_idx] = most_common_val
+                    
+                    
+    # Check if first and last columns can be safely filled            
+    def column_is_complete(col_index):
+        return all(filled_matrix[row][col_index] is not None
+                   for row in range(n_rows))
+
+    def try_fill_boundary(col_idx, neighbor_idx):
+        col_vals = [filled_matrix[row][col_idx]
+                    for row in range(n_rows)
+                    if filled_matrix[row][col_idx] is not None]
+
+        if not col_vals:
+            return
+
+        # Require structural consistency
+        if len(set(col_vals)) != 1:
+            return
+
+        region = col_vals[0]
+
+        # Only fill if neighbor column is complete
+        if column_is_complete(neighbor_idx):
+            for row in range(n_rows):
+                if filled_matrix[row][col_idx] is None:
+                    filled_matrix[row][col_idx] = region
+
+    # First column
+    if n_cols > 1:
+        try_fill_boundary(0, 1)
+
+    # Last column
+    if n_cols > 1:
+        try_fill_boundary(n_cols - 1, n_cols - 2)
+
 
     return filled_matrix
 
