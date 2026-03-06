@@ -408,7 +408,7 @@ def main():
         distances_df["cell_ring_width"] = distances_df["dist_to_next"] + distances_df["dist_to_prev"]
     
         # Compute mean ring width from cell distances
-        mean_ringwidth_from_cells = distances_df.groupby("year")["cell_ring_width"].mean()
+        #mean_ringwidth_from_cells = distances_df.groupby("year")["cell_ring_width"].mean()
     
         # Convert mean_ring_distances (list from earlier) to a Series for comparison
         # Those were based on skeleton boundaries (already in pixel or µm?)
@@ -437,7 +437,7 @@ def main():
     
         # --- Add ringwidth from cells ---
         # `mean_ringwidth_from_cells` is a Series with index = year, value = mean cell-based ring width
-        ringprops_df["rw_from_cells"] = ringprops_df["label"].map(mean_ringwidth_from_cells)
+        #ringprops_df["rw_from_cells"] = ringprops_df["label"].map(mean_ringwidth_from_cells)
     
         # Assuming your celldata has:
         # 'year'       → the ring ID
@@ -515,7 +515,8 @@ def main():
             filtered_mask=filtered_mask,
             celldata=celldata,
             output_path=f"{base_prefix}_img.png",
-            pix_to_um=pix_to_um
+            pix_to_um=pix_to_um,
+            ring_boundaries=boundaries
         )
         
         print(f"Saved workflow output to {outdir}")

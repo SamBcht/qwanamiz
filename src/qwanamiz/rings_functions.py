@@ -2373,6 +2373,12 @@ def add_radialfile_stats(celldata, ringprops_df):
     
     df = celldata[celldata["valid_radial_file"]].copy()
     
+    rw_from_cells = (
+        df.groupby("year")["cell_ring_width"]
+        .mean()
+        .rename("rw_from_cells")
+    )
+    
     # Group by ring and radial_file
     grouped = df.groupby(["year", "radial_file"])
     
@@ -2414,7 +2420,8 @@ def add_radialfile_stats(celldata, ringprops_df):
     )
 
     # Merge all statistics
-    stats_df = pd.concat([nb_cells, 
+    stats_df = pd.concat([rw_from_cells,
+                          nb_cells, 
                           nb_rfiles, 
                           n_valid_cells, 
                           n_valid_files, 

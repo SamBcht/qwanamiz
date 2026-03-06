@@ -70,18 +70,20 @@ def plot_angles(params, num_rows, num_cols):
 
     return fig 
 
-
 def draw_rings(
     prediction,
     year_image,
     filtered_mask,
     celldata,
     output_path,
+    ring_boundaries=None,
     pix_to_um=1.0,
     radial_alpha=0.2,
     colorpal='inferno',
     point_radius=5,
-    line_width=3
+    line_width=3,
+    boundary_color=(0,255,255,255),
+    boundary_width=3
 ):
     """
     Create a full-resolution PNG summarizing prediction, year rings, and radial files,
@@ -181,6 +183,23 @@ def draw_rings(
                 fill=col,
             )
             
+    if ring_boundaries is not None:
+
+        for boundary in ring_boundaries:
+
+            # convert micron coordinates → pixels
+            coords_px = np.array(boundary) / pix_to_um
+
+            # convert (y,x) → (x,y) for PIL
+            line_coords = [(x, y) for y, x in coords_px]
+
+            if len(line_coords) > 1:
+                draw.line(
+                    line_coords,
+                    fill=boundary_color,
+                    width=boundary_width
+                )
+            
         # --- Legend & Info ---
     try:
         sample_id = str(celldata["SampleId"].iloc[0])
@@ -212,7 +231,7 @@ def draw_rings(
 
     # --- Save final image ---
     combined.save(output_path)
-    print(f"✅ Final PNG image saved : {output_path}")
+    print(f" Final PNG image saved : {output_path}")
 
 # A function that plots the main direction of each panel after running directionality function
 # base_image: an numpy array of an image to use as a background
