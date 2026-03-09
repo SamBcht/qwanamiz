@@ -2088,8 +2088,8 @@ def build_aligned_sequences(filled, merge_pairs, final_regions):
     bottom_seq = next(row for row in reversed(filled) if any(x is not None for x in row))
 
     # Remove None
-    top_seq = [x for x in top_seq if x is not None]
-    bottom_seq = [x for x in bottom_seq if x is not None]
+    #top_seq = [x for x in top_seq if x is not None]
+    #bottom_seq = [x for x in bottom_seq if x is not None]
 
     # 2. Build pair lookup dictionary
     pair_lookup = {}
@@ -2137,6 +2137,9 @@ def build_aligned_sequences(filled, merge_pairs, final_regions):
     def unique_order(seq):
         seen = set()
         return [x for x in seq if not (x in seen or seen.add(x))]
+    
+    aligned_top = [x for x in aligned_top if x is not None]
+    aligned_bottom = [x for x in aligned_bottom if x is not None]
 
     aligned_top = unique_order(aligned_top)
     aligned_bottom = unique_order(aligned_bottom)
