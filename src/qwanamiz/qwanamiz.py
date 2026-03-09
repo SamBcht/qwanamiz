@@ -651,8 +651,8 @@ def directionality(adj_df,
             max_index = closest_index
             mu = m[1, max_index]
             kappa = m[2, max_index]
-            lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
-            upper_bound = vonmises.ppf(0.9, kappa, loc=mu)    
+            lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
+            upper_bound = vonmises.ppf(0.995, kappa, loc=mu)    
 
 
 
@@ -1337,6 +1337,10 @@ def calculate_diameter(label_image, centroid, angle, bbox, spacing = 1):
             
         distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         diam_coords = ((y1 + min_row) * spacing, (x1 + min_col) * spacing), ((y2 + min_row) * spacing, (x2 + min_col)* spacing)
+        
+    # Prevent degenerate 0-length diameters
+    if distance == 0:
+        distance = 1
 
 
     return distance, diam_coords

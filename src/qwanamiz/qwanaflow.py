@@ -140,7 +140,8 @@ def batch_measurements(img_path, sampleID = "Sample1", pixel_size = 1, dir_nrows
 
 def get_basename(input_file, remove = '.png'):
     base_name = os.path.basename(input_file)
-    base_name = base_name.replace(remove, '')
+    if base_name.endswith(remove):
+        base_name = base_name.replace(remove, '')
     return base_name
 
 def main():
@@ -153,6 +154,9 @@ def main():
                                            If a single .txt file, should be a file containing a list of files to process, with one .png file per line.""")
 
     parser.add_argument("output", help = """A directory to write output files to.""")
+    
+    parser.add_argument("--remove-suffix", dest= "remove_suffix", type=str, default=".png",
+                        help = "String to remove from the input filename when generating the sample base name. Default: '.png'")
     
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 1,
                         help = """Conversion factor from of a single pixel to the desired measurement unit. Defaults to 1 (measurements in pixels).""")
@@ -247,7 +251,7 @@ def main():
     for img_path in img_paths:
         
         # Adapt the parameter to the input file type
-        base_name = get_basename(img_path, remove = '.png')
+        base_name = get_basename(img_path, remove = args.remove_suffix)
         
         # Run the workflow script
         print(f"Running workflow on {base_name}")
