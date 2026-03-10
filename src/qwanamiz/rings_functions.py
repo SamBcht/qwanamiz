@@ -20,6 +20,7 @@ import copy
 from skimage.measure import regionprops, regionprops_table
 import math
 from skimage.morphology import skeletonize
+from skimage.draw import line
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -1256,6 +1257,102 @@ def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
 
     return rings
 
+
+def check_ring_crossings(ring_lines, cells_df, new_boundaries, pix_to_um=1):
+    """
+    Detect if ring lines intersect unrelated boundary regions.
+
+    Parameters
+    ----------
+    ring_lines : dict
+        {region_id: [cell_labels ordered along the boundary]}
+    cells_df : DataFrame
+        Must contain 'label', 'centroid-0', 'centroid-1'
+    new_boundaries : ndarray
+        Label image of final boundary segments
+
+    Returns
+    -------
+    crossings : dict
+        {region_id: set of crossed boundary region labels}
+    """
+
+    # quick lookup
+    centroids = cells_df.set_index("label")[["centroid-0","centroid-1"]]\
+    .apply(tuple, axis=1).to_dict()
+    
+    centroids_px = {
+        k: (int(v[0]/pix_to_um), int(v[1]/pix_to_um))
+        for k, v in centroids.items()
+    }
+    
+    crossings = {}
+
+    for region, cell_list in ring_lines.items():
+
+        crossed = set()
+
+        for c1, c2 in zip(cell_list[:-1], cell_list[1:]):
+
+            y1, x1 = centroids_px[c1]
+            y2, x2 = centroids_px[c2]
+            
+            rr, cc = line(y1, x1, y2, x2)
+            
+            labels = np.unique(new_boundaries[rr, cc])
+
+            # remove background and own region
+            labels = set(labels)
+            labels.discard(0)
+            labels.discard(region)
+
+            if labels:
+                crossed.update(labels)
+
+        if crossed:
+            crossings[region] = crossed
+
+    return crossings
+
+
+def fix_crossing_rings(ring_lines, crossings, aligned_top, aligned_bottom, region_to_cells, cells_df):
+
+    sorted_cells = cells_df.sort_values("centroid-0")
+
+    for region, crossed_regions in crossings.items():
+
+        # Find index in top sequence
+        if region not in aligned_top:
+            continue
+
+        idx = aligned_top.index(region)
+
+        bottom_region = aligned_bottom[idx]
+
+        if bottom_region in crossed_regions:
+
+            # Other regions must be merged
+            extra_regions = crossed_regions - {bottom_region}
+
+            for extra in extra_regions:
+
+                if extra in region_to_cells:
+
+                    new_cells = sorted_cells[
+                        sorted_cells["label"].isin(region_to_cells[extra])
+                    ]["label"].to_list()
+
+                    ring_lines[region].extend(new_cells)
+
+            # Keep ring ordered
+            ring_lines[region] = sorted(
+                ring_lines[region],
+                key=lambda c: cells_df.loc[cells_df["label"] == c, "centroid-0"].values[0]
+            )
+
+    return ring_lines
+
+
 # This function draws polygons from the ring boundaries so that they can be used
 # for assigning cells to tree rings
 # cells: a pandas DataFrame with information on the cells present in the dataset
@@ -2078,7 +2175,7 @@ def select_regions_to_merge(pair_extremities, candidates, final_merge):
     merge_pairs = list({tuple(sorted(p)) for p in (candidates + selected_pair_list)})
 
     
-    return merge_pairs
+    return merge_pairs, remaining_solo_regions
 
 
 

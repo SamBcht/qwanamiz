@@ -364,7 +364,7 @@ def main():
             coord2 = qrings.get_coordinates(cell2, rightcells_df)
             pair_extremities[(r1, r2)] = (coord1, coord2)
             
-        all_merge_pairs = qrings.select_regions_to_merge(pair_extremities, candidates, final_merge)
+        all_merge_pairs, solo_regions = qrings.select_regions_to_merge(pair_extremities, candidates, final_merge)
     
     
         aligned_top, aligned_bottom = qrings.build_aligned_sequences(filled, all_merge_pairs, final_merge)
@@ -374,6 +374,22 @@ def main():
     
         # Identifying true ring boundaries from the upper and lower sequences
         ring_lines = qrings.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
+        
+        if solo_regions:
+            crossings = qrings.check_ring_crossings(
+                ring_lines,
+                rightcells_df,
+                new_boundaries,
+                pix_to_um
+            )
+            ring_lines = qrings.fix_crossing_rings(
+                ring_lines,
+                crossings,
+                aligned_top,
+                aligned_bottom,
+                region_to_cells,
+                rightcells_df
+            )
     
         # Getting polygon coordinates defining tree rings from the ring lines
         ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = aligned_top, image_width = expanded_labels.shape[1] * pix_to_um)
