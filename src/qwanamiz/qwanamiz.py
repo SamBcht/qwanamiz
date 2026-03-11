@@ -567,7 +567,7 @@ def directionality(adj_df,
                    mu_threshold = 5,  # in degrees
                    max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
                    convergence_threshold = 0.001,
-                   k_threshold = 50):
+                   k_threshold = 40):
 
     # Determining the number of rows and columns automatically if either num_rows or num_cols are None
     # taking into account the real shape of the sample
@@ -623,6 +623,8 @@ def directionality(adj_df,
         
         # Fit mixture of von Mises distributions
         iterations = 0
+        iteration_results = []
+        
         while iterations < max_iterations:
             
             # Kappa values roughly similar to those empirically observed
@@ -631,29 +633,97 @@ def directionality(adj_df,
             m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
         
             # Parameters of the horizontal edges distribution
-            max_index = np.unravel_index(np.argmax(m, axis=None), m.shape)[1]
+            max_index = np.argmax(m[2])
             mu = m[1, max_index]
             kappa = m[2, max_index]
             
             # Check if the estimated mu is similar to the maximum peak angle
-            if np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa > k_threshold:
+            if np.abs(np.degrees(mu) - max_peak_angle) >= mu_threshold:
+                iteration_results.append({
+                    "m": m,
+                    "mu": mu,
+                    "kappa": kappa,
+                    "index": max_index
+                })
+                iterations += 1
+                continue
+            elif np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa > k_threshold:
+                # Calculate the bounds of the interval
+                lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
+                upper_bound = vonmises.ppf(0.995, kappa, loc=mu)
                 break
-
+            elif np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa > k_threshold/2:
+                lower_bound = vonmises.ppf(0.01, kappa, loc=mu)
+                upper_bound = vonmises.ppf(0.99, kappa, loc=mu)
+                break
+            elif np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa <= k_threshold/2:
+                if kappa > 5:
+                    lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+                    upper_bound = vonmises.ppf(0.9, kappa, loc=mu)
+                else:
+                    kappa = 5
+                    lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+                    upper_bound = vonmises.ppf(0.9, kappa, loc=mu)
+                break
+            else:
+                iteration_results.append({
+                    "m": m,
+                    "mu": mu,
+                    "kappa": kappa,
+                    "index": max_index
+                })
+                
             iterations += 1
-        
-        # Calculate the bounds of the interval
-        lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
-        upper_bound = vonmises.ppf(0.995, kappa, loc=mu)    
-        
-        # If max_iterations is reached, find the closest mu to max_peak_angle
-        if iterations == max_iterations:
-            closest_index = np.argmin(np.abs(np.degrees(m[1, :]) - max_peak_angle))
-            max_index = closest_index
-            mu = m[1, max_index]
-            kappa = m[2, max_index]
-            lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
-            upper_bound = vonmises.ppf(0.995, kappa, loc=mu)    
 
+        if iterations == max_iterations:
+        
+            best_diff = np.inf
+            best_mu = None
+            best_kappa = None
+            best_m = None
+            best_index = None
+        
+            # Include last iteration
+            iteration_results.append({"m": m})
+        
+            for res in iteration_results:
+        
+                m_iter = res["m"]
+        
+                for j in range(m_iter.shape[1]):
+        
+                    mu_candidate = m_iter[1, j]
+                    kappa_candidate = m_iter[2, j]
+        
+                    if np.isnan(mu_candidate):
+                        continue
+        
+                    diff = np.abs(np.degrees(mu_candidate) - max_peak_angle)
+        
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_mu = mu_candidate
+                        best_kappa = kappa_candidate
+                        best_m = m_iter
+                        best_index = j
+        
+            # Fallback if everything failed
+            if best_mu is None:
+                mu = np.radians(max_peak_angle)
+                kappa = 5
+                best_m = m
+                best_index = 0
+            else:
+                mu = best_mu
+                if best_kappa >= 5: 
+                    kappa = best_kappa
+                else:
+                    kappa = 5
+                m = best_m
+                max_index = best_index
+        
+            lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+            upper_bound = vonmises.ppf(0.9, kappa, loc=mu)
 
 
         # Save the parameters for this subsample
