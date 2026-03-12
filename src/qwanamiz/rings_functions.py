@@ -1198,64 +1198,64 @@ def filter_boundaries(cell_to_region, region_to_cell, mincells = 5):
 # lower_sequence: a list (sorted by x-coordinates) with the order of boundary regions touching the bottom of the image
 # return value: a dictionary with region IDs as keys and an list of cells in those region order by y-coordinates
 def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
-    # Sorting the cells DataFrame by y-coordinate to guarantee the right order in output
-    sorted_cells = cells.sort_values(by = 'centroid-0')
 
-    # First we identify ring boundaries that are found in both the lower and upper sequence
-    ring_regions = set(upper_sequence) & set(lower_sequence)
+    # Sort cells by vertical coordinate
+    sorted_cells = cells.sort_values(by="centroid-0")
 
-    # We loop over those regions to create the output dictionary
     rings = {}
+    final_top_sequence = []
 
-    for region in ring_regions:
-        rings[region] = sorted_cells[sorted_cells["label"].isin(region_to_cells[region])]["label"].to_list()
-        
-    # Handle start/end regions that are different but should merge
-    if upper_sequence[0] != lower_sequence[0]:
-        # Merge first regions
-        u0 = upper_sequence[0]
-        l0 = lower_sequence[0]
-        rings[u0] = (
-            sorted_cells[sorted_cells["label"].isin(region_to_cells[u0])]["label"].to_list() +
-            sorted_cells[sorted_cells["label"].isin(region_to_cells[l0])]["label"].to_list()
-        )
+    for top_region, bottom_region in zip(upper_sequence, lower_sequence):
 
-    if upper_sequence[-1] != lower_sequence[-1]:
-        # Merge last regions
-        u1 = upper_sequence[-1]
-        l1 = lower_sequence[-1]
-        rings[u1] = (
-            sorted_cells[sorted_cells["label"].isin(region_to_cells[u1])]["label"].to_list() +
-            sorted_cells[sorted_cells["label"].isin(region_to_cells[l1])]["label"].to_list()
-        )
+        # Skip empty column
+        if top_region is None and bottom_region is None:
+            continue
 
-    # We then need to find spots in-between ring boundaries with unlinked boundaries
+        # Case 1: same region
+        if top_region == bottom_region:
 
-    # These lists define the indexes where the well-formed boundaries are found in the upper and lower sequence
-    upper_indices = [index for index,value in enumerate(upper_sequence) if value in rings]
-    lower_indices = [index for index,value in enumerate(lower_sequence) if value in rings]
+            region = top_region
 
-    # Then we find how many "free spots" are in between every index, but we need to insert a virtual index -1 to account for the beginning of the image
-    upper_indices.insert(0, -1)
-    lower_indices.insert(0, -1)
+            rings[region] = sorted_cells[
+                sorted_cells["label"].isin(region_to_cells[region])
+            ]["label"].to_list()
 
-    # Next we find the differences between neighboring indices (-1 because we want the number of intervening boundaries)
-    lower_diff = [b - a - 1 for a, b in zip(lower_indices, lower_indices[1:])]
-    upper_diff = [b - a - 1 for a, b in zip(upper_indices, upper_indices[1:])]
+            final_top_sequence.append(region)
 
-    # This leads us to identifying indices where unassigned boundaries match
-    matching_indices = np.where([a == b and a != 0 for a,b in zip(lower_diff, upper_diff)])[0].tolist()
+        # Case 2: merge two regions
+        elif top_region is not None and bottom_region is not None:
 
-    # Then we loop over the matching indices to add them to the rings dictionary
-    for index in matching_indices:
-        for n in range(lower_diff[index]):
-            upper_value = upper_sequence[upper_indices[index] + 1 + n]
-            lower_value = lower_sequence[lower_indices[index] + 1 + n]
-            # We assign the value of the upper sequence to the ring region
-            rings[upper_value] = sorted_cells[sorted_cells["label"].isin(region_to_cells[upper_value])]["label"].to_list()
-            rings[upper_value] += sorted_cells[sorted_cells["label"].isin(region_to_cells[lower_value])]["label"].to_list()
+            rings[top_region] = (
+                sorted_cells[
+                    sorted_cells["label"].isin(region_to_cells[top_region])
+                ]["label"].to_list()
+                +
+                sorted_cells[
+                    sorted_cells["label"].isin(region_to_cells[bottom_region])
+                ]["label"].to_list()
+            )
 
-    return rings
+            final_top_sequence.append(top_region)
+
+        # Case 3: solo region on top
+        elif top_region is not None:
+
+            rings[top_region] = sorted_cells[
+                sorted_cells["label"].isin(region_to_cells[top_region])
+            ]["label"].to_list()
+
+            final_top_sequence.append(top_region)
+
+        # Case 4: solo region on bottom
+        elif bottom_region is not None:
+
+            rings[bottom_region] = sorted_cells[
+                sorted_cells["label"].isin(region_to_cells[bottom_region])
+            ]["label"].to_list()
+
+            final_top_sequence.append(bottom_region)
+
+    return rings, final_top_sequence
 
 
 def check_ring_crossings(ring_lines, cells_df, new_boundaries, pix_to_um=1):
@@ -2061,6 +2061,24 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
 
     top_types = {"top", "top_left", "top_right"}
     bottom_types = {"bottom", "bottom_left", "bottom_right"}
+    
+    region_column = {}
+
+    for row in filled_matrix:
+        for col, val in enumerate(row):
+            if val is not None and val not in region_column:
+                region_column[val] = col
+    
+    full_columns = []
+
+    n_rows = len(filled_matrix)
+    n_cols = len(filled_matrix[0])
+    
+    for col in range(n_cols):
+        column_values = [filled_matrix[row][col] for row in range(n_rows)]
+    
+        if None not in column_values and len(set(column_values)) == 1:
+                full_columns.append(col)
 
     for r1, r2 in pairs:
         c1 = classifications.get(r1)
@@ -2084,6 +2102,13 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
 
         if overlap_found:
             continue
+        
+        pos1 = region_column.get(r1)
+        pos2 = region_column.get(r2)
+        
+        if pos1 is not None and pos2 is not None:
+            if any((pos1 < fc < pos2) or (pos2 < fc < pos1) for fc in full_columns):
+                continue
 
         valid_pairs.append((r1, r2))
               
@@ -2094,7 +2119,7 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
             r1, r2 = pair
             region_count[r1].append(pair)
             region_count[r2].append(pair)
-
+    
         # Step 2: Identify regions appearing in multiple pairs
         for region, reg_pairs in region_count.items():
             if len(reg_pairs) > 1:
@@ -2180,75 +2205,177 @@ def select_regions_to_merge(pair_extremities, candidates, final_merge):
 
 
 def build_aligned_sequences(filled, merge_pairs, final_regions):
-    # 1. Extract first and last non-empty rows
+
+    # Extract sequences
     top_seq = next(row for row in filled if any(x is not None for x in row))
     bottom_seq = next(row for row in reversed(filled) if any(x is not None for x in row))
 
-    # Remove None
-    #top_seq = [x for x in top_seq if x is not None]
-    #bottom_seq = [x for x in bottom_seq if x is not None]
+    top_seq = [x for x in top_seq if x is not None]
+    bottom_seq = [x for x in bottom_seq if x is not None]
 
-    # 2. Build pair lookup dictionary
-    pair_lookup = {}
-    for a, b in merge_pairs:
-        pair_lookup[a] = b
-        pair_lookup[b] = a
+    pair_map = {a: b for a, b in merge_pairs}
+    pair_map.update({b: a for a, b in merge_pairs})
 
-    # 3. Build aligned sequences preserving order
+    # Identify anchors (exact match OR merge pair)
+    anchors = []
+    for i, t in enumerate(top_seq):
+        for j, b in enumerate(bottom_seq):
+            if t == b or pair_map.get(t) == b:
+                anchors.append((i, j))
+                break
+
     aligned_top = []
     aligned_bottom = []
 
-    # Use two pointers to traverse top_seq and bottom_seq
-    i_top = 0
-    i_bottom = 0
+    prev_i = 0
+    prev_j = 0
 
-    while i_top < len(top_seq) or i_bottom < len(bottom_seq):
-        top_val = top_seq[i_top] if i_top < len(top_seq) else None
-        bottom_val = bottom_seq[i_bottom] if i_bottom < len(bottom_seq) else None
+    for i, j in anchors:
 
-        if top_val == bottom_val:
-            # Same region in both sequences
-            aligned_top.append(top_val)
-            aligned_bottom.append(bottom_val)
-            i_top += 1
-            i_bottom += 1
-        elif top_val and (top_val not in bottom_seq):
-            # Region only in top
-            aligned_top.append(top_val)
-            paired = pair_lookup.get(top_val, top_val)
-            aligned_bottom.append(paired)
-            i_top += 1
-        elif bottom_val and (bottom_val not in top_seq):
-            # Region only in bottom
-            paired = pair_lookup.get(bottom_val, bottom_val)
-            aligned_top.append(paired)
-            aligned_bottom.append(bottom_val)
-            i_bottom += 1
-        else:
-            # Different regions in top and bottom
-            aligned_top.append(top_val)
-            aligned_bottom.append(bottom_val)
-            i_top += 1
-            i_bottom += 1
-            
-    def unique_order(seq):
-        seen = set()
-        return [x for x in seq if not (x in seen or seen.add(x))]
-    
-    aligned_top = [x for x in aligned_top if x is not None]
-    aligned_bottom = [x for x in aligned_bottom if x is not None]
+        # align segment before anchor
+        while prev_i < i or prev_j < j:
+            if prev_i < i:
+                aligned_top.append(top_seq[prev_i])
+                aligned_bottom.append(None)
+                prev_i += 1
+            if prev_j < j:
+                aligned_top.append(None)
+                aligned_bottom.append(bottom_seq[prev_j])
+                prev_j += 1
 
-    aligned_top = unique_order(aligned_top)
-    aligned_bottom = unique_order(aligned_bottom)
+        # add anchor
+        aligned_top.append(top_seq[i])
+        aligned_bottom.append(bottom_seq[j])
 
-    # 5. ✅ Sanity check to enforce same length
-    if len(aligned_top) != len(aligned_bottom):
-        raise ValueError(
-            f"Aligned sequences differ in length: top={len(aligned_top)}, bottom={len(aligned_bottom)}"
-        )
+        prev_i = i + 1
+        prev_j = j + 1
+
+    # tail
+    while prev_i < len(top_seq):
+        aligned_top.append(top_seq[prev_i])
+        aligned_bottom.append(None)
+        prev_i += 1
+
+    while prev_j < len(bottom_seq):
+        aligned_top.append(None)
+        aligned_bottom.append(bottom_seq[prev_j])
+        prev_j += 1
 
     return aligned_top, aligned_bottom
 
+
+def insert_missing_pairs(aligned_top, aligned_bottom, filled, all_merge_pairs):
+
+    from collections import defaultdict
+
+    n_rows = len(filled)
+    n_cols = len(filled[0])
+
+    # -----------------------------
+    # Region rows
+    # -----------------------------
+    region_rows = defaultdict(list)
+
+    for i, row in enumerate(filled):
+        for val in row:
+            if val is not None:
+                region_rows[val].append(i)
+
+    # -----------------------------
+    # Region columns
+    # -----------------------------
+    region_cols = defaultdict(list)
+
+    for i, row in enumerate(filled):
+        for j, val in enumerate(row):
+            if val is not None:
+                region_cols[val].append(j)
+
+    region_col = {r: int(sum(c)/len(c)) for r, c in region_cols.items()}
+
+    # -----------------------------
+    # Detect full columns
+    # -----------------------------
+    full_columns = []
+
+    for col in range(n_cols):
+
+        column_values = [filled[row][col] for row in range(n_rows)]
+
+        if None not in column_values and len(set(column_values)) == 1:
+            full_columns.append(col)
+
+    # Map full column -> region
+    column_region = {}
+
+    for col in full_columns:
+        column_region[col] = filled[0][col]
+
+    seq_regions = set(aligned_top) | set(aligned_bottom)
+
+    # -----------------------------
+    # Process merge pairs
+    # -----------------------------
+    for r1, r2 in all_merge_pairs:
+
+        if r1 in seq_regions or r2 in seq_regions:
+            continue
+
+        rows1 = region_rows.get(r1, [])
+        rows2 = region_rows.get(r2, [])
+
+        if not rows1 or not rows2:
+            continue
+
+        min_row = min(min(rows1), min(rows2))
+        max_row = max(max(rows1), max(rows2))
+
+        pair_span = max_row - min_row + 1
+        coverage = len(rows1) + len(rows2)
+
+        if pair_span < 0.6 * n_rows:
+            continue
+
+        if coverage < 0.2 * n_rows:
+            continue
+
+        # -----------------------------
+        # Determine column position
+        # -----------------------------
+        pos = min(region_col[r1], region_col[r2])
+
+        prev_full = max([c for c in full_columns if c < pos], default=None)
+        next_full = min([c for c in full_columns if c > pos], default=None)
+
+        # Determine insertion index from region
+        if prev_full is not None:
+            prev_region = column_region[prev_full]
+            insert_idx = aligned_top.index(prev_region) + 1
+        elif next_full is not None:
+            next_region = column_region[next_full]
+            insert_idx = aligned_top.index(next_region)
+        else:
+            insert_idx = len(aligned_top)
+
+        # -----------------------------
+        # Determine orientation
+        # -----------------------------
+        if min(rows1) < min(rows2):
+            top_region = r1
+            bottom_region = r2
+        else:
+            top_region = r2
+            bottom_region = r1
+
+        # -----------------------------
+        # Insert
+        # -----------------------------
+        aligned_top.insert(insert_idx, top_region)
+        aligned_bottom.insert(insert_idx, bottom_region)
+
+        seq_regions.update([r1, r2])
+
+    return aligned_top, aligned_bottom
 
 def extract_ring_boundaries(year_image, pix_to_um):
     """

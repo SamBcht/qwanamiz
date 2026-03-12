@@ -369,13 +369,24 @@ def main():
     
         aligned_top, aligned_bottom = qrings.build_aligned_sequences(filled, all_merge_pairs, final_merge)
     
+        
+        missing_regions = (
+            {r for pair in all_merge_pairs for r in pair}
+            - (set(aligned_top) | set(aligned_bottom))
+        )
+
+        missing_regions.discard(None)
+        print("Missing selected:", missing_regions)
+        
+        aligned_top, aligned_bottom = qrings.insert_missing_pairs(aligned_top, aligned_bottom, filled, all_merge_pairs)
+        
         print("Top   →", aligned_top)
         print("Bottom→", aligned_bottom)
     
         # Identifying true ring boundaries from the upper and lower sequences
-        ring_lines = qrings.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
+        ring_lines, final_top = qrings.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
         
-        if solo_regions:
+        if solo_regions or missing_regions:
             crossings = qrings.check_ring_crossings(
                 ring_lines,
                 rightcells_df,
@@ -392,7 +403,7 @@ def main():
             )
     
         # Getting polygon coordinates defining tree rings from the ring lines
-        ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = aligned_top, image_width = expanded_labels.shape[1] * pix_to_um)
+        ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = final_top, image_width = expanded_labels.shape[1] * pix_to_um)
     
         # Assigning rings to years based on the polygon coordinates
         celldata = qrings.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
