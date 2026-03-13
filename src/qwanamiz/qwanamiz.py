@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 
 # qwanamiz-related imports
-from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
+from qwanamiz.vonmisesmix import estimate_kappa, mixture_pdfit_optim,  histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
 import qwanamiz.qwanaplots as qplots
 
 ##########################################################################
@@ -630,7 +630,7 @@ def directionality(adj_df,
             # Kappa values roughly similar to those empirically observed
             kappa_start = np.array([10, 150 + iterations*100, 10])
             
-            m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
+            m = mixture_pdfit_optim(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
         
             # Parameters of the horizontal edges distribution
             max_index = np.argmax(m[2])
