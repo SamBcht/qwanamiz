@@ -39,6 +39,8 @@ def main():
 
     parser.add_argument("--first-year", dest = "firstyear", type = int, default = 1,
                         help = """The calendar year when the first ring was formed, used for assigning cells to years. Defaults to 1 (year unknown).""")
+    parser.add_argument("--iterations", dest="iterations", type=int, default=1,
+                    help="Number of refinement iterations for boundary segment merging. Default = 1.")
 
     args = parser.parse_args()
 
@@ -133,78 +135,104 @@ def main():
         # another segment
     
         # We also keep the remaining cells for further use
-        common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = qrings.get_extremity_neighbors(up_extremities, down_extremities, celldata)
-    
-        ###############################################################################
-        #### INTEGRATION OF NEW CELLS
-    
-        #### The integration could be implemented in a more elegant way using the method
-        # of the graph by adding nodes and edges involving common neighbors, up-down pairs etc...
-    
-        # Empirically, it seems to me that we can confidently integrate common neighbors
-        # and up and down pairs and use them to merge boundary segments without 
-        # introducing too much errors
-    
-        # To avoid errors, it's important to always keep the direct adjacency link 
-        # between the new integrated cell and its specific up and/or down extremity
-        # as well as the label of the extremity ring segment
-    
-        # We start by integrating common neighbors and merge ring segments accordingly
-        updated_boundaries = qrings.integrate_commons(upward_neighbors, 
-                                                               downward_neighbors, 
-                                                               common_neighbors, 
-                                                               rightcells_boundary, 
-                                                           expanded_labels)
-    
-        # We then integrate up and down pairs and also merge regions accordingly
-        # An update of the cell_to_region mapping is done internally
-        final_boundaries = qrings.integrate_updown(upward_neighbors, 
-                                                            downward_neighbors, 
-                                                            up_down_pairs, 
-                                                            updated_boundaries, 
-                                                            expanded_labels)
-    
-        # We update the mapping of cells to their boundary region
-        cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
-        ###############################################################################
-        #### INTEGRATION OF CELLS AT THE EXTREMITIES
-    
-        # We find in the remaining cells adjacent to extremities the ones that show
-        # characteristics of ring transition
-        labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8)
-    
-        # Cells retained for integration are the ones with their direct left neighbor
-        # showing a X times lower diameter
-        # or a transition between earlywood and latewood
-        boundaries = qrings.integrate_candidates(final_boundaries, 
-                                                          expanded_labels, 
-                                                          labels_to_integrate, 
-                                                          cell_to_region, 
-                                                          upward_neighbors, 
-                                                          downward_neighbors)
-    
-        # UPDATE THE RIGHTCELLS DATAFRAME WITH NEWLY INTEGRATED CELLS
-        # Step 1: Gather all labels already accounted for
-        integrated_labels = set(common_neighbors)  # Labels in both up and down neighbor sets
-        integrated_labels.update(label for pair in up_down_pairs for label in pair)  # Labels in up-down pairs
-        # Keep only cells whose label is in right_neighbor_labels
-        integrated_labels.update(labels_to_integrate)
-    
-        # Step 1: Filter celldata for the integrated labels
-        new_rows = celldata[celldata["label"].isin(integrated_labels)].copy()
-    
-        # Step 2: Append to rightcells_df (without duplicate labels)
-        rightcells_df = pd.concat([rightcells_df, new_rows]).drop_duplicates(subset="label")
-    
-        cell_to_region, region_to_cells = qrings.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
-    
-    
-        # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+        iter_merging = 0
+        max_iter = args.iterations
         
+        while iter_merging < max_iter:
+            
+            common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = qrings.get_extremity_neighbors(up_extremities, down_extremities, celldata)
+        
+            ###############################################################################
+            #### INTEGRATION OF NEW CELLS
+        
+            #### The integration could be implemented in a more elegant way using the method
+            # of the graph by adding nodes and edges involving common neighbors, up-down pairs etc...
+        
+            # Empirically, it seems to me that we can confidently integrate common neighbors
+            # and up and down pairs and use them to merge boundary segments without 
+            # introducing too much errors
+        
+            # To avoid errors, it's important to always keep the direct adjacency link 
+            # between the new integrated cell and its specific up and/or down extremity
+            # as well as the label of the extremity ring segment
+        
+            # We start by integrating common neighbors and merge ring segments accordingly
+            updated_boundaries = qrings.integrate_commons(upward_neighbors, 
+                                                                   downward_neighbors, 
+                                                                   common_neighbors, 
+                                                                   rightcells_boundary, 
+                                                               expanded_labels)
+        
+            # We then integrate up and down pairs and also merge regions accordingly
+            # An update of the cell_to_region mapping is done internally
+            final_boundaries = qrings.integrate_updown(upward_neighbors, 
+                                                                downward_neighbors, 
+                                                                up_down_pairs, 
+                                                                updated_boundaries, 
+                                                                expanded_labels)
+        
+            # We update the mapping of cells to their boundary region
+            cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+            ###############################################################################
+            #### INTEGRATION OF CELLS AT THE EXTREMITIES
+        
+            # We find in the remaining cells adjacent to extremities the ones that show
+            # characteristics of ring transition
+            labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8)
+        
+            # Cells retained for integration are the ones with their direct left neighbor
+            # showing a X times lower diameter
+            # or a transition between earlywood and latewood
+            if len(labels_to_integrate) > 0 :
+                boundaries = qrings.integrate_candidates(final_boundaries, 
+                                                              expanded_labels, 
+                                                              labels_to_integrate, 
+                                                              cell_to_region, 
+                                                              upward_neighbors, 
+                                                              downward_neighbors)
+            else:
+                boundaries = final_boundaries
+
+        
+            # UPDATE THE RIGHTCELLS DATAFRAME WITH NEWLY INTEGRATED CELLS
+            # Step 1: Gather all labels already accounted for
+            integrated_labels = set(common_neighbors)  # Labels in both up and down neighbor sets
+            integrated_labels.update(label for pair in up_down_pairs for label in pair)  # Labels in up-down pairs
+            # Keep only cells whose label is in right_neighbor_labels
+            integrated_labels.update(labels_to_integrate)
+        
+            # Step 1: Filter celldata for the integrated labels
+            new_rows = celldata[celldata["label"].isin(integrated_labels)].copy()
+        
+            # Step 2: Append to rightcells_df (without duplicate labels)
+            rightcells_df = pd.concat([rightcells_df, new_rows]).drop_duplicates(subset="label")
+        
+            cell_to_region, region_to_cells = qrings.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
+        
+        
+            # Find the extrmities of the new ring segments
+            up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+            
+            qmiz.update_runtime(start)
+        
+        
+            # The function return a list of tuples with labels of the CONNECTED CELLS
+            connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
+        
+            final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
+        
+            cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+        
+            # Find the extrmities of the new ring segments
+            up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+            
+            rightcells_boundary = final_boundaries
+            
+            iter_merging += 1
+            ############################################################################
+            
         qmiz.update_runtime(start)
-    
-        ############################################################################
+        
         # FIND ADJACENCIES BETWEEN RING SEGMENTS AFTER ADDITION OF CELLS
     
         # Here we extend the adjacency research to all types instead of only radial_sel
@@ -337,6 +365,9 @@ def main():
             seq["top"], seq["bottom"]
         )
         
+        candidates = qrings.filter_candidates(candidates, region_to_cells, celldata, max_overlap=3)
+
+        
         print("Merge candidates:", candidates)
     
         cleaned_matrix = qrings.remove_singleton_columns(aligned)
@@ -407,6 +438,8 @@ def main():
     
         # Assigning rings to years based on the polygon coordinates
         celldata = qrings.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
+        
+        celldata, suspect_labels = qrings.correct_large_lastcells(celldata)
     
         # Create an image of cell assignment for display
         celltemp = celldata.copy()

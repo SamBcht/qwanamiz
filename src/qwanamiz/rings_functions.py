@@ -1482,6 +1482,53 @@ def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum 
     return cells
 
 
+def correct_large_lastcells(
+    celldata,
+    factor=2.1,
+    radial_col="radial_file",
+    year_col="year",
+    diam_col="diameter_rad"
+):
+
+    df = celldata.copy()
+
+    # Sort cells along radial files
+    df = df.sort_values(["radial_file", "file_rank"])
+
+    # Identify last cell per (year, radial_file)
+    last_mask = df.groupby([year_col, radial_col])["file_rank"].transform("max") == df["file_rank"]
+    last_cells = df[last_mask]
+
+    # Get left neighbor inside the same group
+    df["left_diameter"] = df.groupby([year_col, radial_col])[diam_col].shift(1)
+
+    last_cells = df[last_mask].copy()
+
+    # Build fast year lookup
+    year_lookup = df.set_index("label")[year_col]
+
+    # Map right neighbor year
+    last_cells["right_year"] = last_cells["right_neighbor"].map(year_lookup)
+
+    # Detection conditions
+    cond = (
+        last_cells["right_neighbor"].notna()
+        & (last_cells["right_neighbor"] > 0)
+        & (last_cells[diam_col] > factor * last_cells["left_diameter"])
+        & (last_cells["right_year"] == last_cells[year_col] + 1)
+    )
+
+    suspects = last_cells.loc[cond]
+
+    # Correct the year
+    df.loc[suspects.index, year_col] += 1
+
+    detected_labels = suspects["label"].tolist()
+
+    return df, detected_labels
+
+
+
 def get_region_sequences(new_boundaries, n_lines=10, matched_up=None, matched_down=None):
     """
     Scan horizontal lines across the image and extract ordered region sequences.
@@ -1781,6 +1828,31 @@ def find_merge_candidates(upper_sequence, lower_sequence, matched_up=None, match
 
     return merge_candidates, corrected_upper, corrected_lower
 
+
+def filter_candidates(
+    candidates,
+    region_to_cells,
+    celldata,
+    radial_col="radial_file",
+    max_overlap=1
+):
+    
+    filtered = []
+
+    for r1, r2 in candidates:
+
+        cells1 = region_to_cells[r1]
+        cells2 = region_to_cells[r2]
+
+        rf1 = set(celldata.loc[list(cells1), radial_col])
+        rf2 = set(celldata.loc[list(cells2), radial_col])
+
+        shared = rf1 & rf2
+
+        if len(shared) <= max_overlap:
+            filtered.append((r1, r2))
+
+    return filtered
 
 def remove_singleton_columns(region_matrix):
     """
