@@ -241,14 +241,14 @@ def main():
         print("Iterative search of boundary segments to merge from distances")
     
         # The function return a list of tuples with labels of the CONNECTED CELLS
-        connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
+        #connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
     
-        final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
+        #final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
     
-        cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+        #cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
     
         # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+        #up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
         # This function allows to get a list of regions containing at least one cell of
         # the same radial file. Can be used to avoid merging of boundary segments belonging
@@ -305,7 +305,7 @@ def main():
         cell_to_region, region_to_cells = qrings.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
-        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
+        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells + 2)
         new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
     
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
