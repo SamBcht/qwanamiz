@@ -2784,3 +2784,29 @@ def early_latewood_width(celldata, ringprops_df):
     ringprops_df = ringprops_df.merge(width_df, left_on="label", right_on="year", how="left")
 
     return ringprops_df
+
+###############################################################################
+def extract_ring_regions(ring_lines, cell_to_region, final_top):
+
+    ring_regions = []
+
+    for rep_region in final_top:
+
+        labels = ring_lines.get(rep_region, [])
+
+        # map labels → regions
+        regions = {cell_to_region[label] for label in labels if label in cell_to_region}
+
+        # sort for consistency (optional but important for reproducibility)
+        #regions = sorted(regions)
+
+        ring_regions.append(regions)
+
+    return ring_regions
+
+def write_ring_file(filepath, ring_regions):
+
+    with open(filepath, "w") as f:
+        for regions in ring_regions:
+            line = " ".join(map(str, regions))
+            f.write(line + "\n")

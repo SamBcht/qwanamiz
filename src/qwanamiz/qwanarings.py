@@ -365,6 +365,13 @@ def main():
             seq["top"], seq["bottom"]
         )
         
+        valid_labels = set(celldata.index)
+
+        region_to_cells = {
+            r: [c for c in cells if c in valid_labels]
+            for r, cells in region_to_cells.items()
+        }
+        
         candidates = qrings.filter_candidates(candidates, region_to_cells, celldata, max_overlap=3)
 
         
@@ -432,6 +439,24 @@ def main():
                 region_to_cells,
                 rightcells_df
             )
+            
+        ###########################################################################
+        print("save ring edition file")
+        # Saving ring sequence file for later retrieval and manual edit
+        os.makedirs(outdir, exist_ok=True)
+
+        # Build base prefix for files inside this folder
+        base_prefix = os.path.join(outdir, base_name)
+        
+        # Extract regions per ring
+        ring_regions = qrings.extract_ring_regions(ring_lines, cell_to_region, final_top)
+
+        # Save edit file
+        edit_path = f"{base_prefix}_edit.txt"
+
+        qrings.write_ring_file(edit_path, ring_regions)
+
+        print(f"Edit file written to: {edit_path}")
     
         # Getting polygon coordinates defining tree rings from the ring lines
         ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = final_top, image_width = expanded_labels.shape[1] * pix_to_um)
@@ -446,6 +471,12 @@ def main():
         celltemp.set_index('label', inplace = True)
         year_dict = celltemp['year'].to_dict()
         year_image = np.vectorize(lambda x: np.nan if year_dict.get(x) is None else year_dict.get(x))(expanded_labels)
+        
+        # --- Save images for ring edition ---
+        output_path = f"{base_prefix}_ring_imgs.npz"
+        np.savez_compressed(output_path,
+                            new_boundaries=new_boundaries,
+                            year_image=year_image)
         
         qmiz.update_runtime(start)
 
@@ -546,16 +577,14 @@ def main():
         ###########################################################################
         print("save outputs")
         # Saving the images of interest to file for later retrieval by ringview.py
-        os.makedirs(outdir, exist_ok=True)
+        #os.makedirs(outdir, exist_ok=True)
 
         # Build base prefix for files inside this folder
-        base_prefix = os.path.join(outdir, base_name)  # e.g., output/image1_outputs/image1
+        #base_prefix = os.path.join(outdir, base_name)
         
         # --- Save images for later retrieval ---
-        output_path = f"{base_prefix}_ring_imgs.npz"
-        np.savez_compressed(output_path,
-                            new_boundaries=new_boundaries,
-                            year_image=year_image)
+        #output_path = f"{base_prefix}_ring_imgs.npz"
+        #np.savez_compressed(output_path,new_boundaries=new_boundaries,year_image=year_image)
         
         # --- Save python objects with pickle ---
         with open(f"{base_prefix}_rings.pkl", "wb") as file:

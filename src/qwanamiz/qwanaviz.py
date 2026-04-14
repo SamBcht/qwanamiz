@@ -185,7 +185,7 @@ def qwa_napari_view(img_path, cells_path, ring_path, ring_pickle, polygon_pickle
         # Add lines as shapes to the viewer
         viewer.add_shapes(lines,
                           shape_type='path',
-                          edge_color='black',
+                          edge_color='red',
                           edge_width=10,
                           name='Ring boundaries')
 
