@@ -30,4 +30,4 @@ build-backend = "poetry.core.masonry.api"
 qwanaflow  = "qwanamiz.qwanaflow:main"
 qwanarings = "qwanamiz.qwanarings:main"
 qwanaviz   = "qwanamiz.qwanaviz:main"
-
+rings_edit = "qwanamiz.rings_edit:main"
