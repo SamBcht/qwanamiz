@@ -232,8 +232,8 @@ Running `qwanaflow --help` will provide a list of command-line arguments that
 can be used to control the cell measurement workflow:
 
 ```plaintext
-usage: qwanaflow [-h] [--pixel-size PIXEL] [--dir-nrows NROWS]
-                 [--dir-ncols NCOLS] [--disable-plots]
+usage: qwanaflow [-h] [--remove-suffix REMOVE_SUFFIX] [--pixel-size PIXEL]
+                 [--dir-nrows NROWS] [--dir-ncols NCOLS] [--disable-plots]
                  [--area-threshold AREA_THRESHOLD]
                  [--solidity-threshold SOLIDITY_THRESHOLD]
                  [--max-wall-distance MAX_WALL_DISTANCE]
@@ -252,6 +252,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  --remove-suffix REMOVE_SUFFIX
+                        String to remove from the input filename when
+                        generating the sample base name. Default: '.png'
   --pixel-size PIXEL    Conversion factor from of a single pixel to the
                         desired measurement unit. Defaults to 1 (measurements
                         in pixels).
@@ -328,6 +331,7 @@ can be used to control the growth-ring detection workflow:
 ```plaintext
 usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
                   [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
+                  [--iterations ITERATIONS]
 
 options:
   -h, --help            show this help message and exit
@@ -345,6 +349,9 @@ options:
                         The calendar year when the first ring was formed, used
                         for assigning cells to years. Defaults to 1 (year
                         unknown).
+  --iterations ITERATIONS
+                        Number of refinement iterations for boundary segment
+                        merging. Default = 1.
 ```
 
 ### `qwanaviz` command-line arguments
