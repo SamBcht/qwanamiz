@@ -2,9 +2,9 @@
 name = "qwanamiz"
 version = "0.1.0"
 description = "Quantitative Wood Anatomy Measurements"
-authors = [{name = "Samuel Bouchut"},
+authors = [{name = "Samuel Bouchut", email = "samuel.bouchut@uqat.ca"},
            {name = "Lucie Barbier"},
-           {name = "Marc-André Lemay"},
+           {name = "Marc-André Lemay", email = "marc-andre.lemay@uqat.ca"},
            {name = "Enrico Tonelli"},
            {name = "Dominique Arseneault"},
            {name = "Marco Carrer"},
@@ -13,6 +13,10 @@ authors = [{name = "Samuel Bouchut"},
 license = "GNU General Public License v3.0"
 readme = "README.md"
 requires-python=">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 dependencies = ["numpy (>=2.0.0,<3.0.0)", "scikit-image (>=0.25.0,<0.27.0)", "pandas (>=2.3.0,<4.0.0)", "matplotlib (>=3.9.0,<4.0.0)"]
 
 [project.optional-dependencies]
@@ -31,3 +35,7 @@ qwanaflow  = "qwanamiz.qwanaflow:main"
 qwanarings = "qwanamiz.qwanarings:main"
 qwanaviz   = "qwanamiz.qwanaviz:main"
 rings_edit = "qwanamiz.rings_edit:main"
+
+[project.urls]
+Homepage = "https://github.com/SamBcht/qwanamiz"
+Issues = "https://github.com/SamBcht/qwanamiz/issues"
