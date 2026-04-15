@@ -10,7 +10,7 @@ authors = [{name = "Samuel Bouchut", email = "samuel.bouchut@uqat.ca"},
            {name = "Marco Carrer"},
            {name = "Fabio Gennaretti"}
 	   ]
-license = "GNU General Public License v3.0"
+license = "GPL-3.0-only"
 readme = "README.md"
 requires-python=">=3.11"
 classifiers = [
