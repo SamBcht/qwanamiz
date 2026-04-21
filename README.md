@@ -233,13 +233,13 @@ argument to start a `napari` session as part of the editing process such that
 ring segments and their IDs can be visualized. By default, the viewer will not
 be launched and the edited `_edit.txt` files will simply be processed.
 
-### Absolute ring dating `R` Shiny app
+### `qwanadate` app
 
-An `R` Shiny app named [xyz](https://github.com/SamBcht/xyz) has been developed
-separately to help with dating tree rings after their analysis with
-`qwanarings` by allowing the results from several scans from the same tree to
-be processed together. More details regarding this app can be found on its
-respective [GitHub page](https://github.com/SamBcht/xyz).
+An `R` Shiny app named [`qwanadate`](https://github.com/SamBcht/qwanadate) has
+been developed separately to help with dating tree rings after their analysis
+with `qwanarings` by allowing the results from several scans from the same tree
+to be processed together. More details regarding this app can be found on its
+respective [GitHub page](https://github.com/SamBcht/qwanadate).
 
 ## Detailed documentation
 
