@@ -1,0 +1,645 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Detailed `qwanaflow` workflow\n",
+    "\n",
+    "## Typical use of `qwanaflow`\n",
+    "\n",
+    "For most users, the `qwanaflow` command-line utility should provide sufficient functionality for obtaining a dataset of wood cell measurements. The options for this command can be displayed as such:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# The exclamation mark indicates that this command is run by the shell and not by python\n",
+    "# Indeed, qwanaflow should be launched from the command line\n",
+    "!qwanaflow --help  "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "For example, a complete analysis may be launched from the command line as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Again, the exclamation mark here indicates that this command is passed to the shell\n",
+    "#\n",
+    "# Optional arguments\n",
+    "# --ncores 4: multiprocessing with 4 cores\n",
+    "# --vm-threshold 0.1: the threshold to use when searching for directionality parameters\n",
+    "# --disable-plots: do not produce the diagnostic plots that would be produced by default\n",
+    "# --pixel-size 0.55042690590734: each pixel corresponds to 0.55042690590734 micrometers\n",
+    "# Mandatory positional arguments\n",
+    "# ../tests/data/test_image.png: the path to the input image\n",
+    "# test_output: the path to the directory to which outputs will be written\n",
+    "!qwanaflow --ncores 4 --vm-threshold 0.1 --pixel-size 0.55042690590734 --disable-plots ../tests/data/test_image.png test_output"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Some users may want more control over the analytical workflow or use the functions provided by `qwanamiz` as a standalone library. If this is your case, or if you simply want to better understand what `qwanaflow` does under the hood, please read on. Indeed, the code below closely mirrors the sequence of function calls made by the `qwanaflow` command-line tool. This detailed discussion will also allow you to better understand the parameters passed as arguments to `qwanaflow`."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Importing `qwanamiz` utilities and other required modules\n",
+    "\n",
+    "First, we load the `qwanamiz` functions that used in this example as well as some other modules."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import qwanamiz.qwanamiz as qmiz      # main qwanamiz functions\n",
+    "import qwanamiz.qwanaplots as qplots  # qwanamiz plotting functions\n",
+    "import os                             # operating-system related utilities\n",
+    "import matplotlib.pyplot as plt       # plotting library\n",
+    "\n",
+    "# Setting some parameters for matplotlib figures\n",
+    "%matplotlib inline\n",
+    "plt.rcParams['figure.figsize'] = (8, 8)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Test image\n",
+    "\n",
+    "The image we will use as an example displays a few growth rings from a subfossil *Picea mariana* sample. The image is 3000x3000 pixels, which is smaller than the typical images generated in quantitative wood anatomy, but suitable for demonstration purposes.\n",
+    "\n",
+    "We can read the image as a numpy array under the name `bw_image` (black & white image) using the function `read_image`. Zeros and ones correspond to cell wall and lumen pixels, respectively. `qwanaflow` expects such a binarized image, which must be obtained from the original image using third-party tools."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "bw_image_path = os.path.join(\"..\", \"tests\", \"data\", \"test_image.png\")\n",
+    "bw_image = qmiz.read_image(bw_image_path)\n",
+    "\n",
+    "plt.imshow(bw_image, cmap = 'gray');"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Cell labelling and basic measurements\n",
+    "\n",
+    "A critical step of the analysis workflow is labelling the image, that is, identifying individual cells. This is performed using the function `label_cells`, which is a wrapper for functionality provided by scikit-image. This step labels all the lumens from individual cells and assigns a unique integer to each."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "labeled_image = qmiz.label_cells(bw_image)\n",
+    "plt.imshow(labeled_image);"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Once the cells are labeled, we can compute some lumen properties using the function `measure_lumens`. This function is essentially a wrapper for scikit-image's `regionprops_table` function. Many properties are available and described in the [official documentation](https://scikit-image.org/docs/0.25.x/api/skimage.measure.html#skimage.measure.regionprops_table), but only a few are necessary for downstream analyses.\n",
+    "\n",
+    "Prior to computation, we need to set the scaling from pixels to micrometers so we get measurements in micrometers. Here, this scaling parameter is 0.55043 micrometers per pixel because the resolution of our image is 46146 dpi. In typical `qwanaflow` usage, this value would be provided as a command-line argument (the `--pixel-size` argument).\n",
+    "\n",
+    "Multiprocessing is enabled within `measure_lumens`, so we use 4 cores here to speed up computation. This parameter can be set from the command line using the argument `--ncores`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Setting the scaling from pixels to micrometers\n",
+    "pix_to_um = 0.55043\n",
+    "\n",
+    "# Computing the properties of the cell lumens and returning a pandas DataFrame\n",
+    "cell_df = qmiz.measure_lumens(labeled_image, spacing = pix_to_um, nprocesses = 4)\n",
+    "cell_df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now that we have these measurements, we can further refine the set of identified cells. Because the image binarization step is often imperfect, it is likely that groups of two or more distinct cells will appear merged together and show up in the output as large cells with an irregular shape. We can identify such cells using those properties and use a watershed-based segmentation algorithm to properly redefine cell lumen boundaries. The parameters for identifying the cells that may need segmentation are controllable using the command-line parameters `--area-threshold` and `--solidity-threshold`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Cells with area > 500 squared micrometers and solidity < 0.95 will be considered by the watershed algorithm\n",
+    "# This function updates the labeled_image and cell_df with redefined values\n",
+    "# watershed_result is an integer array that identifies the cells whose ID was potentially redefined\n",
+    "# area_threshold corresponds to --area-threshold command-line parameter\n",
+    "# solidity_threshold corresponds to --solidity-threshold command-line parameter\n",
+    "labeled_image, cell_df, watershed_result = qmiz.adjust_labels(labeled_image,\n",
+    "                                                              cell_df,\n",
+    "                                                              scale = pix_to_um,\n",
+    "                                                              area_threshold = 500,\n",
+    "                                                              solidity_threshold = 0.95)\n",
+    "\n",
+    "# Zooming in on three cells that were split by the segmentation algorithm\n",
+    "plt.imshow(watershed_result[2130:2250,820:1000], cmap = 'gray');"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "As we can see from the brighter yellow cells in the `labeled_image` array, several cells had their lumens redefined this way by the segmentation algorithm."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# The cells that were considered by the watershed algorithm are a brighter yellow because their index\n",
+    "# is greater than those of the cells that were defined by the original labeling\n",
+    "plt.imshow(labeled_image);"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "By now, we already have several of the measurements that one would expect from a quantitative wood anatomy dataset. However, we have yet to measure lumen diameter and cell wall thickness. In preparation for measuring cell walls, we compute an array that stores the distance from each cell wall pixel to the nearest cell lumen pixel. This array is also useful to determine which cell each wall belongs to. In the image below, we can see that the cell walls of latewood cells appear a brighter blue because their cell walls are thicker."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# distance_map: array containing the distance to the nearest lumen pixel\n",
+    "# nearest_label_coords: an array containing the ID (label) of the nearest lumen\n",
+    "distance_map, nearest_label_coords = qmiz.measure_distance(labeled_image = labeled_image,\n",
+    "                                                           scaling = pix_to_um)\n",
+    "\n",
+    "# Displaying the distance map\n",
+    "plt.imshow(distance_map);"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Based on the distance array and the map of the cell label nearest to each cell wall pixel, we can expand the cells beyond their lumen to also include their walls. The maximum distance between a cell wall pixel and the closest lumen for the pixel to be assigned to a cell is controllable through the command-line parameter `--max-wall-distance`, which we set here to the default of 10. Here, 10 means 10 micrometers but this depends on the value of the `--pixel-size` parameter (which defaults to 1). By default, this means that a cell wall cannot be thicker than 10 pixels, which may or may not be appropriate based on the species and image resolution. Indeed, the `--max-wall-distance` parameter effectively constrains the maximum thickness that a cell wall may have. For the image that we are working with, this is hardly an issue as walls are typically thinner than that."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# max_distance parameter: the maximum distance between a cell wall pixel and the nearest cell lumen.\n",
+    "# corresponds to the --max-wall-distance command-line parameter\n",
+    "expanded_labels = qmiz.expand_cells(labeled_image,\n",
+    "                                    distance_map,\n",
+    "                                    nearest_label_coords,\n",
+    "                                    max_distance = 10)\n",
+    "\n",
+    "plt.imshow(expanded_labels);\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now, we can measure the area of the whole cells using the same approach as we did earlier for lumens."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Measuring cell area on whole cells\n",
+    "# This data is added to the already existing DataFrame of lumen measurements\n",
+    "cell_df = qmiz.measure_cells(cell_df, expanded_labels, spacing = pix_to_um)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Directionality analysis\n",
+    "\n",
+    "Now that we have an array assigning each pixel to a cell, we can build a region adjacency graph (RAG) that stores information on which cells are adjacent to each other. This data structure will allow us to draw radial files and measure cell wall thickness across tangential and radial directions, among other things.\n",
+    "\n",
+    "We build the RAG using the function `adjacency_dataframe`, which also computes the angle between the centroids of the two cells (`angle` column), the location of the point that is exactly midway between those centroids (`center` column), as well as the distance between the two centroids (`length`). The resulting DataFrame is indexed using tuples of cell-pair labels that are adjacent to each other."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Creating a DataFrame of cell adjacencies\n",
+    "rag_df = qmiz.adjacency_dataframe(expanded_labels, cell_df)\n",
+    "rag_df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Determining which cell adjacencies are along the radial direction (from pith to bark) and which are along the tangential direction (parallel to ring boundaries) is a significant challenge. In `qwanamiz`, this problem is solved by using the fact that radial adjacencies tend to cluster around the same angle due to the directional nature of wood growth. The most common adjacency angle should therefore correspond to the radial direction, despite most adjacency relationships being tangential. By finding the peak of the distribution of adjacency angles, we are able to automatically determine the direction along which growth occurs (the radial direction).\n",
+    "\n",
+    "Because of naturally occurring irregularities in growth, the radial direction may not always be exactly the same across a given image. To account for this, directionality analysis is done separately on distinct sections of the image. By default, calling `qwanaflow` as a command-line utility will automatically determine the number of rows and columns to split the image into. This default behaviour can be overriden by explicitly setting the `--dir-nrows` and `--dir-ncols` arguments. Here, we set the number of rows and columns to `None`, which will trigger `qwanaflow` to determine the number of rows and columns automatically.\n",
+    "\n",
+    "The directionality analysis assumes that the adjacency angles are distributed according to a mixture of three von Mises distributions. A von Mises distribution is analogous to the normal distribution but for values distributed around a circle, and therefore wrapped at 0/360 degrees. Finding the angle of the radial direction can be reduced to fitting the observed distribution of angles to a mixture of three von Mises distributions and extracting the value corresponding to the highest peak. The command-line argument `--vm-threshold` determines how close the approximated distribution must be to the distribution of raw values before the algorithm declares that convergence is reached. Lower values will result in more precise values, but longer computation time. Here, we use a more permissive value (0.1) than the stringent default (0.001) to speed up computation."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# qwanaflow first determines the outline of the sample to avoid analyzing\n",
+    "# regions that do not contain cells\n",
+    "hull_mask, close_c, hull_c = qmiz.get_sample_contour(expanded_labels)\n",
+    "\n",
+    "# This function returns the updated rag_df DataFrame and the parameters of the von Mises distributions\n",
+    "# num_rows corresponds to the --dir-nrows command-line parameter\n",
+    "# num_cols corresponds to the --dir-ncols command-line parameter\n",
+    "# convergence_threshold corresponds to the vm-threshold command-line parameter\n",
+    "rag_df, vm_parameters, nrows, ncols = qmiz.directionality(rag_df,\n",
+    "                                                          image_height = bw_image.shape[0], \n",
+    "                                                          image_width = bw_image.shape[1],\n",
+    "                                                          sample_mask = hull_mask,\n",
+    "                                                          spacing = pix_to_um,\n",
+    "                                                          num_rows = None,\n",
+    "                                                          num_cols = None,\n",
+    "                                                          convergence_threshold = 0.1)\n",
+    "\n",
+    "# Let us look at the updated rag_df DataFrame\n",
+    "rag_df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "As can be seen from the above output, `directionality` has added two columns `lower_bound` and `upper_bound` to the DataFrame of adjacencies. These correspond, respectively, to the smallest and largest angle (**in radians**) that are considered to belong to radial adjacencies.\n",
+    "\n",
+    "For debugging purposes, `qwanaflow` will write an image to disk showing the observed distribution of adajcency angles and the von Mises distributions that were fit. This plot, which can be disabled using the `--disable-plots` command-line argument, can be produced with the function `plot_angles`. Here, we can see that the von Mises distributions (red lines) fit the empirical distributions (blue lines) very well."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "angle_plot = qplots.plot_angles(params = vm_parameters, num_rows = 3, num_cols = 2)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The function `plot_directionality` displays an image with arrows showing the direction of radial growth determined by the directionality analysis for each sub-panel. This may be useful for debugging images that yield unexpected results."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "qplots.plot_directionality(base_image = bw_image, vm_params = vm_parameters, scaling = pix_to_um)\n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Using the lower and upper bounds from the directionality analysis, we can classify cell adjacencies based on the angle between them. The function `classify_edges` will accordingly add a `direction` column to the `rag_df` DataFrame and accepts a tolerance parameter (in degrees) around the lower and upper bounds. This allows for cells that are radially adjacent but whose angle departs from the local mean angle to still be considered as such. This parameter is controllable from the command-line using the argument `--angle-tolerance`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# This function updates the rag_df DataFrame\n",
+    "# tolerance corresponds to the --angle-tolerance command-line argument\n",
+    "rag_df = qmiz.classify_edges(rag_df, tolerance = 5)\n",
+    "rag_df['direction'].value_counts()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can now visualize which cell adjacencies have been identified as radial, which we can do using the function `plot_adjacencies` by selecting adjacencies of the appropriate type. The results look as we would expect."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "qplots.plot_adjacencies(base_image = bw_image,\n",
+    "                        adjacency = rag_df,\n",
+    "                        scaling = pix_to_um,\n",
+    "                        adj_type = 'radial')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can also see which cell adjacencies have been identified as tangential. Again, the results are as we would expect."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "qplots.plot_adjacencies(base_image = bw_image,\n",
+    "                        adjacency = rag_df,\n",
+    "                        scaling = pix_to_um,\n",
+    "                        adj_type = 'tangential',\n",
+    "                        color = 'red')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Assigning radial files\n",
+    "\n",
+    "We can use the classified adjacencies to assign the cells to radial files. In `qwanaflow`, this is a two-step process:\n",
+    "\n",
+    "- First, radial files are initialized from cells that have no radially adjacent cell to their left. Then, the radial files are grown towards the right by iteratively adding adjacent cells in the radial direction. This process is done for each radial file until they cannot grow anymore because a cell does not have a radially adjacent neighbor.\n",
+    "\n",
+    "- Second, radial files are joined using a more permissive threshold for considering two adjacent cells as radial. Internally to the function, cell adjacencies are reclassified using a more premissive threshold for cells to be considered radially adjacent. This threshold is controlled using the `--stitch-angle-tolerance` command-line parameter, which defaults to 20 degrees.\n",
+    "\n",
+    "The function `assign_radial_files` updates both the cell-level DataFrame (here, `cell_df`) and the DataFrame of adjacencies (here, `rag_df`) with critical information for the rest of the workflow."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# stitch_angle_tolerance corresponds to the --stitch-angle-tolerance command-line parameter\n",
+    "cell_df, rag_df = qmiz.assign_radial_files(cell_df, rag_df, stitch_angle_tolerance = 20)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "While the adjacency-level DataFrame is simply updated to reflect changes in wall classification at the radial file joining step, the cell-level DataFrame now contains the following additional columns:\n",
+    "\n",
+    "- `classification`: whether the cell is *isolated* (not part of a radial file), *extremity* (located at the beginning or end of a radial file), or *regular* (located somewhere in the middle a of radial file)\n",
+    "- `radial_file`: an integer identifying which radial file the cell belongs to\n",
+    "- `file_rank`: an integer identifying the position of the cell within its radial file\n",
+    "- `left_neighbor`: the identifier of the cell that precedes this one in the radial file, for quick look-ups\n",
+    "- `left_angle`: the angle (in degrees) of this cell relative to its left neighbor\n",
+    "- `right_neighbor` and `right_angle`: analogous to their left-neighbor counterparts"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "cell_df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can visualize the radial files that were found using the function `plot_radial_files`. We can see that many of them span the whole width of the image."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "qplots.plot_radial_files(base_image = bw_image, cells = cell_df, scaling = pix_to_um)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Measuring lumen diameters\n",
+    "\n",
+    "Having the information on radial files and left/right neighbors allows for more precise measurement of lumen diameter because the angle of radial and tangential directions can now be estimated more accurately from local adjacencies. The function `measure_diameters` accordingly measures the diameters of cells along the radial and tangential directions. Multiprocessing is enabled for this function, which can be controlled using the command-line argument `--ncores`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Computing cell diameters in parallel on 4 cores\n",
+    "# The number of cores is controlled using the --ncores command-line argument\n",
+    "cell_df = qmiz.measure_diameters(cell_df, spacing = pix_to_um, nprocesses = 4)\n",
+    "cell_df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Measuring the diameters added the following columns to the cell-level DataFrame:\n",
+    "\n",
+    "- `diameter_rad`: the diameter of the lumen along the radial direction\n",
+    "- `diameter_tan`: the diameter of the lumen along the tangential direction\n",
+    "- `extr_rad`: the coordinates of the points along which the radial diameter was measured, as a pair of length-two tuples with (y,x) coordinates\n",
+    "- `extr_tan`: similar to `extr_rad`, but for the tangential diameter\n",
+    "- `mean_angle`: the average angle between this cell and its left and right neighbors; it is a local estimate of the radial direction"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The lines representing the diameters can be visualized with the function `plot_diameters`, with radial diameters in blue and tangential diameters in green."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "qplots.plot_diameters(base_image = bw_image, cells = cell_df, scaling = pix_to_um)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Measuring cell walls\n",
+    "\n",
+    "The final step of the workflow measures the thickness of the cell walls across the radial and tangential directions using the function `measure_walls`. In the radial direction, wall thickness is measured across a cell and its left/right neighbors. In the tangential direction, wall thickness is measured across a cell and its vertically adjacent neighbors that are most closely perpendicular to the local radial direction.\n",
+    "\n",
+    "Measuring wall thickness between two cells is a fine-scale procedure that involves several steps. First, a rectangle is drawn between the two cells. This rectangle's length spans the distance between the two cells' centroids whereas its width can be explicitly set using the command-line argument `--scan-width` or left for `qwanaflow` to dynamically determine for each cell pair. By default (`--scan-width None`), `qwanaflow` will compute the scan width to span 75% of the average diameter of the cells across the direction parallel to the wall being measured. Then, for each row of pixels along this rectangle, the maximum wall thickness (stored in `distance_map`) along this row is determined. Averaging the wall thickness values for all such rows in the rectangle yields the average wall thickness between the two cells. This value is attributed as the wall thickness to each cell in the respective direction in which it was measured (left, right, up, or down).\n",
+    "\n",
+    "Since this operation is computationally expensive but easily parallelized on different measurements, this command allows for multiprocessing using the `--ncores` command-line argument."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Computing cell wall thickness\n",
+    "# the scan_width parameter is the --scan-width command-line argument\n",
+    "# The nprocesses parameter is the --ncores command-line argument\n",
+    "cell_df = qmiz.measure_walls(cell_df,\n",
+    "                             rag_df,\n",
+    "                             distance_map,\n",
+    "                             scale = pix_to_um,\n",
+    "                             scan_width = None,\n",
+    "                             nprocesses = 4)\n",
+    "\n",
+    "cell_df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The function `measure_walls` added the following columns to the DataFrame of metadata at the cell level (`cell_df`):\n",
+    "\n",
+    "* `up_neighbor`: the label of the cell's upwards neighbor perpendicularly to the radial direction\n",
+    "* `down_neighbor`: similar to `up_neighbor` for the downwards neighbor\n",
+    "* `left_wall_thickness`: the thickness of the wall between the cell and its left neighbor\n",
+    "* `right_wall_thickness`: same as previous for right neighbor\n",
+    "* `down_wall_thickness`: same as previous for downwards neighbor\n",
+    "* `up_wall_thickness`: same as previous for upwards neighbor\n",
+    "* `WallThickness`: average of `left_wall_thickness` and `right_wall_thickness` (average cell wall thickness for tangential walls)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Writing the output to disk\n",
+    "\n",
+    "The rest of the `qwanaflow` command writes the results of the analysis to disk."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# This function call removes some columns that are not needed from cell_df\n",
+    "# and adds a column for the sample ID\n",
+    "cell_df = qmiz.prepare_cell_output(cells = cell_df, sampleID = \"test_image\")\n",
+    "\n",
+    "# One typically would not need to specify the arguments and call this function manually\n",
+    "# qwanaflow takes care of computing the appropriate values according to command-line parameters\n",
+    "qmiz.write_qwanaflow_outputs(output = 'test_output',\n",
+    "                             base_name = 'test_image',\n",
+    "                             prediction = bw_image,\n",
+    "                             distance_map = distance_map,\n",
+    "                             expanded_labels = expanded_labels,\n",
+    "                             labeled_image = labeled_image,\n",
+    "                             watershed_result = watershed_result,\n",
+    "                             vm_parameters = vm_parameters,\n",
+    "                             nrows = nrows,\n",
+    "                             ncols = ncols,\n",
+    "                             cell_df = cell_df,\n",
+    "                             adjacency = rag_df,\n",
+    "                             noplots = True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The above command would produce the following output files :\n",
+    "\n",
+    "* `test_image_adjacency.csv`: a CSV file containing the information from the adjacency DataFrame `rag_df`.\n",
+    "* `test_image_angles.png`: an image showing the angles measured for each tile of the image for the directionality analysis. Producing this plot can be disabled using `noplots = True` (as was done here), or through the `--disable-plots` command-line argument.\n",
+    "* `test_image_cells.csv`: a CSV file containing information from the cell measurements DataFrame `cell_df`.\n",
+    "* `test_image_filtered.csv`: a CSV file containing information on cell measurements, but for cells that were filtered out due to being isolated or not belonging to a radial file.\n",
+    "* `test_image_imgs.npz`: a set of images in compressed numpy format (original binarized image, labeled cells with and without their walls, distance from cell wall pixels to closest lumen, output from watershed analysis).\n",
+    "* `test_image_params.csv`: data on the directionality analysis, including the parameters of the mixture of von Mises distributions."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.13.12"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}

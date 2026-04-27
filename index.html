@@ -1,0 +1,589 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qwanamiz &mdash; qwanamiz  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Detailed qwanaflow workflow" href="qwanaflow_example.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            qwanamiz
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="qwanaflow_example.html">Detailed <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="qwanarings_example.html">qwanarings example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="conduct.html">Code of Conduct</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">qwanamiz</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">qwanamiz</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="qwanamiz">
+<h1>qwanamiz<a class="headerlink" href="#qwanamiz" title="Link to this heading"></a></h1>
+<p>Quantitative Wood Anatomy Measurements and Visualization</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> is both a set of command-line utilities and a Python library for
+performing quantitative wood anatomy (QWA) analyses on high-resolution
+microscopic images of conifer wood cells. The following command-line tools are
+available for performing streamlined state-of-the art QWA analyses:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> performs cell labelization, measurement of cell properties, and
+identification of radial files through the use of a regional adjacency graph.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> identifies growth ring boundaries, assigns cells to growth
+rings, and performs various measurements at growth-ring scale, including
+total ring width and the width of earlywood and latewood.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code> provides a user-friendly and comprehensive viewer based on
+<a class="reference external" href="https://napari.org/stable/"><code class="docutils literal notranslate"><span class="pre">napari</span></code></a> for visualizing and troubleshooting
+the outputs produced by <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> utilities.</p></li>
+</ul>
+<p>These command-line utilities provide arguments to control critical aspects of
+the analysis such that <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>, <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> and <code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code> should be
+sufficient for most analytical needs. However, the individual Python functions
+that are used by those tools can also be used separately as a library to
+develop other tools or analysis workflows tailored to particular needs. If this
+fits your use case, please see the section on detailed documentation.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>The latest developement version of <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> can be downloaded from GitHub
+using the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/SamBcht/qwanamiz.git
+</pre></div>
+</div>
+<p>We recommend installing <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> within a virtual environment so that the
+proper versions of dependencies are installed. Once the virtual environment is
+activated, move to the <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> directory and install it with <code class="docutils literal notranslate"><span class="pre">pip</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Move into qwanamiz directory</span>
+<span class="nb">cd</span><span class="w"> </span>qwanamiz
+
+<span class="c1"># Install with pip</span>
+pip<span class="w"> </span>install<span class="w"> </span>.
+</pre></div>
+</div>
+<p>The above command will only enable functionality for the <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> and
+<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> command-line utilities. To enable <code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code> functionality, which
+requires significantly more dependencies, you can add the <code class="docutils literal notranslate"><span class="pre">viz</span></code> set of extra
+dependencies when installing with <code class="docutils literal notranslate"><span class="pre">pip</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>.<span class="o">[</span>viz<span class="o">]</span>
+</pre></div>
+</div>
+<p>Similarly, the <code class="docutils literal notranslate"><span class="pre">docs</span></code> and <code class="docutils literal notranslate"><span class="pre">dev</span></code> sets of extra dependencies will repectively
+enable the generation of package documentation and other modules used for
+development:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># As shown here, several dependency extras can be separated by commas</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="o">.</span><span class="p">[</span><span class="n">docs</span><span class="p">,</span><span class="n">dev</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>To run the examples of the <strong>Quick start</strong> section using the test image shipped
+with <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code>, first move to the test data directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>tests/data
+</pre></div>
+</div>
+</section>
+<section id="quick-start">
+<h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<section id="image-preprocessing">
+<h3>Image preprocessing<a class="headerlink" href="#image-preprocessing" title="Link to this heading"></a></h3>
+<p>We recommend using <a class="reference external" href="https://github.com/marckatzenmaier/TowardsRoxasAI">RoxasAI</a>
+by Katzenmeier et al. (2023) to preprocess wood anatomy images prior to running
+the <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> workflow. This tool outputs binarized .png files which
+differentiate cell lumens from other features in the image, with cell walls in
+black and cell lumens in white. However, any .png file which encodes binarized
+wood anatomy images this way is suitable for input to qwanamiz.</p>
+</section>
+<section id="qwanaflow">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code><a class="headerlink" href="#qwanaflow" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> command-line utility measures wood anatomical traits and
+assigns cells to radial files.</p>
+<p><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> can be launched from the command line as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>qwanaflow<span class="w"> </span>--pixel-size<span class="w"> </span><span class="m">0</span>.55<span class="w"> </span>test_image.png<span class="w"> </span>output
+</pre></div>
+</div>
+<p>where the two mandatory positional arguments are an image to analyze and the
+name of the directory to use for output. By default, <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> will write the
+results of the analysis in a directory with the name of the input file followed
+by <code class="docutils literal notranslate"><span class="pre">_outputs</span></code> in the output directory.</p>
+</section>
+<section id="qwanarings">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code><a class="headerlink" href="#qwanarings" title="Link to this heading"></a></h3>
+<p>The output of <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> can be further processed to identify tree-ring
+boundaries from the cells and adjacency graph using the <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>
+command-line tool:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>qwanarings<span class="w"> </span>--pixel-size<span class="w"> </span><span class="m">0</span>.55<span class="w"> </span>--input_dir<span class="w"> </span>output
+</pre></div>
+</div>
+<p>where the mandatory <code class="docutils literal notranslate"><span class="pre">--input_dir</span></code> argument is the name of the directory where
+outputs were written by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>. By default, <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> will
+automatically identify all images whose output was written to that directory
+and process them.</p>
+</section>
+<section id="qwanaviz">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code><a class="headerlink" href="#qwanaviz" title="Link to this heading"></a></h3>
+<p>The results produced by <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> and <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> can be visualized using
+<code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code>, which uses the <a class="reference external" href="https://napari.org/stable/"><code class="docutils literal notranslate"><span class="pre">napari</span></code></a> module for
+interactive visualization. This script can be launched from the command line
+using the prefix of the sample to visualize as input, provided that <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code>
+was installed with the <code class="docutils literal notranslate"><span class="pre">viz</span></code> set of dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>qwanaviz<span class="w"> </span>output/test_image_outputs/test_image
+</pre></div>
+</div>
+<p>The best way to explain what this script does is to actually try it! Feel free
+to explore the different layers displayed, remove or add them back, and zoom in
+on the features. By hovering over the image, you will be able to see the values
+or IDs of the feature that is currently selected as well as the coordinates in
+the measurement unit specified when running <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> and <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>.</p>
+<p>Note that you do not need to run <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> before running <code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code>, as the
+<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>-related outputs are optional.</p>
+</section>
+</section>
+<section id="output-files">
+<h2>Output files<a class="headerlink" href="#output-files" title="Link to this heading"></a></h2>
+<section id="qwanaflow-outputs">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> outputs<a class="headerlink" href="#qwanaflow-outputs" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> (the QWA measurement tool) produces output files with the following
+suffixes in a folder named as <code class="docutils literal notranslate"><span class="pre">{input.filename}_outputs</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_cells.csv</span></code>: DataFrame of individual cell measurements (this is the main
+output of <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_filtered.csv</span></code>: DataFrame of cells that were filtered out because they do
+not belong to any radial file. These filtered cells are probably noisy
+artefacts from the original image.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_adjacency.csv</span></code>: DataFrame containing pairs of adjacent cells and related
+measurements</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_imgs.npz</span></code>: image arrays in compressed <code class="docutils literal notranslate"><span class="pre">numpy</span></code> format with the
+following keys:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">bw_img</span></code>: the original black and white image used as input to the program.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dmap</span></code>: the distance map from each cell wall pixel to the nearest cell
+lumen.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">explabs</span></code>: the cell ID attributed to each pixel, both lumen and wall.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">labs</span></code>: the cell ID attributed to each pixel when only lumens are
+considered.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">watershed</span></code>: an image indicating which cells were processed by the
+watershed algorithm used to split incorrectly merged cells.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_angles.png</span></code>: Graphical summary of directionality analysis showing von
+Mises distributions fitted for each sub-image.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_params.csv</span></code>: a DataFrame with the parameters of the von Mises distributions
+used for determining the adjacency angles; useful for debugging issues with
+directionality.</p></li>
+</ul>
+</section>
+<section id="qwanarings-outputs">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> outputs<a class="headerlink" href="#qwanarings-outputs" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> (the growth ring detection program) produces output files with the
+following suffixes inside the processed folder:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_rings.csv</span></code>: DataFrame containing global ring measurements and data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_ringcells.csv</span></code>: DataFrame of individual cell measurements completed with
+ring attribution and ring-level measurements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_ring_imgs.npz</span></code>: processed image rasters in compressed <code class="docutils literal notranslate"><span class="pre">numpy</span></code> format with
+the following keys:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">new_boundaries</span></code>: an image identifying the cells detected as the first
+earlywood cells of each ring, used in detecting growth-ring boundaries.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">year_image</span></code>: an image of the year attributed to each pixel in the image
+(both cell lumens and walls)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_rings.pkl</span></code>: a serialized <code class="docutils literal notranslate"><span class="pre">pickle</span></code> object containing the IDs of the cells
+defining ring boundaries.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_polygons.pkl</span></code>: a serialized <code class="docutils literal notranslate"><span class="pre">pickle</span></code> object, which contains a list of 2D
+<code class="docutils literal notranslate"><span class="pre">numpy</span></code> arrays with the coordinates of the polygons used for defining growth
+rings.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_edit.txt</span></code>: a simple text file containing the sequence of ring boundaries
+identified by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>, with one ring ID per line. This file can be
+edited to re-run the ring segmentation with a manually modified ring sequence
+(see the tool <code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> below).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_img.png</span></code>: an image summarizing the results of the growth-ring analysis and
+the radial files identified as valid.</p></li>
+</ul>
+</section>
+</section>
+<section id="complementary-tools">
+<h2>Complementary tools<a class="headerlink" href="#complementary-tools" title="Link to this heading"></a></h2>
+<section id="rings-edit">
+<h3><code class="docutils literal notranslate"><span class="pre">rings_edit</span></code><a class="headerlink" href="#rings-edit" title="Link to this heading"></a></h3>
+<p>After running <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>, you may find that that some ring segments have not
+been properly merged or are not in the right order. It may or may not be
+possible to correct these issues by running <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> again with different
+command-line parameters. In such cases, manual edition of the ring sequence is
+possible using the command-line script <code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> which provides a convenient
+way to re-assign the tracheids to the correct rings and re-compute ring metrics
+after taking the changes into account. This script processes the file ending
+with <code class="docutils literal notranslate"><span class="pre">_edit.txt</span></code> written to disk by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>, which is a simple text file
+with one line per ring displaying the segment ID or IDs associated with each
+ring. For example, the following file would indicate that the ring segments
+identified by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> follow the sequence 1-4-5-2-6-3 from left to right:</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>1
+4
+5
+2
+6
+3
+</pre></div>
+</div>
+<p>Let us pretend, in this case, that the segment IDs 4 and 5 belong to the same
+ring but have not been identified as such. In this case, we would manually edit
+the <code class="docutils literal notranslate"><span class="pre">_edit.txt</span></code> file as follows:</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>1
+4 5
+2
+6
+3
+</pre></div>
+</div>
+<p>and then run <code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> to re-run the relevant parts of the <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>
+script with the correct ring sequence. <code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> supports the <code class="docutils literal notranslate"><span class="pre">--viewer</span></code>
+argument to start a <code class="docutils literal notranslate"><span class="pre">napari</span></code> session as part of the editing process such that
+ring segments and their IDs can be visualized. By default, the viewer will not
+be launched and the edited <code class="docutils literal notranslate"><span class="pre">_edit.txt</span></code> files will simply be processed.</p>
+</section>
+<section id="qwanadate-app">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanadate</span></code> app<a class="headerlink" href="#qwanadate-app" title="Link to this heading"></a></h3>
+<p>An <code class="docutils literal notranslate"><span class="pre">R</span></code> Shiny app named <a class="reference external" href="https://github.com/SamBcht/qwanadate"><code class="docutils literal notranslate"><span class="pre">qwanadate</span></code></a> has
+been developed separately to help with dating tree rings after their analysis
+with <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> by allowing the results from several scans from the same tree
+to be processed together. More details regarding this app can be found on its
+respective <a class="reference external" href="https://github.com/SamBcht/qwanadate">GitHub page</a>.</p>
+</section>
+</section>
+<section id="detailed-documentation">
+<h2>Detailed documentation<a class="headerlink" href="#detailed-documentation" title="Link to this heading"></a></h2>
+<section id="example-vignettes">
+<h3>Example vignettes<a class="headerlink" href="#example-vignettes" title="Link to this heading"></a></h3>
+<p>Users who want to better understand the detailed workflow of <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> and
+<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> should have a look at the detailed example vignettes under the
+<code class="docutils literal notranslate"><span class="pre">docs</span></code> folder:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">qwanaflow_example.ipynb</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qwanarings_example.ipynb</span></code></p></li>
+</ul>
+<p>These can be run as interactive Jupyter notebooks or compiled as HTML
+documents. You will need to install <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> with the <code class="docutils literal notranslate"><span class="pre">dev</span></code> extra set of
+dependencies to enable Jupyter notebook or the <code class="docutils literal notranslate"><span class="pre">docs</span></code> set to compile the
+documentation yourself.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># If you want to run the documents interactively, run the following command</span>
+<span class="c1"># from the root of qwanamiz and open the notebooks within Jupyter</span>
+jupyter<span class="w"> </span>notebook
+
+<span class="c1"># Instead, to compile the documents, first navigate to the docs directory from</span>
+<span class="c1"># the root of the package</span>
+<span class="nb">cd</span><span class="w"> </span>docs
+
+<span class="c1"># And compile the documentation with the following command</span>
+<span class="c1"># Expect this step to take a few minutes</span>
+make<span class="w"> </span>html
+</pre></div>
+</div>
+<p>After compiling the documents, you should be able to access them under
+<code class="docutils literal notranslate"><span class="pre">docs/_build/html/index.html</span></code>.</p>
+<p>Work is under way to host these example vignettes on the web so users will no
+longer need to compile them themselves.</p>
+<p>Work is also under way to provide comprehensive documentation for all the
+library functions used in <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> so they can be adapted for other purposes.</p>
+</section>
+<section id="qwanaflow-command-line-arguments">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> command-line arguments<a class="headerlink" href="#qwanaflow-command-line-arguments" title="Link to this heading"></a></h3>
+<p>Running <code class="docutils literal notranslate"><span class="pre">qwanaflow</span> <span class="pre">--help</span></code> will provide a list of command-line arguments that
+can be used to control the cell measurement workflow:</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>usage: qwanaflow [-h] [--remove-suffix REMOVE_SUFFIX] [--pixel-size PIXEL]
+                 [--dir-nrows NROWS] [--dir-ncols NCOLS] [--disable-plots]
+                 [--area-threshold AREA_THRESHOLD]
+                 [--solidity-threshold SOLIDITY_THRESHOLD]
+                 [--max-wall-distance MAX_WALL_DISTANCE]
+                 [--vm-threshold VMTHRESHOLD] [--angle-tolerance ANGLE]
+                 [--stitch-angle-tolerance STITCH_ANGLE]
+                 [--scan-width SCAN_WIDTH] [--ncores NCORES]
+                 input output
+
+positional arguments:
+  input                 If a single directory, all png files in that directory
+                        will be processed. If a single .png file, process only
+                        that file. If a single .txt file, should be a file
+                        containing a list of files to process, with one .png
+                        file per line.
+  output                A directory to write output files to.
+
+options:
+  -h, --help            show this help message and exit
+  --remove-suffix REMOVE_SUFFIX
+                        String to remove from the input filename when
+                        generating the sample base name. Default: &#39;.png&#39;
+  --pixel-size PIXEL    Conversion factor from of a single pixel to the
+                        desired measurement unit. Defaults to 1 (measurements
+                        in pixels).
+  --dir-nrows, -r NROWS
+                        Number of rows to split the image into for the
+                        directionality analysis. If None (the default), the
+                        number of rows and colums is automatically determined.
+  --dir-ncols, -c NCOLS
+                        Number of columns to split the image into for the
+                        directionality analysis. If None (the default), the
+                        number of rows and colums is automatically determined.
+  --disable-plots       Specify this flag to disable the generation of angle
+                        plots. By default they will be produced.
+  --area-threshold AREA_THRESHOLD
+                        Lumen area above which a cell can be considered for
+                        splitting into several cells using the watershed
+                        segmentation algorithm. For a cell to be selected, it
+                        must also be below the solidity threshold. Defaults to
+                        500.
+  --solidity-threshold SOLIDITY_THRESHOLD
+                        Solidity threshold below which a cell can be
+                        considered for splitting into several cells using the
+                        watershed segmentation algorithm. Higher values
+                        (closer to 1) indicate a more convex shape whereas
+                        lower values (closer to 0) indicate concavity
+                        (presence of indentations). For a cell to be selected,
+                        it must also be above the lumen area threshold.
+                        Defaults to 0.95.
+  --max-wall-distance MAX_WALL_DISTANCE
+                        The maximum distance (in the target measurement unit
+                        defined by --pixel-size) between a cell wall pixel and
+                        the nearest cell lumen for that pixel to be considered
+                        as belonging to the cell. This parameter effectively
+                        puts a cap on the maximum possible cell wall
+                        thickness. Defaults to 10.
+  --vm-threshold VMTHRESHOLD
+                        The convergence threshold in the search of von Mises
+                        distribution parameters. Lower values result in more
+                        precise results but slower convergence. Defaults to
+                        0.001.
+  --angle-tolerance ANGLE
+                        The tolerance (in degrees) around the lower and upper
+                        bounds found by the directionality algorithm in
+                        determining which cell adjacencies are radial and
+                        which are tangential. A higher value means potentially
+                        longer, but inexact, radial files. Defaults to 5.
+  --stitch-angle-tolerance STITCH_ANGLE
+                        The tolerance (in degrees) around the lower and upper
+                        bounds found by the directionality algorithm in
+                        determining which cell adjacencies are radial and
+                        which are tangential. This angle is applied after the
+                        initial radial file assignment in stitching together
+                        radial files and should therefore use a more
+                        permissive angle threshold. Defaults to 20.
+  --scan-width SCAN_WIDTH
+                        The width (in pixels) of the rectangle to use when
+                        computing wall thickness at the boundary between two
+                        cells. If None (the default), qwanaflow dynamically
+                        computes the scan width for each cell pair to 75% of
+                        the average of the two cells&#39; diameter. Explicitly
+                        setting the scan width provides faster computation
+                        (especially for lower values) but is potentially less
+                        accurate.
+  --ncores NCORES       The number of processes to launch for multiprocessing
+                        during some cell measurement steps. Defaults to 1 (no
+                        multiprocessing).
+</pre></div>
+</div>
+</section>
+<section id="qwanarings-command-line-arguments">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> command-line arguments<a class="headerlink" href="#qwanarings-command-line-arguments" title="Link to this heading"></a></h3>
+<p>Running <code class="docutils literal notranslate"><span class="pre">qwanarings</span> <span class="pre">--help</span></code> will provide a list of command-line arguments that
+can be used to control the growth-ring detection workflow:</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
+                  [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
+                  [--iterations ITERATIONS]
+
+options:
+  -h, --help            show this help message and exit
+  --input_dir INPUT_DIR
+                        Path to the main directory containing subfolders for
+                        each processed image. Suffixes &#39;_imgs.npz&#39;,
+                        &#39;_cells.csv&#39; and &#39;_adjacency.csv&#39; must be in the
+                        subfolders to obtain the input files.
+  --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
+                        Defaults to 0.55042690590734 micrometers.
+  --minimum-cells MINCELLS
+                        The minimum number of cells in a ring-boundary region
+                        to consider it. Defaults to 4.
+  --first-year FIRSTYEAR
+                        The calendar year when the first ring was formed, used
+                        for assigning cells to years. Defaults to 1 (year
+                        unknown).
+  --iterations ITERATIONS
+                        Number of refinement iterations for boundary segment
+                        merging. Default = 1.
+</pre></div>
+</div>
+</section>
+<section id="qwanaviz-command-line-arguments">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanaviz</span></code> command-line arguments<a class="headerlink" href="#qwanaviz-command-line-arguments" title="Link to this heading"></a></h3>
+<p>Running <code class="docutils literal notranslate"><span class="pre">qwanaviz</span> <span class="pre">--help</span></code> will provide a list of command-line arguments that
+can be used to launch the visualization script:</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>usage: qwanaviz [-h] [--pixel-size PIXEL] prefix
+
+positional arguments:
+  prefix              The prefix of the sample to use qwanamiz.py with.
+                      qwanamiz will look for file paths corresponding to
+                      &#39;prefix + _imgs.npz&#39;, &#39;prefix + _cells.csv&#39;, &#39;prefix +
+                      _ring_imgs.npz&#39;, &#39;prefix + _rings.pkl&#39;, and &#39;prefix +
+                      _polygons.pkl&#39; These files should all be output by
+                      qwanaflow or qwanarings. Files output by the qwanarings
+                      utility are optional and will not be drawn if only
+                      qwanaflow has been run.
+
+options:
+  -h, --help          show this help message and exit
+  --pixel-size PIXEL  Size of a pixel in the wanted measurement unit. Defaults
+                      to 0.55042690590734 micrometers.
+</pre></div>
+</div>
+</section>
+<section id="rings-edit-command-line-arguments">
+<h3><code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> command-line arguments<a class="headerlink" href="#rings-edit-command-line-arguments" title="Link to this heading"></a></h3>
+<p>Running <code class="docutils literal notranslate"><span class="pre">rings_edit</span> <span class="pre">--help</span></code> will provide a list of command-line arguments that
+can be used to launch the ring edition script:</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>usage: rings_edit [-h] --input_dir INPUT_DIR [--only ONLY [ONLY ...]]
+                  [--pixel_size PIXEL_SIZE] [--first-year FIRSTYEAR]
+                  [--exclude_radial_duplicates] [--viewer]
+
+Manual ring correction pipeline
+
+options:
+  -h, --help            show this help message and exit
+  --input_dir INPUT_DIR
+  --only ONLY [ONLY ...]
+                        List of sampleIDs to process (space-separated)
+  --pixel_size PIXEL_SIZE
+  --first-year FIRSTYEAR
+                        The calendar year when the first ring was formed, used
+                        for assigning cells to years. Defaults to 1 (year
+                        unknown).
+  --exclude_radial_duplicates
+  --viewer              Enable Napari viewer (interactive mode)
+</pre></div>
+</div>
+<p>The input directory must be the directory used for analysis with <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>
+and <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> and containing the output of those programs.</p>
+</section>
+</section>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Link to this heading"></a></h2>
+<p>Interested in contributing? Check out the contributing guidelines. Please note
+that this project is released with a Code of Conduct. By contributing to this
+project, you agree to abide by its terms.</p>
+</section>
+<section id="license">
+<h2>License<a class="headerlink" href="#license" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> is licensed under the terms of the GNU General Public License v3.0
+license.</p>
+</section>
+<section id="credits">
+<h2>Credits<a class="headerlink" href="#credits" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> was developed by the Canadian Research Chair in dendroecology and
+dendroclimatology by Samuel Bouchut, Marc-André Lemay, and Fabio Gennaretti.</p>
+<p>The Canadian Research Chair in dendroecology and dendroclimatology has been
+based at the Groupe de Recherche en Écologie de la MRC Abitibi, Institut de
+Recherche sur les Forêts, Université du Québec en Abitibi-Témiscamingue, Amos,
+Québec, Canada. The mission of the Chair will end in 2026.</p>
+<p>Please refer to the researchers’ current affiliation. Fabio Gennaretti is now
+affiliated at the Department of Agricultural, Food and Environmental Sciences,
+Università Politecnica delle Marche, Area Sistemi Forestali, Via Brecce Bianche
+10, 60131, Ancona, Italy.</p>
+<p><code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> was created with
+<a class="reference external" href="https://cookiecutter.readthedocs.io/en/latest/"><code class="docutils literal notranslate"><span class="pre">cookiecutter</span></code></a> and the
+<code class="docutils literal notranslate"><span class="pre">py-pkgs-cookiecutter</span></code>
+<a class="reference external" href="https://github.com/py-pkgs/py-pkgs-cookiecutter">template</a>.</p>
+<p>Functions used to fit Von Mises distributions have been implemented from
+<a class="reference external" href="https://framagit.org/fraschelle/mixture-of-von-mises-distributions">François Konschelle, Mixture of von Mises distributions</a></p>
+<p>Katzenmaier, M., Garnot, V.S.F., Björklund, J., Schneider, L., Wegner, J.D. and
+von Arx, G., 2023. Towards ROXAS AI: Deep learning for faster and more accurate
+conifer cell analysis. Dendrochronologia, 81, p.126126.
+<a class="reference external" href="https://doi.org/10.1016/j.dendro.2023.126126">doi:10.1016/j.dendro.2023.126126</a></p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="qwanaflow_example.html" class="btn btn-neutral float-right" title="Detailed qwanaflow workflow" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Samuel Bouchut.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

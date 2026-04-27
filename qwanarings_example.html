@@ -1,0 +1,1621 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qwanarings example &mdash; qwanamiz  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Changelog" href="changelog.html" />
+    <link rel="prev" title="Detailed qwanaflow workflow" href="qwanaflow_example.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            qwanamiz
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="qwanaflow_example.html">Detailed <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> workflow</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">qwanarings example</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#running-from-the-command-line">Running from the command-line</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#detailed-qwanarings-usage">Detailed qwanarings usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#setting-up-the-required-libraries-and-variables">Setting up the required libraries and variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#identifying-cells-involved-in-ring-transitions">Identifying cells involved in ring transitions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#expanding-and-merging-ring-transition-boundaries">Expanding and merging ring-transition boundaries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#merging-segments-based-on-the-distance-between-them">Merging segments based on the distance between them</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#refining-and-filtering-ring-transition-boundaries">Refining and filtering ring-transition boundaries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#assigning-cells-to-tree-rings">Assigning cells to tree rings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ring-width-and-related-measurements">Ring width and related measurements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="conduct.html">Code of Conduct</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">qwanamiz</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">qwanarings example</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/qwanarings_example.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="qwanarings-example">
+<h1>qwanarings example<a class="headerlink" href="#qwanarings-example" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> command-line utility is used to automatically detect ring boundaries in wood anatomy images whose cells have already been measured using <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>.</p>
+<section id="running-from-the-command-line">
+<h2>Running from the command-line<a class="headerlink" href="#running-from-the-command-line" title="Link to this heading"></a></h2>
+<p>Typically, <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> will be run on the output directory of <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> as follows:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Here, the exclamation mark indicates that this command is run by the shell and not by python</span>
+<span class="c1"># Indeed, qwanarings should be launched from the command line</span>
+<span class="o">!</span>qwanarings<span class="w"> </span>--input_dir<span class="w"> </span>test_output
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Processing test_image...
+Reading input files
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:00.190550
+Identifying the first and last cells of each ring
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:00.240412
+Finding connected components from adjacency graph of first/last cells to identify ring boundaries
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:01.804033
+Regions with multiple lastcells in the same radial_file: []
+Find boundary segments to merge with adjacency
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:04.992572
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:06.940359
+Iterative search of boundary segments to merge from distances
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:11.673447
+Find ring sequences &amp; draw rings
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/marc/Documents/gennaretti_lab/analyses/packages/qwanamiz/src/qwanamiz/rings_functions.py:1707: FutureWarning: `RegionProperties.major_axis_length` is deprecated starting in version 0.26 and will be removed in version 2.0. Use `RegionProperties.axis_major_length` instead. 
+  major_len = prop.major_axis_length
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Merge candidates: []
+[]
+[]
+Selected pairs: set()
+Solo regions: []
+Missing selected: set()
+Top   → [4, 1, 3, 8, 6, 2, 7, 5]
+Bottom→ [4, 1, 3, 8, 6, 2, 7, 5]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>save ring edition file
+Edit file written to: test_output/test_image_outputs/test_image_edit.txt
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:16.041080
+Refine ring boundaries &amp; calculate ring properties
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/marc/Documents/gennaretti_lab/analyses/packages/qwanamiz/src/qwanamiz/qwanarings.py:513: RuntimeWarning: invalid value encountered in cast
+  year_image.astype(int),
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:22.507114
+save outputs
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> Final PNG image saved : test_output/test_image_outputs/test_image_img.png
+Saved workflow output to test_output/test_image_outputs
+runtime : 0:00:25.045563
+</pre></div>
+</div>
+</div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> command supports the following arguments which can be viewed when providing the <code class="docutils literal notranslate"><span class="pre">--help</span></code> argument:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>qwanarings<span class="w"> </span>--help
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
+                  [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
+                  [--iterations ITERATIONS]
+
+options:
+  -h, --help            show this help message and exit
+  --input_dir INPUT_DIR
+                        Path to the main directory containing subfolders for
+                        each processed image. Suffixes &#39;_imgs.npz&#39;,
+                        &#39;_cells.csv&#39; and &#39;_adjacency.csv&#39; must be in the
+                        subfolders to obtain the input files.
+  --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
+                        Defaults to 0.55042690590734 micrometers.
+  --minimum-cells MINCELLS
+                        The minimum number of cells in a ring-boundary region
+                        to consider it. Defaults to 4.
+  --first-year FIRSTYEAR
+                        The calendar year when the first ring was formed, used
+                        for assigning cells to years. Defaults to 1 (year
+                        unknown).
+  --iterations ITERATIONS
+                        Number of refinement iterations for boundary segment
+                        merging. Default = 1.
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="detailed-qwanarings-usage">
+<h2>Detailed qwanarings usage<a class="headerlink" href="#detailed-qwanarings-usage" title="Link to this heading"></a></h2>
+<p>The remainder of this document explains in detail how <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> works behind the scences to detect ring boundaries. This may be useful to users who want better control over the workflow or would like to leverage these functions individually in their analyses.</p>
+<section id="setting-up-the-required-libraries-and-variables">
+<h3>Setting up the required libraries and variables<a class="headerlink" href="#setting-up-the-required-libraries-and-variables" title="Link to this heading"></a></h3>
+<p>The following Python libraries need to be imported for the following code to work. They are automatically imported when you run <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> from the command-line.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qwanamiz</span><span class="w"> </span><span class="kn">import</span> <span class="n">rings_functions</span> <span class="k">as</span> <span class="n">qrings</span> <span class="c1"># main qwanarings functions</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>                                      <span class="c1"># operating system-related functions</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>                             <span class="c1"># library for arrays and matrics</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>                            <span class="c1"># manipulating data tables as DataFrames</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>           <span class="c1"># plotting functions</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>                          <span class="c1"># graph structures</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.measure</span><span class="w"> </span><span class="kn">import</span> <span class="n">regionprops_table</span>  <span class="c1"># measuring shape properties</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>A few variables that you would usually pass as command-line arguments are also necessary to make the code work:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">pix_to_um</span> <span class="o">=</span> <span class="mf">0.55042690590734</span>                                 <span class="c1"># the size per pixel in micrometers</span>
+<span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;test_output/test_image_outputs/test_image&quot;</span> <span class="c1"># a prefix for the input/output files to use</span>
+<span class="n">firstyear</span> <span class="o">=</span> <span class="mi">1</span>                                                <span class="c1"># the year of the first ring, defautls to 1 (unknown)</span>
+<span class="n">mincells</span> <span class="o">=</span> <span class="mi">4</span>                                                 <span class="c1"># the minimum number of cells in a boundary region to consider it</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Now, we can read in the outputs from <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>, which are used as inputs to <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reading the required input files</span>
+<span class="n">celldata</span><span class="p">,</span> <span class="n">adjacency</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">,</span> <span class="n">prediction</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">read_qwanarings_inputs</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+
+<span class="c1"># Doing the same thing for the array of cell labels that does not include their cell wall</span>
+<span class="n">lumen_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;test_output/test_image_outputs/test_image_imgs.npz&quot;</span><span class="p">)[</span><span class="s1">&#39;labs&#39;</span><span class="p">]</span>
+    
+</pre></div>
+</div>
+</div>
+</div>
+<p>As a reminder from the <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> detailed workflow, here is the image that we will be working with :</p>
+<img src="../tests/data/test_image.png" width=500 height=500>
+<p>The labeled image shows the lumens of the cells identified by <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">lumen_labels</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65de7992b0&gt;
+</pre></div>
+</div>
+<img alt="_images/7f2946f521a036bfebcbaefec0a3dca4505670e92ef4e3ee8f2e9243d62496e2.png" src="_images/7f2946f521a036bfebcbaefec0a3dca4505670e92ef4e3ee8f2e9243d62496e2.png" />
+</div>
+</div>
+</section>
+<section id="identifying-cells-involved-in-ring-transitions">
+<h3>Identifying cells involved in ring transitions<a class="headerlink" href="#identifying-cells-involved-in-ring-transitions" title="Link to this heading"></a></h3>
+<p>The first step in finding tree-ring boundaries is to determine where transitions from latewood to earlywood occur. Indeed, the last cells of any given year are latewood whereas the first cells of a year are earlywood. By finding out where that transition occurs, it should be possible to draw the boundaries between years.</p>
+<p><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> relies on the commonly used Mork’s index to classify cells as either latewood or earlywood, that is, if a cell’s wall thickness is at least one quarter that of its diameter, it is considered latewood, otherwise it is considered earlywood. The function <code class="docutils literal notranslate"><span class="pre">morks_index</span></code> accordingly adds a column called <code class="docutils literal notranslate"><span class="pre">'woodzone'</span></code> to the DataFrame of cell metadata to indicate its type.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Classifying cells as early- or latewood based on Mork&#39;s index</span>
+<span class="n">celldata</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">morks_index</span><span class="p">(</span><span class="n">celldata</span><span class="p">)</span>
+
+<span class="c1"># The classification is added to column &#39;woodzone&#39;</span>
+<span class="n">celldata</span><span class="p">[</span><span class="s1">&#39;woodzone&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>woodzone
+earlywood    3288
+latewood     1061
+Name: count, dtype: int64
+</pre></div>
+</div>
+</div>
+</div>
+<p>Visualizing which cells were identified as either type confirms the relevance of Mork’s index for this task:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Extracting the labels of earlywood and latewood cells</span>
+<span class="n">earlywood_labels</span> <span class="o">=</span> <span class="n">celldata</span><span class="p">[</span><span class="n">celldata</span><span class="p">[</span><span class="s1">&#39;woodzone&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;earlywood&#39;</span><span class="p">][</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<span class="n">latewood_labels</span>  <span class="o">=</span> <span class="n">celldata</span><span class="p">[</span><span class="n">celldata</span><span class="p">[</span><span class="s1">&#39;woodzone&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;latewood&#39;</span><span class="p">][</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">lumen_labels</span><span class="p">,</span> <span class="n">earlywood_labels</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">lumen_labels</span><span class="p">,</span> <span class="n">latewood_labels</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65de612c10&gt;
+</pre></div>
+</div>
+<img alt="_images/dd1e94329cef419c0046e5806dd082b36e7777f1f8ed64c33a9d56e22a300690.png" src="_images/dd1e94329cef419c0046e5806dd082b36e7777f1f8ed64c33a9d56e22a300690.png" />
+</div>
+</div>
+<p>Using that classification, we can leverage the region adjacency graph (a data structure that tells use which cells are adjacent to each other) to identify cells that we define as “last cells” and “right cells”. “Last cells” are the cells that were last formed in a given radial file for a given year, and are therefore latewood cells. “Right cells” are the cells directly adjacent to the right of the last cells, and are the first (earlywood) cells formed in a given year.</p>
+<p>This classification as “last cells” and “right cells” is achieved with the <code class="docutils literal notranslate"><span class="pre">get_lastcells</span></code> function. In addition to identifying last cells as latewood cells directly adjacent to an earlywood cell, the following two conditions have to be met for a cell to be considered a “last cell” :</p>
+<ul class="simple">
+<li><p>the diameter of the last cell, multipled by some factor (<code class="docutils literal notranslate"><span class="pre">diameter_factor</span></code>, defaults to 2.5) must be smaller than that of the cell to its right</p></li>
+<li><p>similarly, the diameter of the last cell (multiplied by <code class="docutils literal notranslate"><span class="pre">diameter_factor_prev</span></code>, defaults to 8) must be greater than that of the cell to its left</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get lastcells in rings based on diameter and woodzone cell features</span>
+<span class="n">lastcells</span><span class="p">,</span> <span class="n">rightcells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_lastcells</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">adjacency</span><span class="p">)</span>
+
+<span class="c1"># We can have a look at which cells were identified as &quot;right cells&quot;</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">expanded_labels</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">rightcells</span><span class="p">)),</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65de6b16d0&gt;
+</pre></div>
+</div>
+<img alt="_images/7d3853c004cbd6d9e5df45b7cbb0573dd119f1e7a31fd2cda427c88092a60493.png" src="_images/7d3853c004cbd6d9e5df45b7cbb0573dd119f1e7a31fd2cda427c88092a60493.png" />
+</div>
+</div>
+<p>The next step involves grouping the cells located at boundaries (last cells and right cells) together according to the boundary that they define. To do this, we leverage functionality from the <code class="docutils literal notranslate"><span class="pre">networkx</span></code> module to build a graph that will store adjacencies between cells located at boundaries.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Crearing a graph using previously filtered nodes and edges</span>
+<span class="c1"># A node is created for each last cell and right cell</span>
+<span class="c1"># An edge is created for each adjacency between any of those cells (right-right, last-last, and last-right)</span>
+<span class="n">graph</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">right_to_region</span><span class="p">,</span> <span class="n">region_to_right</span><span class="p">,</span> <span class="n">rightcells_df</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">find_boundaries</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span>
+                                                                                                <span class="n">adjacency</span><span class="p">,</span>
+                                                                                                <span class="n">lastcells</span><span class="p">,</span>
+                                                                                                <span class="n">rightcells</span><span class="p">,</span>
+                                                                                                <span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="c1"># A function to visualize adjacencies stored in the graph</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_graph</span><span class="p">(</span><span class="n">cell_df</span><span class="p">,</span> <span class="n">adj_graph</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">):</span>
+    <span class="n">cell_copy</span> <span class="o">=</span> <span class="n">cell_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">cell_copy</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">,</span> <span class="n">inplace</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">adj_graph</span><span class="o">.</span><span class="n">edges</span><span class="p">:</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">cell_copy</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span>
+        <span class="n">y1</span> <span class="o">=</span> <span class="n">cell_copy</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">cell_copy</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]][</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span>
+        <span class="n">y2</span> <span class="o">=</span> <span class="n">cell_copy</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]][</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">])</span> <span class="o">/</span> <span class="n">pixel_size</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">y1</span><span class="p">,</span> <span class="n">y2</span><span class="p">])</span> <span class="o">/</span> <span class="n">pixel_size</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span>
+
+<span class="c1"># Showing the adjacenencies as blue lines on top of the cell array</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">expanded_labels</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">rightcells</span><span class="p">)),</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span>
+<span class="n">plot_graph</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">graph</span><span class="p">,</span> <span class="n">pix_to_um</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/f264357be52bd6e7f006ce46796cb426af53a3ce66a3b6502b20e47dc58718fb.png" src="_images/f264357be52bd6e7f006ce46796cb426af53a3ce66a3b6502b20e47dc58718fb.png" />
+</div>
+</div>
+<p>We can now use this graph structure identify cell groups that can be reached from each other using the graph. In graph parlance, these groups are called “connected components”, and the <code class="docutils literal notranslate"><span class="pre">networkx</span></code> module conveniently provides the <code class="docutils literal notranslate"><span class="pre">connected_components</span></code> function for computing those.</p>
+<p>The boundary regions are therefore identified as follows, with each boundary region identified with a different color:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">boundary_tmp</span> <span class="o">=</span> <span class="n">boundary_array</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">boundary_tmp</span><span class="p">[</span><span class="n">boundary_tmp</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_tmp</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65d556d6d0&gt;
+</pre></div>
+</div>
+<img alt="_images/bd500baeed0159ef2089a4530d0b83ed4698136e609ef662691a290857a1715e.png" src="_images/bd500baeed0159ef2089a4530d0b83ed4698136e609ef662691a290857a1715e.png" />
+</div>
+</div>
+<p>We have successfully grouped cells according to the ring boundary that they define, but as we can see, the result is rather fragmented as some cells were not properly recognized as being located at a boundary. The next step for <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> is to join those boundary regions together such that they can be used for defining growth rings.</p>
+</section>
+<section id="expanding-and-merging-ring-transition-boundaries">
+<h3>Expanding and merging ring-transition boundaries<a class="headerlink" href="#expanding-and-merging-ring-transition-boundaries" title="Link to this heading"></a></h3>
+<p>Merging ring boundary regions together is a critical task for the success of cell assignment to rings, but it must be done carefully to ensure that we do not introduce errors. For this reason, boundary region expansion is carried out in several steps that virtually guarantee merging accuracy by starting out with the the most trustworthy merges and ending with somewhat more uncertain approaches. Nevertheless, several checks are made along the way to prevent spurious merges. Each of these steps is detailed below, but an overview may be useful at this point:</p>
+<p>1- Individual cells that directly connect two boundary segments together (so-called “common neighbors”) are first used to merge segments.
+2- Pairs of cells that allow to connect boundary segments together (so-called up-down pairs) are also used to merge segments.
+3- At this stage, cells that had not been initially identified as “right cells” are considered based on slightly more permissive criteria. If these are adjacent to any of the segments identifed thus far, they are added to those.
+4- Finally, all pairwise segment extremities (the top-most cell and bottom-most cell of each segment) are checked for their distance to each other, and segment extremities that are mutually nearest to each other are merged together (provided that some other criteria are also met, which we will see below).</p>
+<p>For this part of the analysis, we will be focusing on right cells (the first earlywood cells of  a given ring) as they provide more robust features and are easier to identify that “last cells” for merging segments together. The next code chunk filters the objects that we have been working with so far such that they include only right cells.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Using the dictionary to update the array (image) of boundary regions</span>
+<span class="n">boundary_array</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">create_boundary_array</span><span class="p">(</span><span class="n">right_to_region</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>The first step involves finding cells that are located at the extremities of boundary regions, which can be achieved with the function <code class="docutils literal notranslate"><span class="pre">get_extremities</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Finding the cells that are located at the extremities od each region</span>
+<span class="c1"># Such cells are classified as &quot;up&quot; (top of the region) or &quot;down&quot; (bottom of the region)</span>
+<span class="c1"># Both up_extremities and down_extremities are dictionaries mapping region ID to cell labels</span>
+<span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremities</span><span class="p">(</span><span class="n">region_to_right</span><span class="p">,</span> <span class="n">rightcells_df</span><span class="p">)</span>
+
+<span class="c1"># Let us plot the up extremities in red and down extremities in orange</span>
+<span class="n">up_df</span> <span class="o">=</span> <span class="n">rightcells_df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">up_extremities</span><span class="o">.</span><span class="n">values</span><span class="p">())]</span>
+<span class="n">down_df</span> <span class="o">=</span> <span class="n">rightcells_df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">down_extremities</span><span class="o">.</span><span class="n">values</span><span class="p">())]</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">up_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">up_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">down_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">down_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;orange&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.collections.PathCollection at 0x7f65d55c74d0&gt;
+</pre></div>
+</div>
+<img alt="_images/ce54ce2c5c6f75bf72761c115de080e6893540c7194770c5e30cf499f532f199.png" src="_images/ce54ce2c5c6f75bf72761c115de080e6893540c7194770c5e30cf499f532f199.png" />
+</div>
+</div>
+<p>Extending further from those cells, we can find the cells that are vertically adjacent to them (so-called neighbors) using the function <code class="docutils literal notranslate"><span class="pre">get_extremity_neighbors</span></code>. This function also identified which such neighbors are shared between segments (<code class="docutils literal notranslate"><span class="pre">common_neighbors</span></code>) or form a pair which can be used to merge segments (<code class="docutils literal notranslate"><span class="pre">up_down_pairs</span></code>).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># common_neighbors: a set of cell labels that are vertically adjacent to two segments</span>
+<span class="c1"># up_down_pairs: a list of cell pairs (tuples of cell label IDs) that link two segments together</span>
+<span class="c1"># remaining_labels: cells vertically adjacent to segments that cannot be used to merge segments together</span>
+<span class="c1"># upward_neighbors: a dictionary that stores cells vertically adjacent to the top of each segment</span>
+<span class="c1"># downward_neighbors: a dictionary that stores cells vertically adjacent to the bottom of each segment</span>
+<span class="n">common_neighbors</span><span class="p">,</span> <span class="n">up_down_pairs</span><span class="p">,</span> <span class="n">remaining_labels</span><span class="p">,</span> <span class="n">upward_neighbors</span><span class="p">,</span> <span class="n">downward_neighbors</span> <span class="o">=</span> \
+  <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremity_neighbors</span><span class="p">(</span><span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span><span class="p">,</span> <span class="n">celldata</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>We can now use that information to merge segments based on shared adjacent cells, first using common neighbors using the function <code class="docutils literal notranslate"><span class="pre">integrate_commons</span></code>. The plot below shows the newly added cells with the common neighbors that were used for the merge plotted on top as red points.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">boundary_array</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">integrate_commons</span><span class="p">(</span><span class="n">upward_neighbors</span><span class="p">,</span> 
+                                          <span class="n">downward_neighbors</span><span class="p">,</span> 
+                                          <span class="n">common_neighbors</span><span class="p">,</span> 
+                                          <span class="n">boundary_array</span><span class="p">,</span> 
+                                          <span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="c1"># Subsetting the DataFrame of cells to the common neigbors used for the merge</span>
+<span class="n">common_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">common_neighbors</span><span class="p">)]</span>
+
+<span class="c1"># Showing the common neighbors on top of the boundary regions</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">common_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">common_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.collections.PathCollection at 0x7f65d546d310&gt;
+</pre></div>
+</div>
+<img alt="_images/023c987a7934d24dda5b20f929065f27e45bf7867baba6ea1ca644cb611c817b.png" src="_images/023c987a7934d24dda5b20f929065f27e45bf7867baba6ea1ca644cb611c817b.png" />
+</div>
+</div>
+<p>We can do the same thing for up-down pairs using the function <code class="docutils literal notranslate"><span class="pre">integrate_updown</span></code>. In the case of this image, only one such pair was identified.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">boundary_array</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">integrate_updown</span><span class="p">(</span><span class="n">upward_neighbors</span><span class="p">,</span> 
+                                         <span class="n">downward_neighbors</span><span class="p">,</span> 
+                                         <span class="n">up_down_pairs</span><span class="p">,</span> 
+                                         <span class="n">boundary_array</span><span class="p">,</span> 
+                                         <span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="c1"># Subsetting the DataFrame of cells to the up-down pairs used for the merge</span>
+<span class="n">common_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span><span class="n">label</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">up_down_pairs</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">]]</span>
+
+<span class="c1"># Showing the common neighbors on top of the boundary regions</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">common_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">common_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.collections.PathCollection at 0x7f65d540f390&gt;
+</pre></div>
+</div>
+<img alt="_images/01baebd3f709011cb2416931fb6b0bc7a658755f3ab30dd478eca12de296a64b.png" src="_images/01baebd3f709011cb2416931fb6b0bc7a658755f3ab30dd478eca12de296a64b.png" />
+</div>
+</div>
+<p>At this point, it is worth looking if the remaining segment neighbors (cells vertically adjacent to the segments that have not been merged into a segment yet) may have been overlooked as “right cells” in the first part of the analysis. Here, we will therefore try to identify right cells that were not initially identified but do meet some criteria of such cells, that is, they may be the first earlywood cells of a given ring. They will be added to the set of right cells at this stage if they meet either of two criteria :</p>
+<ul class="simple">
+<li><p>their left neighbor is likely a latewood cell</p></li>
+<li><p>the cell immediately adjacent to their left is smaller by some factor (<code class="docutils literal notranslate"><span class="pre">diameter_factor</span></code>, defaults to 1.8)</p></li>
+</ul>
+<p>Such cells are identified using the function <code class="docutils literal notranslate"><span class="pre">get_candidate_cells</span></code> and shown as red points in the following plot. Here, this represents three cells.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># We update the mapping of cells to their boundary region</span>
+<span class="n">cell_to_region</span><span class="p">,</span> <span class="n">region_to_cells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">map_cell_to_region</span><span class="p">(</span><span class="n">boundary_array</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+    
+<span class="c1"># We find in the remaining cells adjacent to extremities the ones that show properties of ring transition</span>
+<span class="n">labels_to_integrate</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_candidate_cells</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">remaining_labels</span><span class="p">,</span> <span class="n">lastcells</span><span class="p">,</span> <span class="n">diameter_factor</span> <span class="o">=</span> <span class="mf">1.8</span><span class="p">)</span>
+
+<span class="c1"># Subsetting the DataFrame of cells to the cell candidates</span>
+<span class="n">candidate_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">labels_to_integrate</span><span class="p">)]</span>
+
+<span class="c1"># Showing the common neighbors on top of the boundary regions</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">candidate_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">candidate_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.collections.PathCollection at 0x7f65d53851d0&gt;
+</pre></div>
+</div>
+<img alt="_images/3f1f5772d9ecd29f594130590a274be67c41f6456c24fff96f682dd7942de0ba.png" src="_images/3f1f5772d9ecd29f594130590a274be67c41f6456c24fff96f682dd7942de0ba.png" />
+</div>
+</div>
+<p>We can now update the boundary regions and the set of right cells using these cells.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Integrating these new cells into the boundary array (if there are any)</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels_to_integrate</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">:</span>
+    <span class="n">boundary_array</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">integrate_candidates</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">,</span> 
+                                                 <span class="n">expanded_labels</span><span class="p">,</span> 
+                                                 <span class="n">labels_to_integrate</span><span class="p">,</span> 
+                                                 <span class="n">cell_to_region</span><span class="p">,</span> 
+                                                 <span class="n">upward_neighbors</span><span class="p">,</span> 
+                                                 <span class="n">downward_neighbors</span><span class="p">)</span>
+    
+<span class="c1"># Updating the right cells DataFrame with the cells that have been added since</span>
+<span class="n">integrated_labels</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">common_neighbors</span><span class="p">)</span>
+<span class="n">integrated_labels</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">label</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">up_down_pairs</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">)</span>
+<span class="n">integrated_labels</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">labels_to_integrate</span><span class="p">)</span>
+<span class="n">new_rows</span> <span class="o">=</span> <span class="n">celldata</span><span class="p">[</span><span class="n">celldata</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">integrated_labels</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>    
+<span class="n">rightcells_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">rightcells_df</span><span class="p">,</span> <span class="n">new_rows</span><span class="p">])</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
+
+<span class="c1"># Updating the dictionaries that map cells to their region ID and vice versa</span>
+<span class="n">cell_to_region</span><span class="p">,</span> <span class="n">region_to_cells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">map_cell_to_region</span><span class="p">(</span><span class="n">boundary_array</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="c1"># Let us see what we are working with at this stage</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65d53e6fd0&gt;
+</pre></div>
+</div>
+<img alt="_images/29330cb7d1ff965158f432ec94b517374228fa213445b04dbb19801543007f3d.png" src="_images/29330cb7d1ff965158f432ec94b517374228fa213445b04dbb19801543007f3d.png" />
+</div>
+</div>
+<p>We have just merged new cells into boundary regions but we have yet to merge together such regions that this ahs made adjacent. The next chunk of code does that through functions <code class="docutils literal notranslate"><span class="pre">get_segment_adjacency</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_by_cells</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Update the extremities of the ring segments</span>
+<span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremities</span><span class="p">(</span><span class="n">region_to_cells</span><span class="p">,</span> <span class="n">rightcells_df</span><span class="p">)</span>
+
+<span class="c1"># This function returns a list of tuples with labels of the cells that can be used to connect regions together</span>
+<span class="n">connected_cells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_segment_adjacency</span><span class="p">(</span><span class="n">adjacency</span><span class="p">,</span> <span class="n">cell_to_region</span><span class="p">,</span> <span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span><span class="p">)</span>
+
+<span class="c1"># Merging the regions that contain the cells identified at the previous step</span>
+<span class="n">boundary_array</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">merge_by_cells</span><span class="p">(</span><span class="n">connected_cells</span><span class="p">,</span> <span class="n">cell_to_region</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="c1"># Updating the dictionaries and extremities</span>
+<span class="n">cell_to_region</span><span class="p">,</span> <span class="n">region_to_cells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">map_cell_to_region</span><span class="p">(</span><span class="n">boundary_array</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span><span class="c1"># Find the extrmities of the new ring segments</span>
+<span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremities</span><span class="p">(</span><span class="n">region_to_cells</span><span class="p">,</span> <span class="n">rightcells_df</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65d5260e10&gt;
+</pre></div>
+</div>
+<img alt="_images/f1c29091e83d2aab4fb5ce81c0e52c6c3ab8f5f3a9d301199cb70a033cfdf6be.png" src="_images/f1c29091e83d2aab4fb5ce81c0e52c6c3ab8f5f3a9d301199cb70a033cfdf6be.png" />
+</div>
+</div>
+<p>The steps above, which merge adjacent segments based on cells that can bridge the gap between them, can be repeated iteratively by setting a value superior to 1 as the <code class="docutils literal notranslate"><span class="pre">--iterations</span></code> argument to <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>. By default, only one such merging step is carried out, as is the case for this example.</p>
+</section>
+<section id="merging-segments-based-on-the-distance-between-them">
+<h3>Merging segments based on the distance between them<a class="headerlink" href="#merging-segments-based-on-the-distance-between-them" title="Link to this heading"></a></h3>
+<p>As we can see, some of the segments above have yet to be merged together. We have done much progress by working with segment adjacencies but we now need a more powerful approach based on distances between segment extremities, although we must be careful not to merge regions that do not belong together. To do so, we first generate a set of region pairs that should not be merged together because they contain cells belonging to the same radial file. Indeed, a given boundary region should only contain cells that belong to different radial files. This can be done with the function <code class="docutils literal notranslate"><span class="pre">incompatible_regions</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># The output is a set containing tuples with pairs of regions that should not be merged together</span>
+<span class="n">incompatible_region_pairs</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">incompatible_regions</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">cell_to_region</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>We find out which pairs of up/down segment extremities are mutually nearest to each other, filtering out the incompatible region pairs determined above, using the function <code class="docutils literal notranslate"><span class="pre">get_nearest_extremity</span></code>. This function also returns information on the other cells found in the neighborhood of potential pairs to match, in case we want to filter out some potentially spurious matches based on this. However, we will not be needing this for this image.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># nearest_extremity is a list of tuples containing the pairs of cells that are candidates for merging</span>
+<span class="n">nearest_extremity</span><span class="p">,</span> <span class="n">neighborhood</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_nearest_extremity</span><span class="p">(</span><span class="n">rightcells_df</span><span class="p">,</span> 
+                                                               <span class="n">cell_to_region</span><span class="p">,</span> 
+                                                               <span class="n">up_extremities</span><span class="p">,</span> 
+                                                               <span class="n">down_extremities</span><span class="p">,</span> 
+                                                               <span class="n">incompatible_region_pairs</span><span class="p">)</span>
+
+<span class="c1"># Displaying the pairs of cells to merge using lines on top of the image of boundary regions</span>
+<span class="n">pairs_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span><span class="n">label</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">nearest_extremity</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">]]</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nearest_extremity</span><span class="p">:</span>
+    <span class="n">pair_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pair_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">pair_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linewidth</span> <span class="o">=</span> <span class="mf">2.5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/32aca10e96d39bd25d2e696134055185f9c9aec5f29ccdd6f5ea6046ec24df7e.png" src="_images/32aca10e96d39bd25d2e696134055185f9c9aec5f29ccdd6f5ea6046ec24df7e.png" />
+</div>
+</div>
+<p>Before we merge those cells, we must ensure that they are compatible with being located along the same ring boundary. To do that, the angle between them is computed and compared against the angles in the region adjacency graph. The cells are considered valid for merging if the line between them runs roughly perpendicularly to the angle along which the cells have grown. In this case, the three pairs identified above meet that criterion. The function <code class="docutils literal notranslate"><span class="pre">analyze_pairs_angles</span></code> takes care of this:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># pairs_df: a DataFrame of metadata on the pairs considered and the computed angles</span>
+<span class="c1"># valid_pairs: a list of tuples with the pairs of cells considered suitable for merging</span>
+<span class="c1"># excluded: a list of tuples with the pairs of cells not considered suitable for merging</span>
+<span class="n">pairs_df</span><span class="p">,</span> <span class="n">valid_pairs</span><span class="p">,</span> <span class="n">excluded</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">analyze_pairs_angles</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">nearest_extremity</span><span class="p">)</span>
+
+<span class="c1"># The various data objects describing ring boundaries are updated by merging these pairs</span>
+<span class="n">boundary_array</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">merge_by_cells</span><span class="p">(</span><span class="n">valid_pairs</span><span class="p">,</span> <span class="n">cell_to_region</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+<span class="n">cell_to_region</span><span class="p">,</span> <span class="n">region_to_cells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">map_cell_to_region</span><span class="p">(</span><span class="n">boundary_array</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">boundary_array</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="c1"># Showing the image of boundaries at this stage</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65d51d8e10&gt;
+</pre></div>
+</div>
+<img alt="_images/0f28e8649ed06a11ca118f93c4f9325a899da4aab3d9418f9912e8c931c80eb9.png" src="_images/0f28e8649ed06a11ca118f93c4f9325a899da4aab3d9418f9912e8c931c80eb9.png" />
+</div>
+</div>
+<p>We can see that we have now succeeded to merge all the cells that belonged together at the same ring boundary. However, there are still spurious cells located throughout the image which we should remove before going forward. The function <code class="docutils literal notranslate"><span class="pre">filter_boundaries</span></code> takes care of this by removing all ring boundary regions with fewer than some number of cells (argument <code class="docutils literal notranslate"><span class="pre">mininum-cells</span></code> supplied through the command line, defaults to 4).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># mincells is usually supplied from the command-line, here we defined it to 4 in a previous code chunk</span>
+<span class="n">cell_to_region</span><span class="p">,</span> <span class="n">region_to_cells</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">filter_boundaries</span><span class="p">(</span><span class="n">cell_to_region</span><span class="p">,</span> <span class="n">region_to_cells</span><span class="p">,</span> <span class="n">mincells</span> <span class="o">=</span> <span class="n">mincells</span><span class="p">)</span>
+<span class="n">boundary_array</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">create_boundary_array</span><span class="p">(</span><span class="n">cell_to_region</span><span class="p">,</span> <span class="n">expanded_labels</span><span class="p">)</span>
+<span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremities</span><span class="p">(</span><span class="n">region_to_cells</span><span class="p">,</span> <span class="n">rightcells_df</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65d515ac10&gt;
+</pre></div>
+</div>
+<img alt="_images/7ec62e085996ad33a8044cf937609858de3d3ab26ce99b0e56fe5553c2faa72f.png" src="_images/7ec62e085996ad33a8044cf937609858de3d3ab26ce99b0e56fe5553c2faa72f.png" />
+</div>
+</div>
+<p>The above search for ring boundary segments to merge on distance can be repeated iteratively until all segments are merged together. By default, <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> will repeat this operation two more times. However, for the sake of this demonstration, we will not run it further because no further segments to merge would be detected. At the third and last iteration, <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> uses more lenient parameters by not setting any incompatible pairs that should not be merged, but it will prevent merging cells together if there are other extremities in their neighborhood.</p>
+</section>
+<section id="refining-and-filtering-ring-transition-boundaries">
+<h3>Refining and filtering ring-transition boundaries<a class="headerlink" href="#refining-and-filtering-ring-transition-boundaries" title="Link to this heading"></a></h3>
+<p>So far, we have identified ring boundaries and expanded them as much as we could using information from cell measurements and our regional adjacency graph. Before we use those boundaries for assigning cells to tree rings (and therefore to the year when they were created), we must formalize their sequence within the image and potentially merge segments that belong to the same ring boundary but have not been merge yet through other methods.</p>
+<p>A first step towards doing this is to identify which borders of the image are reached by each of the boundary regions. Regions that run vertically along the image and come in contact with both the upper and lower limits of the image can reasonably be thought to represent true ring boundaries. However, regions instead border the leftmost and rightmost borders of the image, as is the case for three of the boundary regions in our image, represent edge cases that are also true ring boundaries and must be accounted for.</p>
+<p>First we use the function <code class="docutils literal notranslate"><span class="pre">classify_regions_by_axis</span></code> to determine what borders of the image are touched by each of the boundary regions. This is done by computing the locations of the extremities of boundary regions using an idealized ellipse shape and checking whether these extremities cross the borders of the image. This generates, among other things, a sequence of region IDs that touch either the top or bottom of the image and can be used to determine the order of boundary regions in the image.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># region_classes: a dictionary that classifies boundary regions based on the image borders that they cross</span>
+<span class="c1"># region_regions: a DataFrame of properties on the boundary regions computed with skimage.measure.regionprops</span>
+<span class="c1"># seq : the sequence of region IDs touching the top and bottom of the image, used as a sequence to anchor the ring boundaries</span>
+<span class="n">region_classes</span><span class="p">,</span> <span class="n">ring_regions</span><span class="p">,</span> <span class="n">seq</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">classify_regions_by_axis</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">,</span> <span class="n">pix_to_um</span><span class="p">)</span>
+
+<span class="c1"># Let us have a look at the sequence of regions at the top and bottom of the image</span>
+<span class="n">seq</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/home/marc/Documents/gennaretti_lab/analyses/packages/qwanamiz/src/qwanamiz/rings_functions.py:1707: FutureWarning: `RegionProperties.major_axis_length` is deprecated starting in version 0.26 and will be removed in version 2.0. Use `RegionProperties.axis_major_length` instead. 
+  major_len = prop.major_axis_length
+</pre></div>
+</div>
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;top&#39;: [4, 1, 3, 11, 9, 2, 10], &#39;bottom&#39;: [3, 11, 9, 2, 10, 6]}
+</pre></div>
+</div>
+</div>
+</div>
+<p>An alternate method of finding which regions are along the top and bottom border of the image relies on identifying regions have cells at the extremity that are near a border.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">all_border_cells</span><span class="p">,</span> <span class="n">upper_region_sequence</span><span class="p">,</span> <span class="n">lower_region_sequence</span><span class="p">,</span> \
+<span class="n">matched_up</span><span class="p">,</span> <span class="n">matched_down</span><span class="p">,</span> <span class="n">unjustified</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_border_cells</span><span class="p">(</span><span class="n">rightcells_df</span><span class="p">,</span> 
+                                                                <span class="n">cell_to_region</span><span class="p">,</span> 
+                                                                <span class="n">up_extremities</span><span class="p">,</span>
+                                                                <span class="n">down_extremities</span><span class="p">,</span>
+                                                                <span class="n">image_height</span> <span class="o">=</span> <span class="n">expanded_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> 
+                                                                <span class="n">image_width</span> <span class="o">=</span> <span class="n">expanded_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> 
+                                                                <span class="n">border_margin</span> <span class="o">=</span> <span class="mi">75</span><span class="p">,</span> 
+                                                                <span class="n">pix_to_um</span> <span class="o">=</span> <span class="n">pix_to_um</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matched_up: &quot;</span><span class="p">,</span> <span class="n">matched_up</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matched_down: &quot;</span><span class="p">,</span> <span class="n">matched_down</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>matched_up:  {1, 4}
+matched_down:  {6}
+</pre></div>
+</div>
+</div>
+</div>
+<p>We have now determined what regions were adjacent to the upper and lower border of the image, and therefore represent regions on which to anchor the ring boundaries. However, although this is not the case in this image, it could be that are are still boundary segments in the middle of the image that have not been assigned to a valid ring boundary that runs across the image. Our next task is to identify those by first looking at the IDs of the boundary regions we find by running a set of horizontal lines (20 lines by default) across the image and tallying which boundary regions they cross. This is accomplished with the function <code class="docutils literal notranslate"><span class="pre">get_region_sequences</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># y_positions: a list of y coordinates (in pixels) along which the sequence of regions was queried</span>
+<span class="c1"># sequences: a list of lists with the regions crossed by eahc horizontal line</span>
+<span class="n">y_positions</span><span class="p">,</span> <span class="n">sequences</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_region_sequences</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">,</span> <span class="n">n_lines</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">boundary_array</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">y_positions</span><span class="p">:</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span> <span class="o">=</span> <span class="s1">&#39;--&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/464b93cd257a490dee2e5134a329ecf4b7264793569defef99d46730601f6bb8.png" src="_images/464b93cd257a490dee2e5134a329ecf4b7264793569defef99d46730601f6bb8.png" />
+</div>
+</div>
+<p>The list of region sequences encountered along each line is stored in <code class="docutils literal notranslate"><span class="pre">sequences</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sequences</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[[4, 1, 3, 11, 9, 2, 10],
+ [4, 1, 3, 11, 9, 2, 10],
+ [4, 1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10],
+ [1, 3, 11, 9, 2, 10, 6],
+ [1, 3, 11, 9, 2, 10, 6],
+ [1, 3, 11, 9, 2, 10, 6],
+ [1, 3, 11, 9, 2, 10, 6],
+ [1, 3, 11, 9, 2, 10, 6],
+ [1, 3, 11, 9, 2, 10, 6],
+ [1, 3, 11, 9, 2, 10, 6],
+ [3, 11, 9, 2, 10, 6],
+ [3, 11, 9, 2, 10, 6]]
+</pre></div>
+</div>
+</div>
+</div>
+<p>In order to identify regions that could potentially be merged, we need to align the regions identified at each of the lines in a single rectangular matrix (here, we use a list of lists) with one horizontal line per row and one region per column. To do this, the function <code class="docutils literal notranslate"><span class="pre">align_region_sequences</span></code> internally builds a graph of precedence relationships such that the order of the regions along each horizontal line is preserved in the output matrix <code class="docutils literal notranslate"><span class="pre">aligned</span></code>. The output object <code class="docutils literal notranslate"><span class="pre">regions</span></code> contains the order of the regions across all rows. In addition to the sequence of regions found by <code class="docutils literal notranslate"><span class="pre">get_region_sequences</span></code>, the sequences of regions found earlier at the very top and very bottom of the image by the call to <code class="docutils literal notranslate"><span class="pre">classify_regions_by_axis</span></code> are added to the output matrix.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">aligned</span><span class="p">,</span> <span class="n">regions</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">align_region_sequences</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">gap_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">upper_seq</span><span class="o">=</span><span class="n">seq</span><span class="p">[</span><span class="s2">&quot;top&quot;</span><span class="p">],</span> <span class="n">lower_seq</span><span class="o">=</span><span class="n">seq</span><span class="p">[</span><span class="s2">&quot;bottom&quot;</span><span class="p">])</span>
+<span class="n">aligned</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[[4, 1, 3, 11, 9, 2, 10, None],
+ [4, 1, 3, 11, 9, 2, 10, None],
+ [4, 1, 3, 11, 9, 2, 10, None],
+ [4, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, None, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, None],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, 1, 3, 11, 9, 2, 10, 6],
+ [None, None, 3, 11, 9, 2, 10, 6],
+ [None, None, 3, 11, 9, 2, 10, 6],
+ [None, None, 3, 11, 9, 2, 10, 6]]
+</pre></div>
+</div>
+</div>
+</div>
+<p>An easier way to visualize the matrix of regions is to use the helper function plot_alignment, which presents an abstracted view of the seqeunce of regions and can be used for troubleshooting with difficult images. Here, the output makes it clear what the order and identity of the regions in our image.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">qrings</span><span class="o">.</span><span class="n">plot_alignment</span><span class="p">(</span><span class="n">aligned</span><span class="p">,</span> <span class="n">regions</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/f78798904aa36e25c873bb901067550a2fb065e7310bc0f0a802dac247ef1b78.png" src="_images/f78798904aa36e25c873bb901067550a2fb065e7310bc0f0a802dac247ef1b78.png" />
+</div>
+</div>
+<p>In case that any column only had a single non-<code class="docutils literal notranslate"><span class="pre">None</span></code> value in it, the <code class="docutils literal notranslate"><span class="pre">remove_singleton_columns</span></code> filters it out from further processing. Here, this does not actually remove any columns.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">aligned</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">remove_singleton_columns</span><span class="p">(</span><span class="n">aligned</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>If the region matrix had any regions pairs that could be merged into a single one because they occured at the same location in their respective upper/lower image border sequences, the function <code class="docutils literal notranslate"><span class="pre">find_merge_candidates</span></code> would identify those as candidates for merging. Here, there are no such candidate pairs.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">candidates</span><span class="p">,</span> <span class="n">cu</span><span class="p">,</span> <span class="n">cl</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">find_merge_candidates</span><span class="p">(</span><span class="n">seq</span><span class="p">[</span><span class="s2">&quot;top&quot;</span><span class="p">],</span> <span class="n">seq</span><span class="p">[</span><span class="s2">&quot;bottom&quot;</span><span class="p">])</span>
+
+<span class="n">valid_labels</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">celldata</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+<span class="n">region_to_cells</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">r</span><span class="p">:</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cells</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">valid_labels</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">cells</span> <span class="ow">in</span> <span class="n">region_to_cells</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="n">candidates</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">filter_candidates</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">region_to_cells</span><span class="p">,</span> <span class="n">celldata</span><span class="p">,</span> <span class="n">max_overlap</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Merge candidates: &quot;</span><span class="p">,</span> <span class="n">candidates</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Merge candidates:  []
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, the <code class="docutils literal notranslate"><span class="pre">None</span></code> values in each column are filled based on the most common value in each column if they exceed a given proportion of the values in the column (this proportion defaults to 0.79). Regions that have been identified as candidates for merging are excluded from filling as they will be handled later in the workflow. This step is done using the function <code class="docutils literal notranslate"><span class="pre">fill_columns</span></code> and the result is visualized below using <code class="docutils literal notranslate"><span class="pre">plot_alignment</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">aligned</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">fill_columns</span><span class="p">(</span><span class="n">aligned</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="mf">0.79</span><span class="p">,</span> <span class="n">region_classes</span><span class="p">)</span>
+<span class="n">qrings</span><span class="o">.</span><span class="n">plot_alignment</span><span class="p">(</span><span class="n">aligned</span><span class="p">,</span> <span class="n">regions</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/eed3d927c26ca9a66fed9c98a2e7d8e38ed6a261109a7806905c35cbd7b5009f.png" src="_images/eed3d927c26ca9a66fed9c98a2e7d8e38ed6a261109a7806905c35cbd7b5009f.png" />
+</div>
+</div>
+<p>A few more steps allow to generate the final set of ring sequences.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">incomplete</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">find_incomplete_regions</span><span class="p">(</span><span class="n">aligned</span><span class="p">)</span>
+        
+<span class="n">final_merge</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">filter_incomplete_regions</span><span class="p">(</span><span class="n">incomplete_info</span><span class="o">=</span><span class="n">incomplete</span><span class="p">,</span> 
+                                               <span class="n">classifications</span><span class="o">=</span><span class="n">region_classes</span><span class="p">,</span>
+                                               <span class="n">merge_candidates</span><span class="o">=</span><span class="n">candidates</span><span class="p">,</span> 
+                                               <span class="n">matched_up</span><span class="o">=</span><span class="n">matched_up</span><span class="p">,</span> 
+                                               <span class="n">matched_down</span><span class="o">=</span><span class="n">matched_down</span><span class="p">)</span>
+        
+<span class="n">valid</span><span class="p">,</span> <span class="n">duplicates</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">filter_pairs_overlap</span><span class="p">(</span><span class="n">final_merge</span><span class="p">,</span> <span class="n">region_classes</span><span class="p">,</span> <span class="n">aligned</span><span class="p">)</span>
+        
+<span class="n">pair_extremities</span> <span class="o">=</span> <span class="p">{}</span>
+    
+<span class="k">for</span> <span class="n">r1</span><span class="p">,</span> <span class="n">r2</span> <span class="ow">in</span> <span class="n">valid</span><span class="p">:</span>
+    <span class="n">cell1</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremity_cell</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span> <span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span><span class="p">,</span> <span class="n">region_classes</span><span class="p">)</span>
+    <span class="n">cell2</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_extremity_cell</span><span class="p">(</span><span class="n">r2</span><span class="p">,</span> <span class="n">up_extremities</span><span class="p">,</span> <span class="n">down_extremities</span><span class="p">,</span> <span class="n">region_classes</span><span class="p">)</span>
+    <span class="n">coord1</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_coordinates</span><span class="p">(</span><span class="n">cell1</span><span class="p">,</span> <span class="n">rightcells_df</span><span class="p">)</span>
+    <span class="n">coord2</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">get_coordinates</span><span class="p">(</span><span class="n">cell2</span><span class="p">,</span> <span class="n">rightcells_df</span><span class="p">)</span>
+    <span class="n">pair_extremities</span><span class="p">[(</span><span class="n">r1</span><span class="p">,</span> <span class="n">r2</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span><span class="n">coord1</span><span class="p">,</span> <span class="n">coord2</span><span class="p">)</span>
+            
+<span class="n">all_merge_pairs</span><span class="p">,</span> <span class="n">solo_regions</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">select_regions_to_merge</span><span class="p">(</span><span class="n">pair_extremities</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">final_merge</span><span class="p">)</span>
+    
+<span class="n">aligned_top</span><span class="p">,</span> <span class="n">aligned_bottom</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">build_aligned_sequences</span><span class="p">(</span><span class="n">aligned</span><span class="p">,</span> <span class="n">all_merge_pairs</span><span class="p">,</span> <span class="n">final_merge</span><span class="p">)</span>
+
+<span class="n">missing_regions</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="p">{</span><span class="n">r</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">all_merge_pairs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">}</span>
+    <span class="o">-</span> <span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">aligned_top</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">aligned_bottom</span><span class="p">))</span>
+<span class="p">)</span>
+
+<span class="n">missing_regions</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Missing selected:&quot;</span><span class="p">,</span> <span class="n">missing_regions</span><span class="p">)</span>
+
+<span class="n">aligned_top</span><span class="p">,</span> <span class="n">aligned_bottom</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">insert_missing_pairs</span><span class="p">(</span><span class="n">aligned_top</span><span class="p">,</span> <span class="n">aligned_bottom</span><span class="p">,</span> <span class="n">aligned</span><span class="p">,</span> <span class="n">all_merge_pairs</span><span class="p">)</span>
+    
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Top   →&quot;</span><span class="p">,</span> <span class="n">aligned_top</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bottom→&quot;</span><span class="p">,</span> <span class="n">aligned_bottom</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Selected pairs: set()
+Solo regions: []
+Missing selected: set()
+Top   → [4, 1, 3, 11, 9, 2, 10, 6]
+Bottom→ [4, 1, 3, 11, 9, 2, 10, 6]
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="assigning-cells-to-tree-rings">
+<h3>Assigning cells to tree rings<a class="headerlink" href="#assigning-cells-to-tree-rings" title="Link to this heading"></a></h3>
+<p>Now that we know the order of the boundary regions and the identity of the cells located at the boundaries (actually, the first earlywood cells of each ring), we can use those to draw ring boundaries and ultimately assign each cell in a dataset to its growth ring. This starts with the function <code class="docutils literal notranslate"><span class="pre">find_ring_lines</span></code>, which extracts the IDs of the first earlywood cells of each ring.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Returns a dictionary with the ordered (from top to bottom of image) list of the first earlywood cells at ring boundaries</span>
+<span class="n">ring_lines</span><span class="p">,</span> <span class="n">final_top</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">find_ring_lines</span><span class="p">(</span><span class="n">rightcells_df</span><span class="p">,</span> <span class="n">region_to_cells</span><span class="p">,</span> <span class="n">aligned_top</span><span class="p">,</span> <span class="n">aligned_bottom</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">solo_regions</span> <span class="ow">or</span> <span class="n">missing_regions</span><span class="p">:</span>
+    <span class="n">crossings</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">check_ring_crossings</span><span class="p">(</span><span class="n">ring_lines</span><span class="p">,</span>
+                                            <span class="n">rightcells_df</span><span class="p">,</span>
+                                            <span class="n">new_boundaries</span><span class="p">,</span>
+                                            <span class="n">pix_to_um</span><span class="p">)</span>
+    
+    <span class="n">ring_lines</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">fix_crossing_rings</span><span class="p">(</span><span class="n">ring_lines</span><span class="p">,</span>
+                                           <span class="n">crossings</span><span class="p">,</span>
+                                           <span class="n">aligned_top</span><span class="p">,</span>
+                                           <span class="n">aligned_bottom</span><span class="p">,</span>
+                                           <span class="n">region_to_cells</span><span class="p">,</span>
+                                           <span class="n">rightcells_df</span><span class="p">)</span>
+
+<span class="c1"># Let us display these lines in a plot to see what they look like</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">_</span><span class="p">,</span><span class="n">labels</span> <span class="ow">in</span> <span class="n">ring_lines</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">ring_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">labels</span><span class="p">]</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ring_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">ring_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linewidth</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/9731008c0ffc0428dc88a458d7e9e17a0320dce4075439793e184d2b5f5f8a96.png" src="_images/9731008c0ffc0428dc88a458d7e9e17a0320dce4075439793e184d2b5f5f8a96.png" />
+</div>
+</div>
+<p>At this point, <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> will write to disk the order of the ring boundaries that it has automatically determined in a file with the suffix <code class="docutils literal notranslate"><span class="pre">_edit.txt</span></code>. This file can be manually edited to merge some segments or modify their order to match the expected results, should <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> output inaccurate results. It can then be processed with the script <code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> to apply the changes and produce output that has been corrected accordingly. Here, we show how this file is initially generated when running <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Extract regions per ring</span>
+<span class="n">ring_regions</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">extract_ring_regions</span><span class="p">(</span><span class="n">ring_lines</span><span class="p">,</span> <span class="n">cell_to_region</span><span class="p">,</span> <span class="n">final_top</span><span class="p">)</span>
+
+<span class="c1"># Save edit file</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;test_output/test_image_outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">qrings</span><span class="o">.</span><span class="n">write_ring_file</span><span class="p">(</span><span class="s2">&quot;test_output/test_image_outputs/test_image_edit.txt&quot;</span><span class="p">,</span> <span class="n">ring_regions</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>More details regarding the edition of tree-ring boundaries with the script <code class="docutils literal notranslate"><span class="pre">rings_edit</span></code> can be found in the package’s README page.</p>
+<p>We are just one step away from being able to assign each cell to its ring: we just need to draw polygons that encompass the whole ring using those lines, which we can do using the function <code class="docutils literal notranslate"><span class="pre">draw_polygons</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># The output is a list of 2-dimensional numpy arrays representing the coordinates of the polygons</span>
+<span class="n">ring_polygons</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">draw_polygons</span><span class="p">(</span><span class="n">cells</span> <span class="o">=</span> <span class="n">celldata</span><span class="p">,</span>
+                                     <span class="n">ring_lines</span> <span class="o">=</span> <span class="n">ring_lines</span><span class="p">,</span>
+                                     <span class="n">upper_sequence</span> <span class="o">=</span> <span class="n">final_top</span><span class="p">,</span>
+                                     <span class="n">image_width</span> <span class="o">=</span> <span class="n">expanded_labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">pix_to_um</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ring_polygons</span><span class="p">:</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">ring</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">ring</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/39d99d3bb88f7f8b3dd4cc1c9f1d7359c5e3f8a49a6934b612241ee00f55f939.png" src="_images/39d99d3bb88f7f8b3dd4cc1c9f1d7359c5e3f8a49a6934b612241ee00f55f939.png" />
+</div>
+</div>
+<p>Using these polygons coordinates, we can determine which ring a cell belongs to based on an implementation of the winding number algorithm with the function <code class="docutils literal notranslate"><span class="pre">assign_years</span></code>. The year corresponding to the first ring is usually supplied to the command line as the argument <code class="docutils literal notranslate"><span class="pre">first-year</span></code>, but this value defaults to 1. Users can choose to supply this value when invoking <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> or adjust the year afterwards depending on their preference.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Adds a column called &#39;year&#39; to the cell metadata</span>
+<span class="n">celldata</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">assign_years</span><span class="p">(</span><span class="n">cells</span> <span class="o">=</span> <span class="n">celldata</span><span class="p">,</span> <span class="n">polygons</span> <span class="o">=</span> <span class="n">ring_polygons</span><span class="p">,</span> <span class="n">year0</span> <span class="o">=</span> <span class="n">firstyear</span><span class="p">)</span>
+<span class="n">celldata</span><span class="p">,</span> <span class="n">suspect_labels</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">correct_large_lastcells</span><span class="p">(</span><span class="n">celldata</span><span class="p">)</span>
+
+<span class="c1"># Using the year column we can create an image that assigns a year to each pixel</span>
+<span class="c1"># Create an image of cell assignment for display</span>
+<span class="n">celltemp</span> <span class="o">=</span> <span class="n">celldata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">celltemp</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;label&#39;</span><span class="p">,</span> <span class="n">inplace</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">year_dict</span> <span class="o">=</span> <span class="n">celltemp</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<span class="n">year_image</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span> <span class="k">if</span> <span class="n">year_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">year_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">))(</span><span class="n">expanded_labels</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">year_image</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;matplotlib.image.AxesImage at 0x7f65d56747d0&gt;
+</pre></div>
+</div>
+<img alt="_images/67973417a96f57609540647f03c754ccb80f598b81847fe8cd561010d7154ae9.png" src="_images/67973417a96f57609540647f03c754ccb80f598b81847fe8cd561010d7154ae9.png" />
+</div>
+</div>
+</section>
+<section id="ring-width-and-related-measurements">
+<h3>Ring width and related measurements<a class="headerlink" href="#ring-width-and-related-measurements" title="Link to this heading"></a></h3>
+<p>Our cells have now being assigned a year based on the growth ring that they are a part of, but we have yet to use that new knowledge to make a few more measurements, most importantly ring width. To measure ring width, the ring boundaries defined earlier from the first earlywood cells of each ring are not going to be precise enough. We need to know exactly where each ring starts and ends, which we can do from the pixel-wise representation of year assignment that we just created, using the function <code class="docutils literal notranslate"><span class="pre">extract_ring_boundaries</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Returns the ring boundaries from the locations where cells of different rings meet each other</span>
+<span class="n">ring_boundaries</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">extract_ring_boundaries</span><span class="p">(</span><span class="n">year_image</span><span class="p">,</span> <span class="n">pix_to_um</span><span class="p">)</span>
+
+<span class="c1"># Let us display these</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ring_boundaries</span><span class="p">:</span>
+    <span class="n">rb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">rb</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">rb</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linewidth</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/0dea5753af9c13205d34c6a6eac30096b12cea27d6c3d6d9938c50326bf95afd.png" src="_images/0dea5753af9c13205d34c6a6eac30096b12cea27d6c3d6d9938c50326bf95afd.png" />
+</div>
+</div>
+<p>We can now measure the ring widths using the <code class="docutils literal notranslate"><span class="pre">measure_ringwidth</span></code> function. The algorithm implemented within this function first finds the shortest distance between each point on a ring boundary and the target ring boundary, and does so in both directions. To reduce the influence of potentially spurious measurements or irregularities in growth along the ring, the most extreme values in the two distributions of distances are trimmed; by default, the most extreme 10% values are trimmed on either side of the distribution (controlled by the parameter <code class="docutils literal notranslate"><span class="pre">trim_fraction</span></code>). All distances measured starting from both ring boundaries are then averaged to provide the ring width measurements.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Measure ringwidth from ring boundary lines</span>
+<span class="n">rw</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">measure_ringwidth</span><span class="p">(</span><span class="n">ring_boundaries</span><span class="p">,</span> <span class="n">trim_fraction</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="n">ringwidth_from_boundaries</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">rw</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rw</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">ringwidth_from_boundaries</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2    455.098402
+3    301.711191
+4    255.380502
+5    192.399869
+6    207.565952
+7    206.033801
+8    272.578078
+dtype: float64
+</pre></div>
+</div>
+</div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> also measures the distance from each cell within a ring to each of the previous and following ring boundary. This is done using the function <code class="docutils literal notranslate"><span class="pre">compute_cell_distances</span></code>, which returns a DataFrame with the shortest distance from each cell to the previous and next ring boundary. This measure is used later to filter radial file for completeness based on the distance of the first and last cells to their nearest ring boundary.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get cells distances from previous and next ring boundaries</span>
+<span class="c1"># This adds the columns &#39;dist_to_next&#39; and &#39;dist_to_prev&#39; to the celldata DataFrame</span>
+<span class="n">celldata</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">compute_cell_distances</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">ring_boundaries</span><span class="p">,</span> <span class="n">year_col</span><span class="o">=</span><span class="s2">&quot;year&quot;</span><span class="p">)</span>
+        
+<span class="c1"># Add total boundary distance per cell</span>
+<span class="n">celldata</span><span class="p">[</span><span class="s2">&quot;cell_ring_width&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celldata</span><span class="p">[</span><span class="s2">&quot;dist_to_next&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">celldata</span><span class="p">[</span><span class="s2">&quot;dist_to_prev&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>The measurements we just made were made at ring scale but we do not yet have a DataFrame structure to store those measurements. We will initialize one now by measuring ring properties with <code class="docutils literal notranslate"><span class="pre">skimage.measure.regionprops_table</span></code> on the image that assigned each pixel the year when the cell was formed.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Returns a DataFrame of shape properties at the ring scale</span>
+<span class="n">ringprops_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">regionprops_table</span><span class="p">(</span>
+                <span class="n">year_image</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                <span class="n">spacing</span> <span class="o">=</span> <span class="n">pix_to_um</span><span class="p">,</span>
+                <span class="n">properties</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s1">&#39;label&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;area&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;area_filled&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;major_axis_length&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;minor_axis_length&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;centroid&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;orientation&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;perimeter_crofton&#39;</span><span class="p">)))</span>
+
+<span class="c1"># Add ringwidth from boundaries</span>
+<span class="n">ringprops_df</span><span class="p">[</span><span class="s2">&quot;ringwidth&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ringprops_df</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">ringwidth_from_boundaries</span><span class="p">)</span>
+
+<span class="n">ringprops_df</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/tmp/ipykernel_9241/1977866436.py:4: RuntimeWarning: invalid value encountered in cast
+  year_image.astype(int),
+</pre></div>
+</div>
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>area</th>
+      <th>area_filled</th>
+      <th>major_axis_length</th>
+      <th>minor_axis_length</th>
+      <th>centroid-0</th>
+      <th>centroid-1</th>
+      <th>orientation</th>
+      <th>perimeter_crofton</th>
+      <th>ringwidth</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>8612.521900</td>
+      <td>8743.707815</td>
+      <td>281.980837</td>
+      <td>49.421562</td>
+      <td>100.512829</td>
+      <td>20.286660</td>
+      <td>-0.104996</td>
+      <td>708.706132</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>267534.130455</td>
+      <td>268745.100660</td>
+      <td>1359.449979</td>
+      <td>300.318789</td>
+      <td>489.620561</td>
+      <td>156.763100</td>
+      <td>-0.135046</td>
+      <td>4279.733295</td>
+      <td>455.098402</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>483849.401994</td>
+      <td>484860.715115</td>
+      <td>1837.786057</td>
+      <td>353.263957</td>
+      <td>786.850568</td>
+      <td>364.231193</td>
+      <td>-0.255761</td>
+      <td>4886.682220</td>
+      <td>301.711191</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>431379.580861</td>
+      <td>433624.586922</td>
+      <td>1934.948062</td>
+      <td>299.177456</td>
+      <td>833.850155</td>
+      <td>640.633822</td>
+      <td>-0.261847</td>
+      <td>5375.102512</td>
+      <td>255.380502</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>327021.034633</td>
+      <td>327360.663755</td>
+      <td>1936.187249</td>
+      <td>226.927377</td>
+      <td>835.803844</td>
+      <td>875.859208</td>
+      <td>-0.259060</td>
+      <td>4443.812762</td>
+      <td>192.399869</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>6</td>
+      <td>356102.497755</td>
+      <td>356845.379652</td>
+      <td>1954.274022</td>
+      <td>245.223719</td>
+      <td>834.913214</td>
+      <td>1086.162920</td>
+      <td>-0.254487</td>
+      <td>4762.421282</td>
+      <td>207.565952</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>7</td>
+      <td>349115.105748</td>
+      <td>350037.042784</td>
+      <td>1923.639898</td>
+      <td>245.312416</td>
+      <td>851.974571</td>
+      <td>1299.136584</td>
+      <td>-0.244131</td>
+      <td>4737.083854</td>
+      <td>206.033801</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>8</td>
+      <td>279495.983259</td>
+      <td>281272.598042</td>
+      <td>1597.397478</td>
+      <td>254.717914</td>
+      <td>1014.623541</td>
+      <td>1473.595473</td>
+      <td>-0.196588</td>
+      <td>4776.633332</td>
+      <td>272.578078</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>9</td>
+      <td>80135.809448</td>
+      <td>80254.270632</td>
+      <td>728.330838</td>
+      <td>174.677526</td>
+      <td>1396.240861</td>
+      <td>1579.286324</td>
+      <td>-0.153828</td>
+      <td>1837.479761</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<p>We also want to make a few additional measurements at the ring scale, in particular regarding the number of cells per radial file and how many of those are earlywood/latewood cells. To do this, we will first determine the rank of each cell in a radial file within its growth ring. We will then use that information to identify which cells are part of complete radial files using the function <code class="docutils literal notranslate"><span class="pre">filter_radial_files</span></code>. The first and last cell of a radial file must be adjacent to there respective ring boundaries for a radial file to be considered valid. The image below shows valid radial files in blue and non-valid ones in red.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compute new rank per radial_file in each ring</span>
+<span class="n">celldata</span><span class="p">[</span><span class="s2">&quot;file_rank_scaled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">celldata</span>
+    <span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s2">&quot;year&quot;</span><span class="p">,</span> <span class="s2">&quot;radial_file&quot;</span><span class="p">,</span> <span class="s2">&quot;file_rank&quot;</span><span class="p">])</span>  <span class="c1"># make sure sorted</span>
+    <span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;year&quot;</span><span class="p">,</span> <span class="s2">&quot;radial_file&quot;</span><span class="p">])</span>
+    <span class="o">.</span><span class="n">cumcount</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># starts from 1</span>
+    <span class="p">)</span>
+
+<span class="c1"># Adds a column called &#39;valid_radial_file&#39; that determines whether that cell is part of a complete radial file</span>
+<span class="n">celldata</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">filter_radial_files</span><span class="p">(</span><span class="n">celldata</span><span class="p">)</span>
+
+<span class="c1"># Displaying valid and non-valid radial files</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+
+<span class="n">years</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">celldata</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span>
+
+<span class="k">for</span> <span class="n">year</span> <span class="ow">in</span> <span class="n">years</span><span class="p">:</span>
+    <span class="n">year_df</span> <span class="o">=</span> <span class="n">celldata</span><span class="p">[</span><span class="n">celldata</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">year</span><span class="p">]</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">year_df</span><span class="p">[</span><span class="s1">&#39;radial_file&#39;</span><span class="p">])</span>
+    
+    <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+        <span class="n">file_df</span> <span class="o">=</span> <span class="n">year_df</span><span class="p">[</span><span class="n">year_df</span><span class="p">[</span><span class="s1">&#39;radial_file&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">file</span><span class="p">]</span>
+        <span class="n">file_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span> <span class="o">=</span> <span class="s1">&#39;file_rank&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">file_df</span><span class="p">):</span>
+            <span class="c1"># We only need to look at the first value to know if the radial file is valid</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;blue&#39;</span> <span class="k">if</span> <span class="n">file_df</span><span class="p">[</span><span class="s1">&#39;valid_radial_file&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="s1">&#39;red&#39;</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">file_df</span><span class="p">[</span><span class="s1">&#39;centroid-1&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">file_df</span><span class="p">[</span><span class="s1">&#39;centroid-0&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">pix_to_um</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">color</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/0a0dd261e5b743583a9794c3627c7f487c5e53dd7673a83631f1bec310202f3b.png" src="_images/0a0dd261e5b743583a9794c3627c7f487c5e53dd7673a83631f1bec310202f3b.png" />
+</div>
+</div>
+<p>Finally, we use this updated DataFrame of metadata on cells to compute a few more measures at ring scale using the functions <code class="docutils literal notranslate"><span class="pre">add_radialfile_stats</span></code> and <code class="docutils literal notranslate"><span class="pre">early_latewood_width</span></code>. Both of these functions work by adding columns to the DataFrame of ring-level measurements.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Add statistics on the number of files in radial files and related measurements</span>
+<span class="n">ringprops_df</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">add_radialfile_stats</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">ringprops_df</span><span class="p">)</span>
+
+<span class="c1"># Add measurements of earlywood and latewood width</span>
+<span class="n">ringprops_df</span> <span class="o">=</span> <span class="n">qrings</span><span class="o">.</span><span class="n">early_latewood_width</span><span class="p">(</span><span class="n">celldata</span><span class="p">,</span> <span class="n">ringprops_df</span><span class="p">)</span>
+
+<span class="n">ringprops_df</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>area</th>
+      <th>area_filled</th>
+      <th>major_axis_length</th>
+      <th>minor_axis_length</th>
+      <th>centroid-0</th>
+      <th>centroid-1</th>
+      <th>orientation</th>
+      <th>perimeter_crofton</th>
+      <th>ringwidth</th>
+      <th>...</th>
+      <th>nb_cells</th>
+      <th>nb_rfiles</th>
+      <th>nb_cells_val</th>
+      <th>nb_rfiles_val</th>
+      <th>nb_cells_mode</th>
+      <th>nb_ewcells_mode</th>
+      <th>nb_lwcells_mode</th>
+      <th>year_y</th>
+      <th>earlywood_width</th>
+      <th>latewood_width</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>8612.521900</td>
+      <td>8743.707815</td>
+      <td>281.980837</td>
+      <td>49.421562</td>
+      <td>100.512829</td>
+      <td>20.286660</td>
+      <td>-0.104996</td>
+      <td>708.706132</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>29</td>
+      <td>11</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>267534.130455</td>
+      <td>268745.100660</td>
+      <td>1359.449979</td>
+      <td>300.318789</td>
+      <td>489.620561</td>
+      <td>156.763100</td>
+      <td>-0.135046</td>
+      <td>4279.733295</td>
+      <td>455.098402</td>
+      <td>...</td>
+      <td>490</td>
+      <td>70</td>
+      <td>122.0</td>
+      <td>10.0</td>
+      <td>11.0</td>
+      <td>9.0</td>
+      <td>3.0</td>
+      <td>2.0</td>
+      <td>271.251263</td>
+      <td>49.550622</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>483849.401994</td>
+      <td>484860.715115</td>
+      <td>1837.786057</td>
+      <td>353.263957</td>
+      <td>786.850568</td>
+      <td>364.231193</td>
+      <td>-0.255761</td>
+      <td>4886.682220</td>
+      <td>301.711191</td>
+      <td>...</td>
+      <td>745</td>
+      <td>83</td>
+      <td>547.0</td>
+      <td>48.0</td>
+      <td>11.0</td>
+      <td>9.0</td>
+      <td>3.0</td>
+      <td>3.0</td>
+      <td>257.661690</td>
+      <td>43.039315</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>431379.580861</td>
+      <td>433624.586922</td>
+      <td>1934.948062</td>
+      <td>299.177456</td>
+      <td>833.850155</td>
+      <td>640.633822</td>
+      <td>-0.261847</td>
+      <td>5375.102512</td>
+      <td>255.380502</td>
+      <td>...</td>
+      <td>700</td>
+      <td>82</td>
+      <td>570.0</td>
+      <td>57.0</td>
+      <td>10.0</td>
+      <td>8.0</td>
+      <td>2.0</td>
+      <td>4.0</td>
+      <td>218.831764</td>
+      <td>35.021611</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>327021.034633</td>
+      <td>327360.663755</td>
+      <td>1936.187249</td>
+      <td>226.927377</td>
+      <td>835.803844</td>
+      <td>875.859208</td>
+      <td>-0.259060</td>
+      <td>4443.812762</td>
+      <td>192.399869</td>
+      <td>...</td>
+      <td>523</td>
+      <td>77</td>
+      <td>480.0</td>
+      <td>64.0</td>
+      <td>7.0</td>
+      <td>6.0</td>
+      <td>1.0</td>
+      <td>5.0</td>
+      <td>172.982872</td>
+      <td>17.040851</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>6</td>
+      <td>356102.497755</td>
+      <td>356845.379652</td>
+      <td>1954.274022</td>
+      <td>245.223719</td>
+      <td>834.913214</td>
+      <td>1086.162920</td>
+      <td>-0.254487</td>
+      <td>4762.421282</td>
+      <td>207.565952</td>
+      <td>...</td>
+      <td>525</td>
+      <td>76</td>
+      <td>465.0</td>
+      <td>59.0</td>
+      <td>8.0</td>
+      <td>7.0</td>
+      <td>1.0</td>
+      <td>6.0</td>
+      <td>192.075219</td>
+      <td>14.071273</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>7</td>
+      <td>349115.105748</td>
+      <td>350037.042784</td>
+      <td>1923.639898</td>
+      <td>245.312416</td>
+      <td>851.974571</td>
+      <td>1299.136584</td>
+      <td>-0.244131</td>
+      <td>4737.083854</td>
+      <td>206.033801</td>
+      <td>...</td>
+      <td>529</td>
+      <td>71</td>
+      <td>468.0</td>
+      <td>57.0</td>
+      <td>8.0</td>
+      <td>6.0</td>
+      <td>2.0</td>
+      <td>7.0</td>
+      <td>171.455692</td>
+      <td>29.933562</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>8</td>
+      <td>279495.983259</td>
+      <td>281272.598042</td>
+      <td>1597.397478</td>
+      <td>254.717914</td>
+      <td>1014.623541</td>
+      <td>1473.595473</td>
+      <td>-0.196588</td>
+      <td>4776.633332</td>
+      <td>272.578078</td>
+      <td>...</td>
+      <td>436</td>
+      <td>70</td>
+      <td>254.0</td>
+      <td>28.0</td>
+      <td>9.0</td>
+      <td>7.0</td>
+      <td>1.0</td>
+      <td>8.0</td>
+      <td>198.840060</td>
+      <td>23.615048</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>9</td>
+      <td>80135.809448</td>
+      <td>80254.270632</td>
+      <td>728.330838</td>
+      <td>174.677526</td>
+      <td>1396.240861</td>
+      <td>1579.286324</td>
+      <td>-0.153828</td>
+      <td>1837.479761</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>105</td>
+      <td>30</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+<p>9 rows × 22 columns</p>
+</div></div></div>
+</div>
+<p>The columns added by these function have the following meaning:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_cells</span></code>: total number of celles in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_rfiles</span></code>: total number of radial files in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_cells_val</span></code>: total number of cells in valid radial files in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_rfiles_val</span></code>: total number of valid radial files in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_cells_mode</span></code>: the most common number of cells per valid radial file in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_ewcells_mode</span></code>: the most common number of earlywood cells per valid radial file in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb_lwcells_mode</span></code>: the most common number of latewood cells per valid radial file in the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">year_y</span></code>: the year of the growth ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">earlywood_width</span></code>: the width of the earlywood part of the ring</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">latewood_width</span></code>: the width of the latewood part of the ring</p></li>
+</ul>
+</section>
+<section id="outputs">
+<h3>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h3>
+<p>By now, we are done with the computations and measurements made by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>. The <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> script ends by saving the resulting data to a few files which al start with the common prefix and a suffix. Here is a short description of the contents of each file :</p>
+<ul class="simple">
+<li><p>prefix + _ring_imgs.npz: the images generated as part of <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> (the ring boundaries and the assignment of pixels to years).</p></li>
+<li><p>prefix + _rings.pkl: an object serialized with <code class="docutils literal notranslate"><span class="pre">pickle.dump</span></code> containing the ring boundaries defined by the first earlywood cells of each ring.</p></li>
+<li><p>prefix + _polygons.pkl: an object serialized with <code class="docutils literal notranslate"><span class="pre">pickle.dump</span></code> containing the ring polygons used to assign years to cells.</p></li>
+<li><p>prefix + _ringcells.csv: the DataFrame of measurements at the cell level, similar to that output by <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> but with added columns added by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>.</p></li>
+<li><p>prefix + _rings.csv: the DataFrame of measurements at the ring level.</p></li>
+<li><p>prefix + _img.png: an image that summarizes the measurements and classification done by <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> and can be useful for validating the results or diagnosing issues.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="qwanaflow_example.html" class="btn btn-neutral float-left" title="Detailed qwanaflow workflow" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="changelog.html" class="btn btn-neutral float-right" title="Changelog" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Samuel Bouchut.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
