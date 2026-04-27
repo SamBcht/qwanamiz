@@ -23,6 +23,10 @@ def plot_angles(params, num_rows, num_cols):
     for i in range(num_rows):
         for j in range(num_cols):
 
+            # Skip subimages with no edges
+            if params[f'{i+1}_{j+1}']['nb_cells'] == 0:
+                continue
+            
             # Extracting the relevant data from the set of parameters
             x_histo = params[f'{i+1}_{j+1}']['x_histo']
             y_histo = params[f'{i+1}_{j+1}']['y_histo']
@@ -47,10 +51,10 @@ def plot_angles(params, num_rows, num_cols):
             # Add the 99% interval bounds as vertical lines
             ax.axvline(lower_bound, color='green', linestyle='--')
             ax.axvline(upper_bound, color='green', linestyle='--')
-            ax.text(min(x_histo) * 1.3, max(y_histo) * 0.3, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.3, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.8, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
-            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.7, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
+            ax.text(-1.2, max(y_histo) * 0.75, f'{np.degrees(lower_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(1.2, max(y_histo) * 0.75, f'{np.degrees(upper_bound):.2f}°', color='green', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.95, f'{np.degrees(mu):.2f}°', color='red', fontsize=8, ha='center')
+            ax.text(max(x_histo) * 0.7, max(y_histo) * 0.85, f'{kappa:.2f}', color='red', fontsize=8, ha='center')
 
             # Set limits and title
             ax.set_xlim(-np.pi/2, np.pi/2)
@@ -66,18 +70,20 @@ def plot_angles(params, num_rows, num_cols):
 
     return fig 
 
-
 def draw_rings(
     prediction,
     year_image,
     filtered_mask,
     celldata,
     output_path,
+    ring_boundaries=None,
     pix_to_um=1.0,
     radial_alpha=0.2,
     colorpal='inferno',
     point_radius=5,
-    line_width=3
+    line_width=3,
+    boundary_color=(0,255,255,255),
+    boundary_width=3
 ):
     """
     Create a full-resolution PNG summarizing prediction, year rings, and radial files,
@@ -177,6 +183,23 @@ def draw_rings(
                 fill=col,
             )
             
+    if ring_boundaries is not None:
+
+        for boundary in ring_boundaries:
+
+            # convert micron coordinates → pixels
+            coords_px = np.array(boundary) / pix_to_um
+
+            # convert (y,x) → (x,y) for PIL
+            line_coords = [(x, y) for y, x in coords_px]
+
+            if len(line_coords) > 1:
+                draw.line(
+                    line_coords,
+                    fill=boundary_color,
+                    width=boundary_width
+                )
+            
         # --- Legend & Info ---
     try:
         sample_id = str(celldata["SampleId"].iloc[0])
@@ -208,7 +231,7 @@ def draw_rings(
 
     # --- Save final image ---
     combined.save(output_path)
-    print(f"✅ Final PNG image saved : {output_path}")
+    print(f" Final PNG image saved : {output_path}")
 
 # A function that plots the main direction of each panel after running directionality function
 # base_image: an numpy array of an image to use as a background

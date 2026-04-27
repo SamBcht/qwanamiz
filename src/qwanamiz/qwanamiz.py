@@ -10,6 +10,7 @@ import datetime
 import os
 from multiprocessing import Pool
 from functools import partial
+from collections import defaultdict
 
 # scikit-image imports
 import skimage.io
@@ -18,8 +19,10 @@ from skimage import measure, segmentation
 from skimage.draw import line
 from skimage.filters import gaussian
 from skimage.feature import peak_local_max
+from skimage.morphology import convex_hull_image
 
 # scipy imports
+from scipy import ndimage as ndi
 from scipy.stats import vonmises
 from scipy.ndimage import distance_transform_edt
 from scipy.stats import circmean
@@ -29,7 +32,7 @@ import numpy as np
 import pandas as pd
 
 # qwanamiz-related imports
-from qwanamiz.vonmisesmix import histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
+from qwanamiz.vonmisesmix import estimate_kappa, mixture_pdfit_optim,  histogram, density, vonmises_pdfit, mixture_pdfit, pdfit, vonmises_density
 import qwanamiz.qwanaplots as qplots
 
 ##########################################################################
@@ -318,15 +321,67 @@ def adjacency_dataframe(expanded_labels, lumen_props):
     return adj_df
 
 #############################################################################
+def get_sample_contour(expanded_labels):
+    # 1. Binary mask of sample
+    sample_mask = expanded_labels > 0
+
+    # 2. Fill internal holes (important if lumen gaps exist)
+    sample_filled = ndi.binary_fill_holes(sample_mask)
+
+    # PAD with one layer of zeros
+    padded = np.pad(sample_filled, pad_width=1, mode='constant', constant_values=0)
+
+    # Now extract contours
+    contours = measure.find_contours(padded, 0.5)
+
+    # Take the largest contour
+    close_contour = max(contours, key=len)
+
+    # Remove padding offset
+    close_contour -= 1
+    
+    # Label connected components
+    labeled_cc, num = ndi.label(sample_mask)
+
+    # Compute sizes
+    sizes = np.bincount(labeled_cc.ravel())
+    sizes[0] = 0  # ignore background
+
+    # Keep largest component
+    largest_label = sizes.argmax()
+    clean_mask = labeled_cc == largest_label
+    clean_mask = ndi.binary_fill_holes(clean_mask)
+
+    hull = convex_hull_image(clean_mask)
+
+    padded = np.pad(hull, 1, mode='constant')
+    h_contours = measure.find_contours(padded, 0.5)
+
+    hull_contour = max(h_contours, key=len)
+    hull_contour -= 1
+    
+    return hull, close_contour, hull_contour
+
+
+#############################################################################
 # Automatically define the numbers of rows and columns used to divide the image based on the image shape
-def calculate_grid(image_width, image_height, pixel_to_micron, row_min_height = 480, row_max_height = 750, col_min_width = 1250, col_max_width = 2000):
+def calculate_grid(image_width,
+                   image_height,
+                   pixel_to_micron,
+                   sample_mask=None,
+                   row_min_height=480,
+                   row_max_height=750,
+                   col_min_width=1250,
+                   col_max_width=2000,
+                   overlap_keep_threshold=0.5):
     """
     Calculate the number of rows and columns based on given image size and desired micron ranges.
-
+    
     Args:
     - image_width: width of the image in pixels.
     - image_height: height of the image in pixels.
     - pixel_to_micron: conversion factor (microns per pixel).
+    - sample_mask: convex hull mask of the sample
     - row_min_height: minimum height of a row in microns.
     - row_max_height: maximum height of a row in microns.
     - col_min_width: minimum width of a column in microns.
@@ -335,28 +390,176 @@ def calculate_grid(image_width, image_height, pixel_to_micron, row_min_height = 
     Returns:
     - num_rows: number of rows
     - num_cols: number of columns
+    - subsample_params: dictionnary of subimages parameters
+    - tile_merge_map: mapping of subimages to merge to get enough cells
     """
 
-    # Convert image dimensions from pixels to microns
+    # --- original grid calculation ---
     image_width_microns = image_width * pixel_to_micron
     image_height_microns = image_height * pixel_to_micron
 
-    # Calculate the number of rows and columns based on desired micron range
-    # Number of rows: each row has a height between row_min_height and row_max_height
-    row_height = (row_min_height + row_max_height) / 2  # average height
-    num_rows = np.ceil(image_height_microns / row_height)
+    row_height_target = (row_min_height + row_max_height) / 2
+    col_width_target = (col_min_width + col_max_width) / 2
 
-    # Number of columns: each column has a width between col_min_width and col_max_width
-    col_width = (col_min_width + col_max_width) / 2  # average width
-    num_cols = np.ceil(image_width_microns / col_width)
+    num_rows = int(np.ceil(image_height_microns / row_height_target))
+    num_cols = int(np.ceil(image_width_microns / col_width_target))
 
-    return int(num_rows), int(num_cols)
+    row_height = image_height_microns / num_rows
+    col_width = image_width_microns / num_cols
 
+    subsample_params = {}
+    tile_merge_map = {}
+
+    # --- compute overlap ---
+    overlap_matrix = np.zeros((num_rows, num_cols))
+
+    for i in range(num_rows):
+        for j in range(num_cols):
+
+            y_min = i * row_height
+            y_max = (i + 1) * row_height
+            x_min = j * col_width
+            x_max = (j + 1) * col_width
+
+            key = f"{i+1}_{j+1}"
+
+            if sample_mask is not None:
+
+                ypix_min = int(round(y_min / pixel_to_micron))
+                ypix_max = int(round(y_max / pixel_to_micron))
+                xpix_min = int(round(x_min / pixel_to_micron))
+                xpix_max = int(round(x_max / pixel_to_micron))
+
+                tile = sample_mask[ypix_min:ypix_max, xpix_min:xpix_max]
+
+                overlap = tile.mean() if tile.size else 0
+
+            else:
+                overlap = 1
+
+            overlap_matrix[i, j] = overlap
+
+            subsample_params[key] = {
+                'vonmisses_params': np.array([]),
+                'bounds': (np.nan, np.nan),
+                "x": (x_min, x_max),
+                "y": (y_min, y_max),
+                "overlap_hull": overlap,
+                'x_histo': np.array([]),
+                'y_histo': np.array([]),
+                'mu': np.nan,
+                'kappa': np.nan,
+                'nb_cells': 0,
+                'cell_index': []
+            }
+
+    # --- compute merge map column-wise ---
+    for j in range(num_cols):
+
+        column = overlap_matrix[:, j]
+
+        valid_rows = np.where(column >= overlap_keep_threshold)[0]
+
+        for i in range(num_rows):
+
+            key = f"{i+1}_{j+1}"
+            overlap = column[i]
+
+            if overlap == 0:
+                tile_merge_map[key] = {
+                    "action": "discard",
+                    "target": None
+                }
+
+            elif overlap >= overlap_keep_threshold:
+
+                tile_merge_map[key] = {
+                    "action": "keep",
+                    "target": key
+                }
+
+            else:
+                # partial → merge to closest valid row
+                if len(valid_rows) == 0:
+                    tile_merge_map[key] = {
+                        "action": "discard",
+                        "target": None
+                    }
+                else:
+                    nearest = valid_rows[np.argmin(np.abs(valid_rows - i))]
+                    target_key = f"{nearest+1}_{j+1}"
+
+                    tile_merge_map[key] = {
+                        "action": "merge",
+                        "target": target_key
+                    }
+
+    return num_rows, num_cols, subsample_params, tile_merge_map
+
+def assign_edges_to_tiles(adj_df,
+                          subsample_params,
+                          tile_merge_map,
+                          num_rows,
+                          num_cols,
+                          spacing):
+
+    """
+    Assign each edge to its effective tile (respecting merge_map)
+    and store indices directly in subsample_params.
+    """
+
+    # build reverse merge lookup
+    merge_children = defaultdict(list)
+
+    for tile, info in tile_merge_map.items():
+        if info["action"] == "merge":
+            merge_children[info["target"]].append(tile)
+
+    # initialize empty lists
+    for tile_key in subsample_params.keys():
+        subsample_params[tile_key]["cell_index"] = []
+
+    # extract centers as array
+    centers = np.vstack(adj_df["center"].values)
+
+    y = centers[:, 0]
+    x = centers[:, 1]
+
+    # tile size (microns)
+    example = next(iter(subsample_params.values()))
+    tile_height = example["y"][1] - example["y"][0]
+    tile_width  = example["x"][1] - example["x"][0]
+
+    # compute tile indices directly
+    row_idx = np.floor(y / tile_height).astype(int)
+    col_idx = np.floor(x / tile_width).astype(int)
+
+    # clamp to grid
+    row_idx = np.clip(row_idx, 0, num_rows-1)
+    col_idx = np.clip(col_idx, 0, num_cols-1)
+
+    # assign edges
+    for edge_index, r, c in zip(adj_df.index, row_idx, col_idx):
+
+        tile_key = f"{r+1}_{c+1}"
+
+        info = tile_merge_map.get(tile_key, {"action": "keep"})
+
+        if info["action"] == "discard":
+            continue
+
+        if info["action"] == "merge":
+            tile_key = info["target"]
+
+        subsample_params[tile_key]["cell_index"].append(edge_index)
+
+    return subsample_params
 
 # Directionality modeling
 def directionality(adj_df,
                    image_height,
                    image_width,
+                   sample_mask=None,
                    spacing = 1,
                    num_rows = None,
                    num_cols = None,
@@ -364,102 +567,175 @@ def directionality(adj_df,
                    mu_threshold = 5,  # in degrees
                    max_iterations = 5,  # Maximum number of iterations to avoid infinite looping
                    convergence_threshold = 0.001,
-                   k_threshold = 50):
+                   k_threshold = 40):
 
     # Determining the number of rows and columns automatically if either num_rows or num_cols are None
+    # taking into account the real shape of the sample
     if num_rows is None or num_cols is None:
-        num_rows, num_cols = calculate_grid(image_width = image_width,
+        num_rows, num_cols, subsample_params, tile_merge_map = calculate_grid(image_width = image_width,
                                             image_height = image_height,
+                                            sample_mask=sample_mask,
                                             pixel_to_micron = spacing)
+        
+    subsample_params = assign_edges_to_tiles(
+        adj_df,
+        subsample_params,
+        tile_merge_map,
+        num_rows,
+        num_cols,
+        spacing
+    )
     
-    row_height = (image_height * spacing) / num_rows
-    col_width = (image_width * spacing) / num_cols
+    for tile_key, params in subsample_params.items():
 
-    # Subsampling image and filtering of edges based on von Mises distributions
+        merge_info = tile_merge_map[tile_key]
 
-    # Dictionary to store the parameters for each subsample
-    subsample_params = {}
+        if merge_info["action"] != "keep":
+            continue
 
-    for i in range(num_rows):
-        for j in range(num_cols):
-            # Determine the bounds of the current subsample
-            y_min = i * row_height
-            y_max = (i + 1) * row_height
-            x_min = j * col_width
-            x_max = (j + 1) * col_width
-            
-            # Filter the edges within the current subsample
-            subsample_edges = adj_df[
-                (adj_df['center'].apply(lambda c: y_min <= c[0] < y_max)) &
-                (adj_df['center'].apply(lambda c: x_min <= c[1] < x_max))
-            ]
+        cell_indices = params["cell_index"]
+
+        if len(cell_indices) == 0:
+            continue
+
+        subsample_edges = adj_df.loc[cell_indices]
             
             # Convert angles to radians
-            angle_rad = np.radians(subsample_edges['angle'])
-            
-            # Compute the histogram
-            x_histo, y_histo = histogram(angle_rad, bins=90)
-            
-            # Find the angle corresponding to the maximum y value in the histogram
-            max_peak_angle = np.degrees(x_histo[np.argmax(y_histo)])
+        angle_rad = np.radians(subsample_edges['angle'])
+        
+        # Compute the histogram
+        x_histo, y_histo = histogram(angle_rad, bins=90)
+        
+        # Find the angle corresponding to the maximum y value in the histogram
+        max_peak_angle = np.degrees(x_histo[np.argmax(y_histo)])
 
-            # Determining starting values to find the von Mises distribution parameters
-            # The max peak angle ± 60 degrees are a good starting approximation
-            mu_start = [max_peak_angle - 60, max_peak_angle, max_peak_angle + 60]
-            mu_start = [i + 180 if i < -90 else i for i in mu_start]
-            mu_start = [i - 180 if i > 90 else i for i in mu_start]
-            mu_start = np.radians(mu_start)
+        # Determining starting values to find the von Mises distribution parameters
+        # The max peak angle ± 60 degrees are a good starting approximation
+        mu_start = [max_peak_angle - 60, max_peak_angle, max_peak_angle + 60]
+        mu_start = [i + 180 if i < -90 else i for i in mu_start]
+        mu_start = [i - 180 if i > 90 else i for i in mu_start]
+        mu_start = np.radians(mu_start)
 
+        
+
+        # We use pi values in equal proportions
+        pi_start = np.array([1.0, 1.0, 1.0]) / 3
+        
+        # Fit mixture of von Mises distributions
+        iterations = 0
+        iteration_results = []
+        
+        while iterations < max_iterations:
+            
             # Kappa values roughly similar to those empirically observed
-            kappa_start = np.array([10, 150, 10])
-
-            # We use pi values in equal proportions
-            pi_start = np.array([1.0, 1.0, 1.0]) / 3
+            kappa_start = np.array([10, 150 + iterations*100, 10])
             
-            # Fit mixture of von Mises distributions
-            iterations = 0
-            while iterations < max_iterations:
-                
-                m = mixture_pdfit(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
+            m = mixture_pdfit_optim(angle_rad, n=3, mu = mu_start, kappa = kappa_start, pi = pi_start, threshold = convergence_threshold)
+        
+            # Parameters of the horizontal edges distribution
+            max_index = np.argmax(m[2])
+            mu = m[1, max_index]
+            kappa = m[2, max_index]
             
-                # Parameters of the horizontal edges distribution
-                max_index = np.unravel_index(np.argmax(m, axis=None), m.shape)[1]
-                mu = m[1, max_index]
-                kappa = m[2, max_index]
-                
-                # Check if the estimated mu is similar to the maximum peak angle
-                if np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa > k_threshold:
-                    break
-
+            # Check if the estimated mu is similar to the maximum peak angle
+            if np.abs(np.degrees(mu) - max_peak_angle) >= mu_threshold:
+                iteration_results.append({
+                    "m": m,
+                    "mu": mu,
+                    "kappa": kappa,
+                    "index": max_index
+                })
                 iterations += 1
-            
-            # Calculate the bounds of the interval
-            lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
-            upper_bound = vonmises.ppf(0.995, kappa, loc=mu)    
-            
-            # If max_iterations is reached, find the closest mu to max_peak_angle
-            if iterations == max_iterations:
-                closest_index = np.argmin(np.abs(np.degrees(m[1, :]) - max_peak_angle))
-                max_index = closest_index
-                mu = m[1, max_index]
-                kappa = m[2, max_index]
-                lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
-                upper_bound = vonmises.ppf(0.9, kappa, loc=mu)    
+                continue
+            elif np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa > k_threshold:
+                # Calculate the bounds of the interval
+                lower_bound = vonmises.ppf(0.005, kappa, loc=mu)
+                upper_bound = vonmises.ppf(0.995, kappa, loc=mu)
+                break
+            elif np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa > k_threshold/2:
+                lower_bound = vonmises.ppf(0.01, kappa, loc=mu)
+                upper_bound = vonmises.ppf(0.99, kappa, loc=mu)
+                break
+            elif np.abs(np.degrees(mu) - max_peak_angle) < mu_threshold and kappa <= k_threshold/2:
+                if kappa > 5:
+                    lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+                    upper_bound = vonmises.ppf(0.9, kappa, loc=mu)
+                else:
+                    kappa = 5
+                    lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+                    upper_bound = vonmises.ppf(0.9, kappa, loc=mu)
+                break
+            else:
+                iteration_results.append({
+                    "m": m,
+                    "mu": mu,
+                    "kappa": kappa,
+                    "index": max_index
+                })
+                
+            iterations += 1
+
+        if iterations == max_iterations:
+        
+            best_diff = np.inf
+            best_mu = None
+            best_kappa = None
+            best_m = None
+            best_index = None
+        
+            # Include last iteration
+            iteration_results.append({"m": m})
+        
+            for res in iteration_results:
+        
+                m_iter = res["m"]
+        
+                for j in range(m_iter.shape[1]):
+        
+                    mu_candidate = m_iter[1, j]
+                    kappa_candidate = m_iter[2, j]
+        
+                    if np.isnan(mu_candidate):
+                        continue
+        
+                    diff = np.abs(np.degrees(mu_candidate) - max_peak_angle)
+        
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_mu = mu_candidate
+                        best_kappa = kappa_candidate
+                        best_m = m_iter
+                        best_index = j
+        
+            # Fallback if everything failed
+            if best_mu is None:
+                mu = np.radians(max_peak_angle)
+                kappa = 5
+                best_m = m
+                best_index = 0
+            else:
+                mu = best_mu
+                if best_kappa >= 5: 
+                    kappa = best_kappa
+                else:
+                    kappa = 5
+                m = best_m
+                max_index = best_index
+        
+            lower_bound = vonmises.ppf(0.1, kappa, loc=mu)
+            upper_bound = vonmises.ppf(0.9, kappa, loc=mu)
 
 
-
-            # Save the parameters for this subsample
-            subsample_params[f'{i+1}_{j+1}'] = {
-                'vonmisses_params': m,
-                'bounds': (lower_bound, upper_bound),
-                'x': (x_min, x_max),
-                'y': (y_min, y_max),
-                'x_histo': x_histo,
-                'y_histo': y_histo,
-                'mu': mu,
-                'kappa': kappa,
-                'nb_cells': len(angle_rad),
-                'cell_index': subsample_edges.index}
+        # Save the parameters for this subsample
+        params.update({
+            'vonmisses_params': m,
+            'bounds': (lower_bound, upper_bound),
+            'x_histo': x_histo,
+            'y_histo': y_histo,
+            'mu': mu,
+            'kappa': kappa,
+            'nb_cells': len(angle_rad)
+        })
 
     # Initialize an empty list to store the rows
     rows = []
@@ -467,7 +743,10 @@ def directionality(adj_df,
     # Iterate over the dictionary items
     for subsample_index, params in subsample_params.items():
         bounds = params['bounds']
-        cell_indices = params['cell_index']
+        cell_indices = params.get("cell_index", [])
+        
+        if not cell_indices:
+            continue
         
         # Create a row for each cell index
         for cell_index in cell_indices:
@@ -1128,6 +1407,10 @@ def calculate_diameter(label_image, centroid, angle, bbox, spacing = 1):
             
         distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         diam_coords = ((y1 + min_row) * spacing, (x1 + min_col) * spacing), ((y2 + min_row) * spacing, (x2 + min_col)* spacing)
+        
+    # Prevent degenerate 0-length diameters
+    if distance == 0:
+        distance = 1
 
 
     return distance, diam_coords

@@ -9,7 +9,6 @@ Created on Sun Mar 23 14:40:54 2025
 # Generic python imports
 import os
 import datetime
-#from collections import defaultdict
 import argparse
 import pickle
 
@@ -17,12 +16,12 @@ import pickle
 import numpy as np
 import pandas as pd
 import networkx as nx
+from skimage.measure import regionprops_table
 
 # qwanamiz-specific imports
-#import qwanamiz.qwanamiz
+from qwanamiz import qwanamiz as qmiz
 from qwanamiz import rings_functions as qrings
 from qwanamiz import qwanaplots as qplots
-from skimage.measure import regionprops_table
 
 def main():
 
@@ -32,10 +31,6 @@ def main():
                     help="""Path to the main directory containing subfolders for each processed image. 
                     Suffixes '_imgs.npz', '_cells.csv' and '_adjacency.csv' must be in the subfolders to obtain the input files.""")
 
-
-    #parser.add_argument("--prefix", help = """The prefix of the files to use for the analysis. Suffixes '_imgs.npz', '_cells.csv' and
-    #                                          '_adjacency.csv' will be added to that prefix to obtain the input files.""")
-
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
@@ -44,8 +39,12 @@ def main():
 
     parser.add_argument("--first-year", dest = "firstyear", type = int, default = 1,
                         help = """The calendar year when the first ring was formed, used for assigning cells to years. Defaults to 1 (year unknown).""")
+    parser.add_argument("--iterations", dest="iterations", type=int, default=1,
+                    help="Number of refinement iterations for boundary segment merging. Default = 1.")
 
     args = parser.parse_args()
+
+    pix_to_um = args.pixel
     
     # --- Find all directories ending with "_outputs" ---
     output_dirs = sorted([
@@ -60,120 +59,39 @@ def main():
         
     # --- Process each directory ---
     for outdir in output_dirs:
-        base_name = os.path.basename(outdir).replace("_outputs", "")
-        prefix = os.path.join(outdir, base_name)
     
         start = datetime.datetime.now()
-        print(f"Processing {base_name}...")
-    
-        imgs_path = f"{prefix}_imgs.npz"
-        cells_path = f"{prefix}_cells.csv"
-        adjacency_path = f"{prefix}_adjacency.csv"
-    
-        missing = [p for p in [imgs_path, cells_path, adjacency_path] if not os.path.exists(p)]
-        if missing:
-            print(f"Skipping {base_name} — missing files: {', '.join(os.path.basename(m) for m in missing)}\n")
-            continue
 
-        # Reading the input data
-        images = np.load(imgs_path)
-        celldata = pd.read_csv(cells_path)
-        adjacency = pd.read_csv(adjacency_path)
-    
-        # Explicitly setting the double index on the adjacency DataFrame
-        adjacency.set_index(['label1', 'label2'], inplace=True)
-    
-        # Giving an explicit variable name to the expanded labels image
-        expanded_labels = images['explabs']
-    
-        pix_to_um = args.pixel
+        base_name = os.path.basename(outdir).replace("_outputs", "")
+        print(f"Processing {base_name}...")
+
+        # Reading the data needed for the analysis
+        print("Reading input files")
+        prefix = os.path.join(outdir, base_name)
+        celldata, adjacency, expanded_labels, prediction = qrings.read_qwanarings_inputs(prefix)
+        qmiz.update_runtime(start)
     
         ##############################################################################
         # Detection of tree-ring transitions by comparing successive cells properties
         # (radial diameter and early-latewood classification)
-        print("Find boundary cells & connected components")
-        celldata = qrings.morks_index(celldata)
-        
+        print("Identifying the first and last cells of each ring")
+
         # Get lastcells in rings based on diameter and woodzone cell features
-        lastcells_labels, rightcells_labels, leftcells_labels = qrings.get_lastcells(celldata, adjacency)
-    
-        # Create a mask where pixels belong to lastcells or their right_neighbors
-        rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-        rightcells_mask[np.isin(expanded_labels, rightcells_labels)] = True
-    
-        ###############################################################################
-        # Now we can filter the cell and adjacency dataframes based on cell classification
-        # This allow us to filter the edges (adjacencies) and nodes (cells) involved in
-        # a ring transition
-    
-        # Keep only cells whose label is in right_neighbor_labels
-        rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
-        # Extract the lastcell labels as a set
-        rightcells_labels = set(rightcells_df["label"])
+        celldata = qrings.morks_index(celldata)
+        lastcells, rightcells = qrings.get_lastcells(celldata, adjacency)
+
+        qmiz.update_runtime(start)
     
         ###############################################################################
         #### RING BOUNDARY GRAPH & CONNECTED COMPONENTS ####
     
-        #### The method use in this section could be an elegant way to handle several
-        #following steps of the scripts.
-    
-        # This could allow us to write the workflow independantly from the image arrays
-        # (expanded_labels), just taking the informations from the adajcency and cells dataframes
-    
-        # The idea would be to add or remove nodes and edges if they can or not be 
-        # considered with sufficient confidence to belong to a ring boundary or to be excluded
-    
-        #### We could use it to separate problematic regions by finding edges to remove
-        # to avoid connecting cells of the same radial file
-    
-        #### Similarly we could use it to integrate successively cells and edges we can
-        # confidently attribute to ring boundaries but that are not detected at first
-        # because of too restricting criteria
-        # See Common Neighbors & Up-Down Pairs sections of the script
-    
-        # Now we can construct the graph using previously filtered nodes and edges
-        graph = qrings.boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels)
-    
-        # Find connected components (as sets of nodes)
-        # This will group all cells that are connected by a path along retained edges
-        # So it will segregate ring boundaries and group togeteher cells belonging to
-        # a same boundary
-        connected_components = list(nx.connected_components(graph))
-    
-        # Create a mapping from node to component ID
-        node_to_component = {}
-        for i, component in enumerate(connected_components):
-            for node in component:
-                node_to_component[node] = i + 1 # i + 1 to avoid the 0 label reserved for background
-    
-        # Now we can assign component (boundary) IDs as a node attribute
-        nx.set_node_attributes(graph, node_to_component, 'component_id')
-    
-        # Finally we can visualize the results of the grouping
-        # We thus have a first image with labels corresponding to cells groups of cells
-        # expected to belong to a ring transition
-    
-        # Prepare a mask of pixels whose cell label is in label_to_region
-        target_labels = np.array(list(node_to_component.keys()))
-        target_mask = np.isin(expanded_labels, target_labels)
-    
-        # Get region IDs for those cell labels
-        label_array = expanded_labels[target_mask]
-        region_array = np.vectorize(node_to_component.get)(label_array)
-    
-        # Make a copy to avoid modifying in-place unless you want to
-        boundary_labeled = np.zeros_like(expanded_labels, dtype=int)
-    
-        # Update boundary-labeled values at those positions
-        boundary_labeled[target_mask] = region_array
-    
-        # Now we will work mostly with rightcells
-        # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
-        # unwanted groupings by using a single line of cells
-        right_to_region, region_to_right = qrings.map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
-    
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        print("Finding connected components from adjacency graph of first/last cells to identify ring boundaries")
+        graph, boundaries, right_to_region, region_to_right, rightcells_df = qrings.find_boundaries(celldata,
+                                                                                                   adjacency,
+                                                                                                   lastcells,
+                                                                                                   rightcells,
+                                                                                                   expanded_labels)
+        qmiz.update_runtime(start)
         
         ###### FIND PROBLEMATIC BOUNDARY REGIONS
         # Problematic regions are those where there is more than one rightcell (or lastcell)
@@ -184,31 +102,23 @@ def main():
     
         # Problems very often arrive when 2 rightcells in radial files above each other
         # are adjacent by a little corner touching
-        
-        print("Find boundary segments to merge with adjacency")
-    
-        # Step 1: Map lastcell labels to their corresponding boundary region
-        rightcells_df["boundary_region"] = rightcells_df["label"].map(right_to_region)
-    
-        # Step 2: Count unique lastcell labels per (radial_file, boundary_region)
-        region_counts = rightcells_df.groupby(["radial_file", "boundary_region"])["label"].nunique()
-    
-        # Step 3: Filter for regions with more than one lastcell in the same radial_file
-        problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_region"].unique()
-    
+        problematic_regions = qrings.get_problematic_regions(rightcells_df)
         print("Regions with multiple lastcells in the same radial_file:", problematic_regions)
     
         # Here we can define a function to correct the problematic regions based on
         # the subgraph of the region. The idea would be to find the minimum edges to 
         # remove to resolve the problem
         ###############################################################################
+
         #### Now the objective will be to add progressively new cells at the extremities
         # ring boundary groups. We can then use these cells and their adjacencies to group
         # ring boundary segments that we can think with confidence they belong to a same 
         # ring boundary
+
+        print("Find boundary segments to merge with adjacency")
     
         # We update the boundary_labeled image image to keep only rightcells
-        rightcells_boundary = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
+        rightcells_boundary = qrings.create_boundary_array(right_to_region, expanded_labels)
     
         #### Now we find the most up- and downward cells in each ring boundary segments
         up_extremities, down_extremities = qrings.get_extremities(region_to_right, rightcells_df)
@@ -225,79 +135,104 @@ def main():
         # another segment
     
         # We also keep the remaining cells for further use
-        common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = qrings.get_extremity_neighbors(up_extremities, down_extremities, celldata)
-    
-        ###############################################################################
-        #### INTEGRATION OF NEW CELLS
-    
-        #### The integration could be implemented in a more elegant way using the method
-        # of the graph by adding nodes and edges involving common neighbors, up-down pairs etc...
-    
-        # Empirically, it seems to me that we can confidently integrate common neighbors
-        # and up and down pairs and use them to merge boundary segments without 
-        # introducing too much errors
-    
-        # To avoid errors, it's important to always keep the direct adjacency link 
-        # between the new integrated cell and its specific up and/or down extremity
-        # as well as the label of the extremity ring segment
-    
-        # We start by integrating common neighbors and merge ring segments accordingly
-        updated_boundaries = qrings.integrate_commons(upward_neighbors, 
-                                                               downward_neighbors, 
-                                                               common_neighbors, 
-                                                               rightcells_boundary, 
-                                                           expanded_labels)
-    
-        # We then integrate up and down pairs and also merge regions accordingly
-        # An update of the cell_to_region mapping is done internally
-        final_boundaries = qrings.integrate_updown(upward_neighbors, 
-                                                            downward_neighbors, 
-                                                            up_down_pairs, 
-                                                            updated_boundaries, 
-                                                            expanded_labels)
-    
-        # We update the mapping of cells to their boundary region
-        cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
-        ###############################################################################
-        #### INTEGRATION OF CELLS AT THE EXTREMITIES
-    
-        # We find in the remaining cells adjacent to extremities the ones that show
-        # characteristics of ring transition
-        labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8)
-    
-        # Cells retained for integration are the ones with their direct left neighbor
-        # showing a X times lower diameter
-        # or a transition between earlywood and latewood
-        boundaries = qrings.integrate_candidates(final_boundaries, 
-                                                          expanded_labels, 
-                                                          labels_to_integrate, 
-                                                          cell_to_region, 
-                                                          upward_neighbors, 
-                                                          downward_neighbors)
-    
-        # UPDATE THE RIGHTCELLS DATAFRAME WITH NEWLY INTEGRATED CELLS
-        # Step 1: Gather all labels already accounted for
-        integrated_labels = set(common_neighbors)  # Labels in both up and down neighbor sets
-        integrated_labels.update(label for pair in up_down_pairs for label in pair)  # Labels in up-down pairs
-        # Keep only cells whose label is in right_neighbor_labels
-        integrated_labels.update(labels_to_integrate)
-    
-        # Step 1: Filter celldata for the integrated labels
-        new_rows = celldata[celldata["label"].isin(integrated_labels)].copy()
-    
-        # Step 2: Append to rightcells_df (without duplicate labels)
-        rightcells_df = pd.concat([rightcells_df, new_rows]).drop_duplicates(subset="label")
-    
-        cell_to_region, region_to_cells = qrings.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
-    
-    
-        # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+        iter_merging = 0
+        max_iter = args.iterations
         
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
-    
-        ############################################################################
+        while iter_merging < max_iter:
+            
+            common_neighbors, up_down_pairs, remaining_labels, upward_neighbors, downward_neighbors = qrings.get_extremity_neighbors(up_extremities, down_extremities, celldata)
+        
+            ###############################################################################
+            #### INTEGRATION OF NEW CELLS
+        
+            #### The integration could be implemented in a more elegant way using the method
+            # of the graph by adding nodes and edges involving common neighbors, up-down pairs etc...
+        
+            # Empirically, it seems to me that we can confidently integrate common neighbors
+            # and up and down pairs and use them to merge boundary segments without 
+            # introducing too much errors
+        
+            # To avoid errors, it's important to always keep the direct adjacency link 
+            # between the new integrated cell and its specific up and/or down extremity
+            # as well as the label of the extremity ring segment
+        
+            # We start by integrating common neighbors and merge ring segments accordingly
+            updated_boundaries = qrings.integrate_commons(upward_neighbors, 
+                                                                   downward_neighbors, 
+                                                                   common_neighbors, 
+                                                                   rightcells_boundary, 
+                                                               expanded_labels)
+        
+            # We then integrate up and down pairs and also merge regions accordingly
+            # An update of the cell_to_region mapping is done internally
+            final_boundaries = qrings.integrate_updown(upward_neighbors, 
+                                                                downward_neighbors, 
+                                                                up_down_pairs, 
+                                                                updated_boundaries, 
+                                                                expanded_labels)
+        
+            # We update the mapping of cells to their boundary region
+            cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+            ###############################################################################
+            #### INTEGRATION OF CELLS AT THE EXTREMITIES
+        
+            # We find in the remaining cells adjacent to extremities the ones that show
+            # characteristics of ring transition
+            labels_to_integrate = qrings.get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8)
+        
+            # Cells retained for integration are the ones with their direct left neighbor
+            # showing a X times lower diameter
+            # or a transition between earlywood and latewood
+            if len(labels_to_integrate) > 0 :
+                boundaries = qrings.integrate_candidates(final_boundaries, 
+                                                              expanded_labels, 
+                                                              labels_to_integrate, 
+                                                              cell_to_region, 
+                                                              upward_neighbors, 
+                                                              downward_neighbors)
+            else:
+                boundaries = final_boundaries
+
+        
+            # UPDATE THE RIGHTCELLS DATAFRAME WITH NEWLY INTEGRATED CELLS
+            # Step 1: Gather all labels already accounted for
+            integrated_labels = set(common_neighbors)  # Labels in both up and down neighbor sets
+            integrated_labels.update(label for pair in up_down_pairs for label in pair)  # Labels in up-down pairs
+            # Keep only cells whose label is in right_neighbor_labels
+            integrated_labels.update(labels_to_integrate)
+        
+            # Step 1: Filter celldata for the integrated labels
+            new_rows = celldata[celldata["label"].isin(integrated_labels)].copy()
+        
+            # Step 2: Append to rightcells_df (without duplicate labels)
+            rightcells_df = pd.concat([rightcells_df, new_rows]).drop_duplicates(subset="label")
+        
+            cell_to_region, region_to_cells = qrings.map_cell_to_region(boundaries > 0, boundaries, expanded_labels)
+        
+        
+            # Find the extrmities of the new ring segments
+            up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+            
+            qmiz.update_runtime(start)
+        
+        
+            # The function return a list of tuples with labels of the CONNECTED CELLS
+            connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
+        
+            final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
+        
+            cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+        
+            # Find the extrmities of the new ring segments
+            up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+            
+            rightcells_boundary = final_boundaries
+            
+            iter_merging += 1
+            ############################################################################
+            
+        qmiz.update_runtime(start)
+        
         # FIND ADJACENCIES BETWEEN RING SEGMENTS AFTER ADDITION OF CELLS
     
         # Here we extend the adjacency research to all types instead of only radial_sel
@@ -306,14 +241,14 @@ def main():
         print("Iterative search of boundary segments to merge from distances")
     
         # The function return a list of tuples with labels of the CONNECTED CELLS
-        connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
+        #connected_regions = qrings.get_segment_adjacency(adjacency, cell_to_region, up_extremities, down_extremities)
     
-        final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
+        #final_boundaries, new_cell_to_region = qrings.merge_by_cells(connected_regions, cell_to_region, boundaries, expanded_labels)
     
-        cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
+        #cell_to_region, region_to_cells = qrings.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
     
         # Find the extrmities of the new ring segments
-        up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
+        #up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
         # This function allows to get a list of regions containing at least one cell of
         # the same radial file. Can be used to avoid merging of boundary segments belonging
@@ -347,7 +282,7 @@ def main():
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells)
-        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
     
         
         ###############################################################################
@@ -370,10 +305,8 @@ def main():
         cell_to_region, region_to_cells = qrings.map_cell_to_region(new_boundaries > 0, new_boundaries, expanded_labels)
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
-        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
-        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
-    
-        #viewer.add_labels(new_boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+        cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = args.mincells + 2)
+        new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
     
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
     
@@ -397,10 +330,10 @@ def main():
     
         # At this stage we can remove spurious regions by excluding those with fewer than a given number of cells
         cell_to_region, region_to_cells = qrings.filter_boundaries(cell_to_region, region_to_cells, mincells = 5)
-        new_boundaries = qrings.update_boundary_labels(np.zeros_like(expanded_labels, dtype = int), cell_to_region, expanded_labels)
+        new_boundaries = qrings.create_boundary_array(cell_to_region, expanded_labels)
         
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
+
         ################################################################################
         # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE WITH ELLIPSE
         
@@ -408,9 +341,6 @@ def main():
     
         region_classes, ring_regions, seq = qrings.classify_regions_by_axis(new_boundaries, pix_to_um)
         
-        #print("Top sequence:", seq["top"])
-        #print("Bottom sequence:", seq["bottom"])
-    
         ###############################################################################
         # FIND REGION EXTREMITIES NEAR THE BORDERS OF THE IMAGE
         up_extremities, down_extremities = qrings.get_extremities(region_to_cells, rightcells_df)
@@ -426,32 +356,31 @@ def main():
                                                                                                                                  pix_to_um = pix_to_um)
     
         # Result
-        #print("Upper border regions (left to right):", upper_region_sequence)
-        #print("Lower border regions (left to right):", lower_region_sequence)
-        #print("Matching upper regions :", matched_up)
-        #print("Matching lower regions :", matched_down)
-        
         y_positions, sequences = qrings.get_region_sequences(new_boundaries, n_lines=20)
     
     
         aligned, regions = qrings.align_region_sequences(sequences, gap_value=None, upper_seq=seq["top"], lower_seq=seq["bottom"])
     
-        #plot_alignment(aligned, regions, names=None)
-    
         candidates, cu, cl = qrings.find_merge_candidates(
             seq["top"], seq["bottom"]
         )
+        
+        valid_labels = set(celldata.index)
+
+        region_to_cells = {
+            r: [c for c in cells if c in valid_labels]
+            for r, cells in region_to_cells.items()
+        }
+        
+        candidates = qrings.filter_candidates(candidates, region_to_cells, celldata, max_overlap=3)
+
         
         print("Merge candidates:", candidates)
     
         cleaned_matrix = qrings.remove_singleton_columns(aligned)
     
-        #plot_alignment(cleaned_matrix, regions, names=None)
-    
         filled = qrings.fill_columns(cleaned_matrix, candidates, 0.79, region_classes)
     
-        #qrings.plot_alignment(filled, regions, names=None)
-        
         incomplete = qrings.find_incomplete_regions(filled)
         
         final_merge = qrings.filter_incomplete_regions(incomplete_info=incomplete, 
@@ -473,32 +402,84 @@ def main():
             coord2 = qrings.get_coordinates(cell2, rightcells_df)
             pair_extremities[(r1, r2)] = (coord1, coord2)
             
-        all_merge_pairs = qrings.select_regions_to_merge(pair_extremities, candidates, final_merge)
+        all_merge_pairs, solo_regions = qrings.select_regions_to_merge(pair_extremities, candidates, final_merge)
     
     
         aligned_top, aligned_bottom = qrings.build_aligned_sequences(filled, all_merge_pairs, final_merge)
     
+        
+        missing_regions = (
+            {r for pair in all_merge_pairs for r in pair}
+            - (set(aligned_top) | set(aligned_bottom))
+        )
+
+        missing_regions.discard(None)
+        print("Missing selected:", missing_regions)
+        
+        aligned_top, aligned_bottom = qrings.insert_missing_pairs(aligned_top, aligned_bottom, filled, all_merge_pairs)
+        
         print("Top   →", aligned_top)
         print("Bottom→", aligned_bottom)
     
         # Identifying true ring boundaries from the upper and lower sequences
-        ring_lines = qrings.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
+        ring_lines, final_top = qrings.find_ring_lines(rightcells_df, region_to_cells, aligned_top, aligned_bottom)
+        
+        if solo_regions or missing_regions:
+            crossings = qrings.check_ring_crossings(
+                ring_lines,
+                rightcells_df,
+                new_boundaries,
+                pix_to_um
+            )
+            ring_lines = qrings.fix_crossing_rings(
+                ring_lines,
+                crossings,
+                aligned_top,
+                aligned_bottom,
+                region_to_cells,
+                rightcells_df
+            )
+            
+        ###########################################################################
+        print("save ring edition file")
+        # Saving ring sequence file for later retrieval and manual edit
+        os.makedirs(outdir, exist_ok=True)
+
+        # Build base prefix for files inside this folder
+        base_prefix = os.path.join(outdir, base_name)
+        
+        # Extract regions per ring
+        ring_regions = qrings.extract_ring_regions(ring_lines, cell_to_region, final_top)
+
+        # Save edit file
+        edit_path = f"{base_prefix}_edit.txt"
+
+        qrings.write_ring_file(edit_path, ring_regions)
+
+        print(f"Edit file written to: {edit_path}")
     
         # Getting polygon coordinates defining tree rings from the ring lines
-        ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = aligned_top, image_width = expanded_labels.shape[1] * pix_to_um)
+        ring_polygons = qrings.draw_polygons(cells = celldata, ring_lines = ring_lines, upper_sequence = final_top, image_width = expanded_labels.shape[1] * pix_to_um)
     
         # Assigning rings to years based on the polygon coordinates
         celldata = qrings.assign_years(cells = celldata, polygons = ring_polygons, year0 = args.firstyear)
+        
+        celldata, suspect_labels = qrings.correct_large_lastcells(celldata)
     
         # Create an image of cell assignment for display
         celltemp = celldata.copy()
         celltemp.set_index('label', inplace = True)
         year_dict = celltemp['year'].to_dict()
-        #year_image = np.vectorize(year_dict.get)(expanded_labels)
         year_image = np.vectorize(lambda x: np.nan if year_dict.get(x) is None else year_dict.get(x))(expanded_labels)
         
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        # --- Save images for ring edition ---
+        output_path = f"{base_prefix}_ring_imgs.npz"
+        np.savez_compressed(output_path,
+                            new_boundaries=new_boundaries,
+                            year_image=year_image)
+        
+        qmiz.update_runtime(start)
+
         ###############################################################################
         # RINGWIDTH & RING-LEVEL MEASUREMENTS
         
@@ -518,7 +499,7 @@ def main():
         distances_df["cell_ring_width"] = distances_df["dist_to_next"] + distances_df["dist_to_prev"]
     
         # Compute mean ring width from cell distances
-        mean_ringwidth_from_cells = distances_df.groupby("year")["cell_ring_width"].mean()
+        #mean_ringwidth_from_cells = distances_df.groupby("year")["cell_ring_width"].mean()
     
         # Convert mean_ring_distances (list from earlier) to a Series for comparison
         # Those were based on skeleton boundaries (already in pixel or µm?)
@@ -547,7 +528,7 @@ def main():
     
         # --- Add ringwidth from cells ---
         # `mean_ringwidth_from_cells` is a Series with index = year, value = mean cell-based ring width
-        ringprops_df["rw_from_cells"] = ringprops_df["label"].map(mean_ringwidth_from_cells)
+        #ringprops_df["rw_from_cells"] = ringprops_df["label"].map(mean_ringwidth_from_cells)
     
         # Assuming your celldata has:
         # 'year'       → the ring ID
@@ -561,8 +542,6 @@ def main():
             .groupby(["year", "radial_file"])
             .cumcount() + 1  # starts from 1
         )
-    
-    
     
         celldata = qrings.filter_radial_files(celldata)
         
@@ -581,7 +560,6 @@ def main():
         sampleID = celldata["SampleId"].unique()
         ringprops_df['SampleId'] = sampleID[0]
     
-    
         celldata = celldata.drop(
             columns = [
                 'next_diameter_rad',
@@ -589,30 +567,24 @@ def main():
                 'next_woodzone'])
         
         filtered_celldata = celldata[celldata["valid_radial_file"]].copy()
-        # Optional: reset index if you want
-        #filtered_celldata.reset_index(drop=True, inplace=True)
     
         # Make a blank mask same size as your labeled image
-        filtered_mask = np.zeros_like(expanded_labels, dtype=bool)
         filtered_labels = filtered_celldata.index
-        filtered_mask[np.isin(expanded_labels, filtered_labels)] = True
+        filtered_mask = np.isin(expanded_labels, filtered_labels)
     
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
+        qmiz.update_runtime(start)
     
         ###########################################################################
         print("save outputs")
         # Saving the images of interest to file for later retrieval by ringview.py
-        os.makedirs(outdir, exist_ok=True)
+        #os.makedirs(outdir, exist_ok=True)
 
         # Build base prefix for files inside this folder
-        base_prefix = os.path.join(outdir, base_name)  # e.g., output/image1_outputs/image1
+        #base_prefix = os.path.join(outdir, base_name)
         
         # --- Save images for later retrieval ---
-        output_path = f"{base_prefix}_ring_imgs.npz"
-        np.savez_compressed(output_path,
-                            new_boundaries=new_boundaries,
-                            year_image=year_image)
+        #output_path = f"{base_prefix}_ring_imgs.npz"
+        #np.savez_compressed(output_path,new_boundaries=new_boundaries,year_image=year_image)
         
         # --- Save python objects with pickle ---
         with open(f"{base_prefix}_rings.pkl", "wb") as file:
@@ -625,8 +597,6 @@ def main():
         celldata.to_csv(f"{base_prefix}_ringcells.csv", index=True)
         ringprops_df.to_csv(f"{base_prefix}_rings.csv", index=False)
         
-        prediction = images['bw_img']
-        
         # --- Draw rings to an image ---
         qplots.draw_rings(
             prediction=prediction,
@@ -634,10 +604,11 @@ def main():
             filtered_mask=filtered_mask,
             celldata=celldata,
             output_path=f"{base_prefix}_img.png",
-            pix_to_um=pix_to_um
+            pix_to_um=pix_to_um,
+            ring_boundaries=boundaries
         )
         
         print(f"Saved workflow output to {outdir}")
-        endTime = datetime.datetime.now()
-        print(f'runtime : {endTime - start}')
-            
+        
+        qmiz.update_runtime(start)
+

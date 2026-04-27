@@ -183,8 +183,63 @@ following suffixes inside the processed folder:
 * `_polygons.pkl`: a serialized `pickle` object, which contains a list of 2D
   `numpy` arrays with the coordinates of the polygons used for defining growth
   rings.
+* `_edit.txt`: a simple text file containing the sequence of ring boundaries
+  identified by `qwanarings`, with one ring ID per line. This file can be
+  edited to re-run the ring segmentation with a manually modified ring sequence
+  (see the tool `rings_edit` below).
 * `_img.png`: an image summarizing the results of the growth-ring analysis and
   the radial files identified as valid.
+
+## Complementary tools
+
+### `rings_edit`
+
+After running `qwanarings`, you may find that that some ring segments have not
+been properly merged or are not in the right order. It may or may not be
+possible to correct these issues by running `qwanarings` again with different
+command-line parameters. In such cases, manual edition of the ring sequence is
+possible using the command-line script `rings_edit` which provides a convenient
+way to re-assign the tracheids to the correct rings and re-compute ring metrics
+after taking the changes into account. This script processes the file ending
+with `_edit.txt` written to disk by `qwanarings`, which is a simple text file
+with one line per ring displaying the segment ID or IDs associated with each
+ring. For example, the following file would indicate that the ring segments
+identified by `qwanarings` follow the sequence 1-4-5-2-6-3 from left to right:
+
+```plaintext
+1
+4
+5
+2
+6
+3
+```
+
+Let us pretend, in this case, that the segment IDs 4 and 5 belong to the same
+ring but have not been identified as such. In this case, we would manually edit
+the `_edit.txt` file as follows:
+
+```plaintext
+1
+4 5
+2
+6
+3
+```
+
+and then run `rings_edit` to re-run the relevant parts of the `qwanarings`
+script with the correct ring sequence. `rings_edit` supports the `--viewer`
+argument to start a `napari` session as part of the editing process such that
+ring segments and their IDs can be visualized. By default, the viewer will not
+be launched and the edited `_edit.txt` files will simply be processed.
+
+### `qwanadate` app
+
+An `R` Shiny app named [`qwanadate`](https://github.com/SamBcht/qwanadate) has
+been developed separately to help with dating tree rings after their analysis
+with `qwanarings` by allowing the results from several scans from the same tree
+to be processed together. More details regarding this app can be found on its
+respective [GitHub page](https://github.com/SamBcht/qwanadate).
 
 ## Detailed documentation
 
@@ -232,8 +287,8 @@ Running `qwanaflow --help` will provide a list of command-line arguments that
 can be used to control the cell measurement workflow:
 
 ```plaintext
-usage: qwanaflow [-h] [--pixel-size PIXEL] [--dir-nrows NROWS]
-                 [--dir-ncols NCOLS] [--disable-plots]
+usage: qwanaflow [-h] [--remove-suffix REMOVE_SUFFIX] [--pixel-size PIXEL]
+                 [--dir-nrows NROWS] [--dir-ncols NCOLS] [--disable-plots]
                  [--area-threshold AREA_THRESHOLD]
                  [--solidity-threshold SOLIDITY_THRESHOLD]
                  [--max-wall-distance MAX_WALL_DISTANCE]
@@ -252,6 +307,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  --remove-suffix REMOVE_SUFFIX
+                        String to remove from the input filename when
+                        generating the sample base name. Default: '.png'
   --pixel-size PIXEL    Conversion factor from of a single pixel to the
                         desired measurement unit. Defaults to 1 (measurements
                         in pixels).
@@ -328,6 +386,7 @@ can be used to control the growth-ring detection workflow:
 ```plaintext
 usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
                   [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
+                  [--iterations ITERATIONS]
 
 options:
   -h, --help            show this help message and exit
@@ -345,6 +404,9 @@ options:
                         The calendar year when the first ring was formed, used
                         for assigning cells to years. Defaults to 1 (year
                         unknown).
+  --iterations ITERATIONS
+                        Number of refinement iterations for boundary segment
+                        merging. Default = 1.
 ```
 
 ### `qwanaviz` command-line arguments
@@ -370,6 +432,35 @@ options:
   --pixel-size PIXEL  Size of a pixel in the wanted measurement unit. Defaults
                       to 0.55042690590734 micrometers.
 ```
+
+### `rings_edit` command-line arguments
+
+Running `rings_edit --help` will provide a list of command-line arguments that
+can be used to launch the ring edition script:
+
+```plaintext
+usage: rings_edit [-h] --input_dir INPUT_DIR [--only ONLY [ONLY ...]]
+                  [--pixel_size PIXEL_SIZE] [--first-year FIRSTYEAR]
+                  [--exclude_radial_duplicates] [--viewer]
+
+Manual ring correction pipeline
+
+options:
+  -h, --help            show this help message and exit
+  --input_dir INPUT_DIR
+  --only ONLY [ONLY ...]
+                        List of sampleIDs to process (space-separated)
+  --pixel_size PIXEL_SIZE
+  --first-year FIRSTYEAR
+                        The calendar year when the first ring was formed, used
+                        for assigning cells to years. Defaults to 1 (year
+                        unknown).
+  --exclude_radial_duplicates
+  --viewer              Enable Napari viewer (interactive mode)
+```
+
+The input directory must be the directory used for analysis with `qwanaflow`
+and `qwanarings` and containing the output of those programs.
 
 ## Contributing
 

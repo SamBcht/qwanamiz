@@ -5,6 +5,7 @@ Created on Thu Jun 12 18:05:51 2025
 @author: sambo
 """
 
+import os
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -19,10 +20,41 @@ import copy
 from skimage.measure import regionprops, regionprops_table
 import math
 from skimage.morphology import skeletonize
+from skimage.draw import line
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 #from typing import Dict, List, Tuple, Any
+
+# A function that reads the inputs needed for qwanarings
+# These are outputs from qwanaflow
+def read_qwanarings_inputs(prefix):
+
+    # Setting the paths to the input files
+    imgs_path = f"{prefix}_imgs.npz"
+    cells_path = f"{prefix}_cells.csv"
+    adjacency_path = f"{prefix}_adjacency.csv"
+    
+    if not all([os.path.exists(p) for p in [imgs_path, cells_path, adjacency_path]]):
+        print(f"Missing required files for prefix {prefix}\n")
+        exit()
+
+    # Reading the input CSV files
+    celldata = pd.read_csv(cells_path)
+    adjacency = pd.read_csv(adjacency_path)
+
+    # Reading input numpy arrays
+    images = np.load(imgs_path)
+    expanded_labels = images['explabs']
+    prediction = images['bw_img']
+    
+    # Explicitly setting the double index on the adjacency DataFrame
+    adjacency.set_index(['label1', 'label2'], inplace = True)
+
+    # And explicitly setting label as an index on cell data
+    celldata.set_index('label', drop = False, inplace = True)
+    
+    return celldata, adjacency, expanded_labels, prediction
 
 def morks_index(cell_df):
     """
@@ -67,14 +99,14 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     )
 
     # Filter the cells where condition is met
-    lastcells = celldata[celldata["condition_met"]].copy()
+    lastcells_df = celldata[celldata["condition_met"]].copy()
 
 
     # Extract the coordinates (centroid-0 and centroid-1) of the flagged cells
     #coordinates = lastcells[['centroid-0', 'centroid-1']].values
 
     # Get the labels of lastcells and their right_neighbors
-    lastcell_labels = lastcells["label"].values
+    lastcell_labels = lastcells_df["label"].values
 
     ##### STRICT LATEWOOD TO EARLYWOOD TRANSITION
     # Apply the conditions
@@ -96,7 +128,6 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
         adjacency.index.get_level_values("label1").isin(transition_labels) |
         adjacency.index.get_level_values("label2").isin(transition_labels)
     ]
-
 
     # Start with direct neighbors of lastcells, using transition_adjacency
     direct_neighbors = transition_adjacency[
@@ -144,7 +175,7 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
 
     ######### UNITE ALL LASTCELLS
     # Create a backup of lastcells
-    new_lastcells = lastcells.copy()
+    new_lastcells = lastcells_df.copy()
 
     # Convert sets to lists for indexing
     direct_neighbor_labels = list(direct_neighbor_labels)
@@ -160,32 +191,75 @@ def get_lastcells(celldata, adjacency, diameter_factor = 2.5, diameter_factor_pr
     new_lastcells = pd.concat([new_lastcells, direct_neighbors_df, connected_transition_df], ignore_index=True)
     
     # Get the labels of lastcells and their right_neighbors
-    lastcells_labels = new_lastcells["label"].values
-    rightcells_labels = new_lastcells["right_neighbor"].values
-    leftcells_labels = new_lastcells["left_neighbor"].values
+    lastcells = new_lastcells["label"].values
+    rightcells = new_lastcells["right_neighbor"].values
     
-    return lastcells_labels, rightcells_labels, leftcells_labels
+    return set(lastcells), set(rightcells)
 
 def parse_centroid(centroid_str):
     return eval(centroid_str)  # Safe here because it's internal and always np.float64
 
-def boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels):
+# A function that identified boundary cells (the first cells in a ring)
+# by finding connection components of the first and last cells in a ring
+def find_boundaries(celldata, adjacency, lastcells, rightcells, expanded_labels):
+
+    # We can construct a graph using previously the first and last cells of each ring
+    graph = boundary_graph(celldata, adjacency, lastcells, rightcells)
     
+    # Find connected components (as sets of nodes)
+    # This will group all cells that are connected by a path along retained edges
+    # So it will segregate ring boundaries and group togeteher cells belonging to
+    # a same boundary
+    connected_components = list(nx.connected_components(graph))
+    
+    # Create a mapping from node to component ID
+    node_to_component = {}
+    for i, component in enumerate(connected_components):
+        for node in component:
+            node_to_component[node] = i + 1 # i + 1 to avoid the 0 label reserved for background
+    
+    # Prepare a mask of pixels whose cell label is in label_to_region
+    target_labels = np.array(list(node_to_component.keys()))
+    target_mask = np.isin(expanded_labels, target_labels)
+    
+    # Get region IDs for those cell labels
+    label_array = expanded_labels[target_mask]
+    region_array = np.vectorize(node_to_component.get)(label_array)
+    
+    # Make a copy to avoid modifying in-place unless you want to
+    boundary_labeled = np.zeros_like(expanded_labels, dtype = int)
+    
+    # Update boundary-labeled values at those positions
+    boundary_labeled[target_mask] = region_array
+    
+    # Now we will work mostly with rightcells
+    # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
+    # unwanted groupings by using a single line of cells
+    rightcells_mask = np.isin(expanded_labels, list(rightcells))
+    right_to_region, region_to_right = map_cell_to_region(rightcells_mask, boundary_labeled, expanded_labels)
+
+    # We extract a DataFrame with only right cells (first cells of a growth ring)
+    rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
+    rightcells_df["boundary_region"] = rightcells_df["label"].map(right_to_region)
+
+    return graph, boundary_labeled, right_to_region, region_to_right, rightcells_df
+
+def boundary_graph(celldata, adjacency, lastcells, rightcells):
     
     # Keep only cells whose label is in right_neighbor_labels
-    lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
-    rightcells_df = celldata[celldata["label"].isin(rightcells_labels)].copy()
+    lastcells_df = celldata[celldata["label"].isin(lastcells)].copy()
+    rightcells_df = celldata[celldata["label"].isin(rightcells)].copy()
     
     # Filter using MultiIndex levels
     adjacency_lastcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(lastcells_labels) &
-        adjacency.index.get_level_values("label2").isin(lastcells_labels)
+        adjacency.index.get_level_values("label1").isin(lastcells) &
+        adjacency.index.get_level_values("label2").isin(lastcells)
     ].copy()
     
     # Filter using MultiIndex levels
     adjacency_rightcells = adjacency[
-        adjacency.index.get_level_values("label1").isin(rightcells_labels) &
-        adjacency.index.get_level_values("label2").isin(rightcells_labels)
+        adjacency.index.get_level_values("label1").isin(rightcells) &
+        adjacency.index.get_level_values("label2").isin(rightcells)
     ].copy()
     
     # Step 1: Create set of lastcell-right_neighbor pairs (ignoring NaNs)
@@ -232,6 +306,12 @@ def boundary_graph(celldata, adjacency, lastcells_labels, rightcells_labels):
     
     return G
 
+# A function that returns a list with problematic regions
+# Problematic regions are those with more than one lastcell in the same radial_file
+def get_problematic_regions(rightcells_df):
+    region_counts = rightcells_df.groupby(["radial_file", "boundary_region"])["label"].nunique()
+    problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_region"].unique()
+    return problematic_regions
 
 #### MAP CELLS WITH THE CORRESPONDING BOUNDARY REGION
 def map_cell_to_region(boundary_regions, boundary_labeled, expanded_labels):
@@ -257,9 +337,9 @@ def map_cell_to_region(boundary_regions, boundary_labeled, expanded_labels):
         
     return cell_to_region, region_to_cells
 
-def update_boundary_labels(boundary_labeled, label_to_region, cell_labels):
+def create_boundary_array(label_to_region, cell_labels):
     # Make a copy to avoid modifying in-place unless you want to
-    boundary_corrected = boundary_labeled.copy()
+    boundaries = np.zeros_like(cell_labels, dtype = int)
 
     # Prepare a mask of pixels whose cell label is in label_to_region
     target_labels = np.array(list(label_to_region.keys()))
@@ -270,31 +350,36 @@ def update_boundary_labels(boundary_labeled, label_to_region, cell_labels):
     region_array = np.vectorize(label_to_region.get)(label_array)
 
     # Update boundary-labeled values at those positions
-    boundary_corrected[target_mask] = region_array
+    boundaries[target_mask] = region_array
     
-    return boundary_corrected
-
+    return boundaries
 
 def get_extremities(region_to_cell, cells_df):
+
     upward_cells = {}
     downward_cells = {}
 
-    # Filter earlywood cells
-    #earlywood_cells = celldata[celldata["woodzone"] == "earlywood"]
+    # Precompute valid index for speed
+    valid_index = cells_df.index
 
     for region, cell_labels in region_to_cell.items():
-        # Select only the cells belonging to this region
-        region_cells = cells_df[cells_df["label"].isin(cell_labels)]
-        
-        if not region_cells.empty:
-            # Find the most upward and downward cells based on y-coordinate
-            upward_cell = region_cells.loc[region_cells["centroid-0"].idxmin(), "label"]
-            downward_cell = region_cells.loc[region_cells["centroid-0"].idxmax(), "label"]
-            
-            # Store in dictionaries
-            upward_cells[region] = upward_cell
-            downward_cells[region] = downward_cell
-            
+
+        # Keep only labels that still exist
+        valid_labels = list(set(cell_labels) & set(valid_index))
+
+        if not valid_labels:
+            continue
+
+        region_labels = (
+            cells_df.loc[valid_labels]
+            .sort_values(by="centroid-0")["label"]
+            .tolist()
+        )
+
+        if region_labels:
+            upward_cells[region] = region_labels[0]
+            downward_cells[region] = region_labels[-1]
+
     return upward_cells, downward_cells
 
 def get_extremity_neighbors(upward_cells, downward_cells, cells_df):
@@ -305,22 +390,16 @@ def get_extremity_neighbors(upward_cells, downward_cells, cells_df):
     # Iterate through the upward cells and get their up neighbors
     for region, up_label in upward_cells.items():
         # Retrieve the row corresponding to the upward cell in earlywood_cells dataframe
-        up_cell_row = cells_df[cells_df["label"] == up_label]
-        
-        if not up_cell_row.empty:
-            up_neighbor = up_cell_row["up_neighbor"].values[0]
-            # Store the region and its up neighbor
-            upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
+        up_neighbor = cells_df.loc[up_label, "up_neighbor"]
+        # Store the region and its up neighbor
+        upward_neighbors[region] = {"upward_cell": up_label, "up_neighbor": up_neighbor}
 
     # Iterate through the downward cells and get their down neighbors
     for region, down_label in downward_cells.items():
         # Retrieve the row corresponding to the downward cell in earlywood_cells dataframe
-        down_cell_row = cells_df[cells_df["label"] == down_label]
-        
-        if not down_cell_row.empty:
-            down_neighbor = down_cell_row["down_neighbor"].values[0]
-            # Store the region and its down neighbor
-            downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
+        down_neighbor = cells_df.loc[down_label, "down_neighbor"]
+        # Store the region and its down neighbor
+        downward_neighbors[region] = {"downward_cell": down_label, "down_neighbor": down_neighbor}
 
     # The resulting dictionaries will contain region-to-cell mappings for upward and downward cells with their respective neighbors
 
@@ -554,7 +633,7 @@ def integrate_updown(upward_neighbors, downward_neighbors, up_down_pairs, last_l
     return final_boundary_labeled
 
 
-def get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_factor = 1.8):
+def get_candidate_cells(celldata, remaining_labels, lastcells, diameter_factor = 1.8):
     
     # Create a lookup dictionary for cellID -> diameter_rad
     diameter_lookup = celldata.set_index("label")["diameter_rad"].to_dict()
@@ -563,12 +642,12 @@ def get_candidate_cells(celldata, remaining_labels, lastcells_labels, diameter_f
     woodzone_transition = celldata[celldata["lw-ew_transition"]].copy()
 
     # Exclude labels that are in lastcells from woodzone_transition
-    woodzone_transition = woodzone_transition[~woodzone_transition["label"].isin(set(lastcells_labels))]
+    woodzone_transition = woodzone_transition[~woodzone_transition["label"].isin(lastcells)]
     # Extract the labels from woodzone_transition
     transition_labels = set(woodzone_transition["label"])
     
     # Step 1: Identify remaining_labels in transition_labels
-    remaining_in_transition = remaining_labels & set(lastcells_labels)
+    remaining_in_transition = remaining_labels & lastcells
 
     # Step 2: Map left_neighbor and diameter_rad for remaining labels
     left_neighbors = celldata.loc[celldata["label"].isin(remaining_labels), ["label", "left_neighbor", "diameter_rad"]]
@@ -1119,45 +1198,160 @@ def filter_boundaries(cell_to_region, region_to_cell, mincells = 5):
 # lower_sequence: a list (sorted by x-coordinates) with the order of boundary regions touching the bottom of the image
 # return value: a dictionary with region IDs as keys and an list of cells in those region order by y-coordinates
 def find_ring_lines(cells, region_to_cells, upper_sequence, lower_sequence):
-    # Sorting the cells DataFrame by y-coordinate to guarantee the right order in output
-    sorted_cells = cells.sort_values(by = 'centroid-0')
 
-    # First we identify ring boundaries that are found in both the lower and upper sequence
-    ring_regions = set(upper_sequence) & set(lower_sequence)
+    # Sort cells by vertical coordinate
+    sorted_cells = cells.sort_values(by="centroid-0")
 
-    # We loop over those regions to create the output dictionary
     rings = {}
+    final_top_sequence = []
 
-    for region in ring_regions:
-        rings[region] = sorted_cells[sorted_cells["label"].isin(region_to_cells[region])]["label"].to_list()
+    for top_region, bottom_region in zip(upper_sequence, lower_sequence):
 
-    # We then need to find spots in-between ring boundaries with unlinked boundaries
+        # Skip empty column
+        if top_region is None and bottom_region is None:
+            continue
 
-    # These lists define the indexes where the well-formed boundaries are found in the upper and lower sequence
-    upper_indices = [index for index,value in enumerate(upper_sequence) if value in rings]
-    lower_indices = [index for index,value in enumerate(lower_sequence) if value in rings]
+        # Case 1: same region
+        if top_region == bottom_region:
 
-    # Then we find how many "free spots" are in between every index, but we need to insert a virtual index -1 to account for the beginning of the image
-    upper_indices.insert(0, -1)
-    lower_indices.insert(0, -1)
+            region = top_region
 
-    # Next we find the differences between neighboring indices (-1 because we want the number of intervening boundaries)
-    lower_diff = [b - a - 1 for a, b in zip(lower_indices, lower_indices[1:])]
-    upper_diff = [b - a - 1 for a, b in zip(upper_indices, upper_indices[1:])]
+            rings[region] = sorted_cells[
+                sorted_cells["label"].isin(region_to_cells[region])
+            ]["label"].to_list()
 
-    # This leads us to identifying indices where unassigned boundaries match
-    matching_indices = np.where([a == b and a != 0 for a,b in zip(lower_diff, upper_diff)])[0].tolist()
+            final_top_sequence.append(region)
 
-    # Then we loop over the matching indices to add them to the rings dictionary
-    for index in matching_indices:
-        for n in range(lower_diff[index]):
-            upper_value = upper_sequence[upper_indices[index] + 1 + n]
-            lower_value = lower_sequence[lower_indices[index] + 1 + n]
-            # We assign the value of the upper sequence to the ring region
-            rings[upper_value] = sorted_cells[sorted_cells["label"].isin(region_to_cells[upper_value])]["label"].to_list()
-            rings[upper_value] += sorted_cells[sorted_cells["label"].isin(region_to_cells[lower_value])]["label"].to_list()
+        # Case 2: merge two regions
+        elif top_region is not None and bottom_region is not None:
 
-    return rings
+            rings[top_region] = (
+                sorted_cells[
+                    sorted_cells["label"].isin(region_to_cells[top_region])
+                ]["label"].to_list()
+                +
+                sorted_cells[
+                    sorted_cells["label"].isin(region_to_cells[bottom_region])
+                ]["label"].to_list()
+            )
+
+            final_top_sequence.append(top_region)
+
+        # Case 3: solo region on top
+        elif top_region is not None:
+
+            rings[top_region] = sorted_cells[
+                sorted_cells["label"].isin(region_to_cells[top_region])
+            ]["label"].to_list()
+
+            final_top_sequence.append(top_region)
+
+        # Case 4: solo region on bottom
+        elif bottom_region is not None:
+
+            rings[bottom_region] = sorted_cells[
+                sorted_cells["label"].isin(region_to_cells[bottom_region])
+            ]["label"].to_list()
+
+            final_top_sequence.append(bottom_region)
+
+    return rings, final_top_sequence
+
+
+def check_ring_crossings(ring_lines, cells_df, new_boundaries, pix_to_um=1):
+    """
+    Detect if ring lines intersect unrelated boundary regions.
+
+    Parameters
+    ----------
+    ring_lines : dict
+        {region_id: [cell_labels ordered along the boundary]}
+    cells_df : DataFrame
+        Must contain 'label', 'centroid-0', 'centroid-1'
+    new_boundaries : ndarray
+        Label image of final boundary segments
+
+    Returns
+    -------
+    crossings : dict
+        {region_id: set of crossed boundary region labels}
+    """
+
+    # quick lookup
+    centroids = cells_df.set_index("label")[["centroid-0","centroid-1"]]\
+    .apply(tuple, axis=1).to_dict()
+    
+    centroids_px = {
+        k: (int(v[0]/pix_to_um), int(v[1]/pix_to_um))
+        for k, v in centroids.items()
+    }
+    
+    crossings = {}
+
+    for region, cell_list in ring_lines.items():
+
+        crossed = set()
+
+        for c1, c2 in zip(cell_list[:-1], cell_list[1:]):
+
+            y1, x1 = centroids_px[c1]
+            y2, x2 = centroids_px[c2]
+            
+            rr, cc = line(y1, x1, y2, x2)
+            
+            labels = np.unique(new_boundaries[rr, cc])
+
+            # remove background and own region
+            labels = set(labels)
+            labels.discard(0)
+            labels.discard(region)
+
+            if labels:
+                crossed.update(labels)
+
+        if crossed:
+            crossings[region] = crossed
+
+    return crossings
+
+
+def fix_crossing_rings(ring_lines, crossings, aligned_top, aligned_bottom, region_to_cells, cells_df):
+
+    sorted_cells = cells_df.sort_values("centroid-0")
+
+    for region, crossed_regions in crossings.items():
+
+        # Find index in top sequence
+        if region not in aligned_top:
+            continue
+
+        idx = aligned_top.index(region)
+
+        bottom_region = aligned_bottom[idx]
+
+        if bottom_region in crossed_regions:
+
+            # Other regions must be merged
+            extra_regions = crossed_regions - {bottom_region}
+
+            for extra in extra_regions:
+
+                if extra in region_to_cells:
+
+                    new_cells = sorted_cells[
+                        sorted_cells["label"].isin(region_to_cells[extra])
+                    ]["label"].to_list()
+
+                    ring_lines[region].extend(new_cells)
+
+            # Keep ring ordered
+            ring_lines[region] = sorted(
+                ring_lines[region],
+                key=lambda c: cells_df.loc[cells_df["label"] == c, "centroid-0"].values[0]
+            )
+
+    return ring_lines
+
 
 # This function draws polygons from the ring boundaries so that they can be used
 # for assigning cells to tree rings
@@ -1259,6 +1453,7 @@ def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum 
 
         # We subset the cells that are within the bounding box so we only need to test those
         cell_indices = np.where((cells['centroid-0'] >= bbox[0]) & (cells['centroid-0'] <= bbox[1]) & (cells['centroid-1'] >= bbox[2]) & (cells['centroid-1'] <= bbox[3]))[0]
+        cell_indices = cells.index[cell_indices]
 
         # We introduce a small shift to the left in x-coordinates because we want the cells to be included in the current ring
         xcoords = np.array(cells.loc[cell_indices]['centroid-1'].tolist()) + magic_shift
@@ -1285,6 +1480,53 @@ def assign_years(cells, polygons, year0 = 0, magic_shift = 0.001, threshold_sum 
         cells.loc[polygon_indices, 'year'] = i + year0
 
     return cells
+
+
+def correct_large_lastcells(
+    celldata,
+    factor=2.1,
+    radial_col="radial_file",
+    year_col="year",
+    diam_col="diameter_rad"
+):
+
+    df = celldata.copy()
+
+    # Sort cells along radial files
+    df = df.sort_values(["radial_file", "file_rank"])
+
+    # Identify last cell per (year, radial_file)
+    last_mask = df.groupby([year_col, radial_col])["file_rank"].transform("max") == df["file_rank"]
+    last_cells = df[last_mask]
+
+    # Get left neighbor inside the same group
+    df["left_diameter"] = df.groupby([year_col, radial_col])[diam_col].shift(1)
+
+    last_cells = df[last_mask].copy()
+
+    # Build fast year lookup
+    year_lookup = df.set_index("label")[year_col]
+
+    # Map right neighbor year
+    last_cells["right_year"] = last_cells["right_neighbor"].map(year_lookup)
+
+    # Detection conditions
+    cond = (
+        last_cells["right_neighbor"].notna()
+        & (last_cells["right_neighbor"] > 0)
+        & (last_cells[diam_col] > factor * last_cells["left_diameter"])
+        & (last_cells["right_year"] == last_cells[year_col] + 1)
+    )
+
+    suspects = last_cells.loc[cond]
+
+    # Correct the year
+    df.loc[suspects.index, year_col] += 1
+
+    detected_labels = suspects["label"].tolist()
+
+    return df, detected_labels
+
 
 
 def get_region_sequences(new_boundaries, n_lines=10, matched_up=None, matched_down=None):
@@ -1587,6 +1829,31 @@ def find_merge_candidates(upper_sequence, lower_sequence, matched_up=None, match
     return merge_candidates, corrected_upper, corrected_lower
 
 
+def filter_candidates(
+    candidates,
+    region_to_cells,
+    celldata,
+    radial_col="radial_file",
+    max_overlap=1
+):
+    
+    filtered = []
+
+    for r1, r2 in candidates:
+
+        cells1 = region_to_cells[r1]
+        cells2 = region_to_cells[r2]
+
+        rf1 = set(celldata.loc[list(cells1), radial_col])
+        rf2 = set(celldata.loc[list(cells2), radial_col])
+
+        shared = rf1 & rf2
+
+        if len(shared) <= max_overlap:
+            filtered.append((r1, r2))
+
+    return filtered
+
 def remove_singleton_columns(region_matrix):
     """
     Remove columns that contain only one non-None value.
@@ -1685,6 +1952,41 @@ def fill_columns(aligned_matrix, merge_candidates=set(), min_fraction=0.7, regio
             for row in range(n_rows):
                 if filled_matrix[row][col_idx] is None:
                     filled_matrix[row][col_idx] = most_common_val
+                    
+                    
+    # Check if first and last columns can be safely filled            
+    def column_is_complete(col_index):
+        return all(filled_matrix[row][col_index] is not None
+                   for row in range(n_rows))
+
+    def try_fill_boundary(col_idx, neighbor_idx):
+        col_vals = [filled_matrix[row][col_idx]
+                    for row in range(n_rows)
+                    if filled_matrix[row][col_idx] is not None]
+
+        if not col_vals:
+            return
+
+        # Require structural consistency
+        if len(set(col_vals)) != 1:
+            return
+
+        region = col_vals[0]
+
+        # Only fill if neighbor column is complete
+        if column_is_complete(neighbor_idx):
+            for row in range(n_rows):
+                if filled_matrix[row][col_idx] is None:
+                    filled_matrix[row][col_idx] = region
+
+    # First column
+    if n_cols > 1:
+        try_fill_boundary(0, 1)
+
+    # Last column
+    if n_cols > 1:
+        try_fill_boundary(n_cols - 1, n_cols - 2)
+
 
     return filled_matrix
 
@@ -1831,6 +2133,24 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
 
     top_types = {"top", "top_left", "top_right"}
     bottom_types = {"bottom", "bottom_left", "bottom_right"}
+    
+    region_column = {}
+
+    for row in filled_matrix:
+        for col, val in enumerate(row):
+            if val is not None and val not in region_column:
+                region_column[val] = col
+    
+    full_columns = []
+
+    n_rows = len(filled_matrix)
+    n_cols = len(filled_matrix[0])
+    
+    for col in range(n_cols):
+        column_values = [filled_matrix[row][col] for row in range(n_rows)]
+    
+        if None not in column_values and len(set(column_values)) == 1:
+                full_columns.append(col)
 
     for r1, r2 in pairs:
         c1 = classifications.get(r1)
@@ -1854,6 +2174,13 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
 
         if overlap_found:
             continue
+        
+        pos1 = region_column.get(r1)
+        pos2 = region_column.get(r2)
+        
+        if pos1 is not None and pos2 is not None:
+            if any((pos1 < fc < pos2) or (pos2 < fc < pos1) for fc in full_columns):
+                continue
 
         valid_pairs.append((r1, r2))
               
@@ -1864,7 +2191,7 @@ def filter_pairs_overlap(region_pairs, classifications, filled_matrix):
             r1, r2 = pair
             region_count[r1].append(pair)
             region_count[r2].append(pair)
-
+    
         # Step 2: Identify regions appearing in multiple pairs
         for region, reg_pairs in region_count.items():
             if len(reg_pairs) > 1:
@@ -1945,77 +2272,182 @@ def select_regions_to_merge(pair_extremities, candidates, final_merge):
     merge_pairs = list({tuple(sorted(p)) for p in (candidates + selected_pair_list)})
 
     
-    return merge_pairs
+    return merge_pairs, remaining_solo_regions
 
 
 
 def build_aligned_sequences(filled, merge_pairs, final_regions):
-    # 1. Extract first and last non-empty rows
+
+    # Extract sequences
     top_seq = next(row for row in filled if any(x is not None for x in row))
     bottom_seq = next(row for row in reversed(filled) if any(x is not None for x in row))
 
-    # Remove None
     top_seq = [x for x in top_seq if x is not None]
     bottom_seq = [x for x in bottom_seq if x is not None]
 
-    # 2. Build pair lookup dictionary
-    pair_lookup = {}
-    for a, b in merge_pairs:
-        pair_lookup[a] = b
-        pair_lookup[b] = a
+    pair_map = {a: b for a, b in merge_pairs}
+    pair_map.update({b: a for a, b in merge_pairs})
 
-    # 3. Build aligned sequences preserving order
+    # Identify anchors (exact match OR merge pair)
+    anchors = []
+    for i, t in enumerate(top_seq):
+        for j, b in enumerate(bottom_seq):
+            if t == b or pair_map.get(t) == b:
+                anchors.append((i, j))
+                break
+
     aligned_top = []
     aligned_bottom = []
 
-    # Use two pointers to traverse top_seq and bottom_seq
-    i_top = 0
-    i_bottom = 0
+    prev_i = 0
+    prev_j = 0
 
-    while i_top < len(top_seq) or i_bottom < len(bottom_seq):
-        top_val = top_seq[i_top] if i_top < len(top_seq) else None
-        bottom_val = bottom_seq[i_bottom] if i_bottom < len(bottom_seq) else None
+    for i, j in anchors:
 
-        if top_val == bottom_val:
-            # Same region in both sequences
-            aligned_top.append(top_val)
-            aligned_bottom.append(bottom_val)
-            i_top += 1
-            i_bottom += 1
-        elif top_val and (top_val not in bottom_seq):
-            # Region only in top
-            aligned_top.append(top_val)
-            paired = pair_lookup.get(top_val, top_val)
-            aligned_bottom.append(paired)
-            i_top += 1
-        elif bottom_val and (bottom_val not in top_seq):
-            # Region only in bottom
-            paired = pair_lookup.get(bottom_val, bottom_val)
-            aligned_top.append(paired)
-            aligned_bottom.append(bottom_val)
-            i_bottom += 1
-        else:
-            # Different regions in top and bottom
-            aligned_top.append(top_val)
-            aligned_bottom.append(bottom_val)
-            i_top += 1
-            i_bottom += 1
-            
-    def unique_order(seq):
-        seen = set()
-        return [x for x in seq if not (x in seen or seen.add(x))]
+        # align segment before anchor
+        while prev_i < i or prev_j < j:
+            if prev_i < i:
+                aligned_top.append(top_seq[prev_i])
+                aligned_bottom.append(None)
+                prev_i += 1
+            if prev_j < j:
+                aligned_top.append(None)
+                aligned_bottom.append(bottom_seq[prev_j])
+                prev_j += 1
 
-    aligned_top = unique_order(aligned_top)
-    aligned_bottom = unique_order(aligned_bottom)
+        # add anchor
+        aligned_top.append(top_seq[i])
+        aligned_bottom.append(bottom_seq[j])
 
-    # 5. ✅ Sanity check to enforce same length
-    if len(aligned_top) != len(aligned_bottom):
-        raise ValueError(
-            f"Aligned sequences differ in length: top={len(aligned_top)}, bottom={len(aligned_bottom)}"
-        )
+        prev_i = i + 1
+        prev_j = j + 1
+
+    # tail
+    while prev_i < len(top_seq):
+        aligned_top.append(top_seq[prev_i])
+        aligned_bottom.append(None)
+        prev_i += 1
+
+    while prev_j < len(bottom_seq):
+        aligned_top.append(None)
+        aligned_bottom.append(bottom_seq[prev_j])
+        prev_j += 1
 
     return aligned_top, aligned_bottom
 
+
+def insert_missing_pairs(aligned_top, aligned_bottom, filled, all_merge_pairs):
+
+    from collections import defaultdict
+
+    n_rows = len(filled)
+    n_cols = len(filled[0])
+
+    # -----------------------------
+    # Region rows
+    # -----------------------------
+    region_rows = defaultdict(list)
+
+    for i, row in enumerate(filled):
+        for val in row:
+            if val is not None:
+                region_rows[val].append(i)
+
+    # -----------------------------
+    # Region columns
+    # -----------------------------
+    region_cols = defaultdict(list)
+
+    for i, row in enumerate(filled):
+        for j, val in enumerate(row):
+            if val is not None:
+                region_cols[val].append(j)
+
+    region_col = {r: int(sum(c)/len(c)) for r, c in region_cols.items()}
+
+    # -----------------------------
+    # Detect full columns
+    # -----------------------------
+    full_columns = []
+
+    for col in range(n_cols):
+
+        column_values = [filled[row][col] for row in range(n_rows)]
+
+        if None not in column_values and len(set(column_values)) == 1:
+            full_columns.append(col)
+
+    # Map full column -> region
+    column_region = {}
+
+    for col in full_columns:
+        column_region[col] = filled[0][col]
+
+    seq_regions = set(aligned_top) | set(aligned_bottom)
+
+    # -----------------------------
+    # Process merge pairs
+    # -----------------------------
+    for r1, r2 in all_merge_pairs:
+
+        if r1 in seq_regions or r2 in seq_regions:
+            continue
+
+        rows1 = region_rows.get(r1, [])
+        rows2 = region_rows.get(r2, [])
+
+        if not rows1 or not rows2:
+            continue
+
+        min_row = min(min(rows1), min(rows2))
+        max_row = max(max(rows1), max(rows2))
+
+        pair_span = max_row - min_row + 1
+        coverage = len(rows1) + len(rows2)
+
+        if pair_span < 0.6 * n_rows:
+            continue
+
+        if coverage < 0.2 * n_rows:
+            continue
+
+        # -----------------------------
+        # Determine column position
+        # -----------------------------
+        pos = min(region_col[r1], region_col[r2])
+
+        prev_full = max([c for c in full_columns if c < pos], default=None)
+        next_full = min([c for c in full_columns if c > pos], default=None)
+
+        # Determine insertion index from region
+        if prev_full is not None:
+            prev_region = column_region[prev_full]
+            insert_idx = aligned_top.index(prev_region) + 1
+        elif next_full is not None:
+            next_region = column_region[next_full]
+            insert_idx = aligned_top.index(next_region)
+        else:
+            insert_idx = len(aligned_top)
+
+        # -----------------------------
+        # Determine orientation
+        # -----------------------------
+        if min(rows1) < min(rows2):
+            top_region = r1
+            bottom_region = r2
+        else:
+            top_region = r2
+            bottom_region = r1
+
+        # -----------------------------
+        # Insert
+        # -----------------------------
+        aligned_top.insert(insert_idx, top_region)
+        aligned_bottom.insert(insert_idx, bottom_region)
+
+        seq_regions.update([r1, r2])
+
+    return aligned_top, aligned_bottom
 
 def extract_ring_boundaries(year_image, pix_to_um):
     """
@@ -2240,6 +2672,12 @@ def add_radialfile_stats(celldata, ringprops_df):
     
     df = celldata[celldata["valid_radial_file"]].copy()
     
+    rw_from_cells = (
+        df.groupby("year")["cell_ring_width"]
+        .mean()
+        .rename("rw_from_cells")
+    )
+    
     # Group by ring and radial_file
     grouped = df.groupby(["year", "radial_file"])
     
@@ -2281,7 +2719,8 @@ def add_radialfile_stats(celldata, ringprops_df):
     )
 
     # Merge all statistics
-    stats_df = pd.concat([nb_cells, 
+    stats_df = pd.concat([rw_from_cells,
+                          nb_cells, 
                           nb_rfiles, 
                           n_valid_cells, 
                           n_valid_files, 
@@ -2345,3 +2784,29 @@ def early_latewood_width(celldata, ringprops_df):
     ringprops_df = ringprops_df.merge(width_df, left_on="label", right_on="year", how="left")
 
     return ringprops_df
+
+###############################################################################
+def extract_ring_regions(ring_lines, cell_to_region, final_top):
+
+    ring_regions = []
+
+    for rep_region in final_top:
+
+        labels = ring_lines.get(rep_region, [])
+
+        # map labels → regions
+        regions = {cell_to_region[label] for label in labels if label in cell_to_region}
+
+        # sort for consistency (optional but important for reproducibility)
+        #regions = sorted(regions)
+
+        ring_regions.append(regions)
+
+    return ring_regions
+
+def write_ring_file(filepath, ring_regions):
+
+    with open(filepath, "w") as f:
+        for regions in ring_regions:
+            line = " ".join(map(str, regions))
+            f.write(line + "\n")

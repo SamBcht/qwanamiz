@@ -7,7 +7,6 @@ Created on Thu Jun 27 10:04:48 2024
 
  #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
 Calculate and fits some periodic von Mises distribution functions. 
 
@@ -29,6 +28,120 @@ from typing import Tuple
 import numpy as np
 from scipy.special import iv
 from scipy.optimize import fsolve
+from scipy.stats import vonmises
+
+def estimate_kappa(R):
+    """Approximate kappa from mean resultant length R."""
+    kappa = np.zeros_like(R)
+
+    mask1 = R < 0.53
+    mask2 = (R >= 0.53) & (R < 0.85)
+    mask3 = R >= 0.85
+
+    kappa[mask1] = 2*R[mask1] + R[mask1]**3 + 5*R[mask1]**5/6
+    kappa[mask2] = -0.4 + 1.39*R[mask2] + 0.43/(1-R[mask2])
+    kappa[mask3] = 1/(R[mask3]**3 - 4*R[mask3]**2 + 3*R[mask3])
+
+    return kappa
+
+
+def mixture_pdfit_optim(series: np.array, pi, mu, kappa, n: int = 2, threshold: float = 1e-3):
+    """
+    Find the parameters of a mixture of von Mises distributions, using an EM algorithm.
+    
+    Input | Type | Details
+    -- | -- | --
+    series | a 1D numpy array | represent the stochastic periodic process
+    n | an int | the number of von Mises distributions in the mixture
+    pi | initial values for pi (proportions of each distribution)
+    mu | initial values for mu (measure of location, analogous to mean) 
+    kappa | initial values for kappa (measure of concentration, analogous to 1/variance)
+    threshold | a float | correspond to the euclidean distance between the old parameters and the new ones
+    
+    Output : a (3 x n) numpy-array, containing the probability amplitude of the distribution, 
+    and the mu and kappa parameters on each line.
+    """
+
+    series = np.asarray(series)
+
+    # Precompute trigonometric values (big speed improvement)
+    sin_x = np.sin(series)
+    cos_x = np.cos(series)
+
+    thresh = 1.0
+    
+    iteration = 0
+    max_iter = 500
+
+    while (thresh > threshold) and (iteration < max_iter):
+        
+        iteration += 1
+        
+        if iteration == max_iter:
+            print("Warning: EM reached max_iter without full convergence")
+
+        # -----------------
+        # E STEP
+        # -----------------
+
+        log_density = np.vstack([
+            vonmises.logpdf(series, kappa[i], loc=mu[i])
+            for i in range(n)
+        ]).T
+
+        log_prob = log_density + np.log(pi)
+
+        # log-sum-exp stabilization
+        log_prob -= log_prob.max(axis=1, keepdims=True)
+
+        t = np.exp(log_prob)
+        t /= t.sum(axis=1, keepdims=True)
+
+        # -----------------
+        # M STEP
+        # -----------------
+
+        new_pi = np.mean(t, axis=0)
+
+        # update mean direction
+        new_mu = np.arctan2(
+            sin_x @ t,
+            cos_x @ t
+        )
+
+        # resultant length
+        R = np.sqrt((cos_x @ t)**2 + (sin_x @ t)**2) / np.sum(t, axis=0)
+
+        # update kappa
+        new_kappa = estimate_kappa(R)
+
+        # numerical safeguard
+        #new_kappa = np.clip(new_kappa, 0, 700)
+
+        # convergence criterion
+        thresh = np.sum(
+            (pi - new_pi)**2 +
+            (mu - new_mu)**2 +
+            (kappa - new_kappa)**2
+        )
+
+        pi = new_pi
+        mu = new_mu
+        kappa = new_kappa
+
+    res = np.array([pi, mu, kappa])
+
+    # single distribution case
+    if n == 1:
+        res = vonmises_pdfit(series)
+        res = np.append(1.0, res)
+        res = res.reshape(3, 1)
+
+    return res
+
+
+
+
 
 def vonmises_density(x: np.array, mu: np.array, kappa: np.array) -> np.array:
     """Alias for `density` function. Kept for retro-compatibility"""
@@ -104,10 +217,11 @@ def mixture_pdfit(series: np.array, pi, mu, kappa, n: int=2, threshold: float=1e
         c = np.cos(series)@(t*np.cos(new_mu)) + np.sin(series)@(t*np.sin(new_mu))
         k = lambda kappa: (c-iv(1, kappa)/iv(0, kappa)*np.sum(t, axis=0)).reshape(n)
         new_kappa = fsolve(k, np.zeros(n))
+        new_kappa = np.clip(new_kappa, 0, 700)
         thresh = np.sum((pi-new_pi)**2 + (mu-new_mu)**2 + (kappa-new_kappa)**2)
         pi = new_pi
         mu = new_mu
-        kappa = new_kappa
+        kappa = np.clip(new_kappa, 0, 700)
         t = pi*vonmises_density(series,mu,kappa)
         s = np.sum(t, axis=1)
         t = (t.T/s).T
