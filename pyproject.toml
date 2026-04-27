@@ -1,6 +1,6 @@
 [project]
 name = "qwanamiz"
-version = "0.1.0"
+version = "1.0.0"
 description = "Quantitative Wood Anatomy Measurements"
 authors = [{name = "Samuel Bouchut", email = "samuel.bouchut@uqat.ca"},
            {name = "Lucie Barbier"},
