@@ -5,7 +5,7 @@ Created on Thu Jun 12 18:10:42 2025
 @author: sambo
 """
 import networkx as nx
-import rings_functions
+import rings_functions as rings_functions
 
 ##############################################################################
 celldata = rings_functions.morks_index(celldata)
@@ -14,33 +14,39 @@ celldata = rings_functions.morks_index(celldata)
 # Get lastcells in rings based on diameter and woodzone cell features
 lastcells_labels, rightcells_labels, leftcells_labels = rings_functions.get_lastcells(celldata, adjacency)
 
+lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
+
 # Create an empty mask with the same shape as expanded_labels
-#lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
+lastcells_mask = np.zeros_like(expanded_labels, dtype=bool)
 rightcells_mask = np.zeros_like(expanded_labels, dtype=bool)
-#left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
+left_neighbors_mask = np.zeros_like(expanded_labels, dtype=bool)
 
 # Get the labels of lastcells and their right_neighbors
-#lastcell_labels = lastcells_df["label"].values
-#rightcells_labels = lastcells_df["right_neighbor"].values
-#left_neighbor_labels = lastcells_df["left_neighbor"].values
+lastcell_labels = lastcells_df["label"].values
+rightcells_labels = lastcells_df["right_neighbor"].values
+left_neighbor_labels = lastcells_df["left_neighbor"].values
 
 # Retain labels that are both lastcell and a right neighbor
-#lastcells_inter = set(lastcell_labels) & set(right_neighbor_labels)
+lastfirst_inter = set(lastcells_labels) & set(rightcells_labels)
+
+leftlast_inter = set(lastcells_labels) & set(leftcells_labels)
+
+leftright_inter = set(rightcells_labels) & set(leftcells_labels)
 
 # Create a mask where pixels belong to lastcells or their right_neighbors
-#lastcells_mask[np.isin(expanded_labels, lastcells_labels)] = True
+lastcells_mask[np.isin(expanded_labels, lastcells_labels)] = True
 rightcells_mask[np.isin(expanded_labels, rightcells_labels)] = True
-#left_neighbors_mask[np.isin(expanded_labels, leftcells_labels)] = True
+left_neighbors_mask[np.isin(expanded_labels, leftcells_labels)] = True
 
-#viewer.add_image(lastcells_mask, name="LastCells Mask", opacity=0.5, colormap="red", scale = [pix_to_um, pix_to_um])
-#viewer.add_image(rightcells_mask, name="Right-N Mask", opacity=0.5, colormap="orange", scale = [pix_to_um, pix_to_um])
-#viewer.add_image(left_neighbors_mask, name="Left-N Mask", opacity=0.5, colormap="yellow", scale = [pix_to_um, pix_to_um])
+viewer.add_image(lastcells_mask, name="LastCells Mask", opacity=0.5, colormap="red", scale = [pix_to_um, pix_to_um])
+viewer.add_image(rightcells_mask, name="Right-N Mask", opacity=0.5, colormap="orange", scale = [pix_to_um, pix_to_um])
+viewer.add_image(left_neighbors_mask, name="Left-N Mask", opacity=0.5, colormap="yellow", scale = [pix_to_um, pix_to_um])
 
 ###############################################################################
 # Now we can filter the cell and adjacency dataframes based on cell classification
 # This allow us to filter the edges (adjacencies) and nodes (cells) involved in
 # a ring transition
-lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
+#lastcells_df = celldata[celldata["label"].isin(lastcells_labels)].copy()
 
 # Filter using MultiIndex levels
 adjacency_lastcells = adjacency[
@@ -178,7 +184,7 @@ boundary_labeled = np.zeros_like(expanded_labels, dtype=int)
 # Update boundary-labeled values at those positions
 boundary_labeled[target_mask] = region_array
 
-#viewer.add_labels(boundary_labeled, name="Final Boundary Corrected", scale=[pix_to_um, pix_to_um])
+viewer.add_labels(boundary_labeled, name="Final Boundary Corrected", scale=[pix_to_um, pix_to_um])
 
 # Now we will work mostly with rightcells
 # The earlywood nature of rightcells gives clearer adjacencies and we avoid 
@@ -208,12 +214,12 @@ problematic_regions = region_counts[region_counts > 1].reset_index()["boundary_r
 print("Regions with multiple lastcells in the same radial_file:", problematic_regions)
 
 # Step 1: Create an empty mask
-#problematic_mask = np.zeros_like(boundary_labeled, dtype=bool)
+problematic_mask = np.zeros_like(boundary_labeled, dtype=bool)
 
 # Step 2: Set pixels belonging to problematic regions to True
-#problematic_mask[np.isin(boundary_labeled, problematic_regions)] = True
+problematic_mask[np.isin(boundary_labeled, problematic_regions)] = True
 
-#viewer.add_image(problematic_mask, name="Problematic Regions", opacity=0.5, colormap="magenta", scale=[pix_to_um, pix_to_um])  # Highlighted problem regions
+viewer.add_image(problematic_mask, name="Problematic Regions", opacity=0.5, colormap="magenta", scale=[pix_to_um, pix_to_um])  # Highlighted problem regions
 
 # Here we can define a function to correct the problematic regions based on
 # the subgraph of the region. The idea would be to find the minimum edges to 
@@ -227,7 +233,7 @@ print("Regions with multiple lastcells in the same radial_file:", problematic_re
 # We update the boundary_labeled image image to keep only rightcells
 rightcells_boundary = rings_functions.update_boundary_labels(np.zeros_like(expanded_labels, dtype=int), right_to_region, expanded_labels)
 
-#viewer.add_labels(rightcells_boundary, name="Rightcells Boundary", scale=[pix_to_um, pix_to_um])
+viewer.add_labels(rightcells_boundary, name="Rightcells Boundary", scale=[pix_to_um, pix_to_um])
 
 #### Now we find the most up- and downward cells in each ring boundary segments
 up_extremities, down_extremities = rings_functions.get_extremities(region_to_right, rightcells_df)
@@ -252,11 +258,11 @@ upward_points = np.array(upward_points)
 downward_points = np.array(downward_points)
 
 # Add the points to Napari
-#if len(upward_points) > 0:
-#    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
+if len(upward_points) > 0:
+    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
 
-#if len(downward_points) > 0:
-#    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
+if len(downward_points) > 0:
+    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
 
 
 ###############################################################################
@@ -310,7 +316,7 @@ updated_boundaries = rings_functions.integrate_commons(upward_neighbors,
                                        rightcells_boundary, 
                                        expanded_labels)
 
-#viewer.add_labels(updated_boundaries, name="Updated Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+viewer.add_labels(updated_boundaries, name="Updated Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # We then integrate up and down pairs and also merge regions accordingly
 # An update of the cell_to_region mapping is done internally
@@ -320,7 +326,7 @@ final_boundaries = rings_functions.integrate_updown(upward_neighbors,
                                        updated_boundaries, 
                                        expanded_labels)
 
-#viewer.add_labels(final_boundaries, name="Final Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+viewer.add_labels(final_boundaries, name="Final Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # We update the mapping of cells to their boundary region
 cell_to_region, region_to_cells = rings_functions.map_cell_to_region(final_boundaries > 0, final_boundaries, expanded_labels)
@@ -347,7 +353,7 @@ boundaries = rings_functions.integrate_candidates(final_boundaries,
                                   upward_neighbors, 
                                   downward_neighbors)
 
-#viewer.add_labels(boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
+viewer.add_labels(boundaries, name="Boundary Labels", opacity=0.7, scale=[pix_to_um, pix_to_um])
 
 # UPDATE THE RIGHTCELLS DATAFRAME WITH NEWLY INTEGRATED CELLS
 # Step 1: Gather all labels already accounted for
@@ -388,11 +394,11 @@ upward_points = np.array(upward_points)
 downward_points = np.array(downward_points)
 
 # Add the points to Napari
-#if len(upward_points) > 0:
-#    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
+if len(upward_points) > 0:
+    viewer.add_points(upward_points, name="Upward Earlywood Cells", size=5, face_color="blue", border_color="white")
 
-#if len(downward_points) > 0:
-#    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
+if len(downward_points) > 0:
+    viewer.add_points(downward_points, name="Downward Earlywood Cells", size=5, face_color="green", border_color="white")
 
 ############################################################################
 # FIND ADJACENCIES BETWEEN RING SEGMENTS AFTER ADDITION OF CELLS
