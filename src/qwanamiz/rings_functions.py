@@ -2590,7 +2590,7 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
         df.loc[cells_in_ring.index, "dist_to_next"] = d_curr
 
         # Distance to PREVIOUS ring line (only if exists)
-        if i > 0:
+        if i > 0 and len(skeleton_boundaries[i - 1]):
             prev_boundary = np.array(skeleton_boundaries[i - 1])
             tree_prev = cKDTree(prev_boundary)
             d_prev, _ = tree_prev.query(centroids)
