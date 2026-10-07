@@ -2565,6 +2565,10 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
     # Ensure a copy and index by label
     df = celldata.copy().set_index("label")
 
+    # An array of years identified in the dataset
+    # May not always have a difference of 1 between years due to missing rings or other anomalies
+    years = sorted(np.unique(df['year']))
+
     # Initialize columns
     df["dist_to_next"] = np.nan
     df["dist_to_prev"] = np.nan
@@ -2578,8 +2582,8 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
         boundary = np.array(boundary)
         tree = cKDTree(boundary)
 
-        # Cells in current ring i+1
-        cells_in_ring = df[df[year_col] == (i + 1)]
+        # Cells in ring corresponding to current year
+        cells_in_ring = df[df[year_col] == years[i]]
         if len(cells_in_ring) == 0:
             continue
 
