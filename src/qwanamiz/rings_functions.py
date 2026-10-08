@@ -2751,6 +2751,14 @@ def early_latewood_width(celldata, ringprops_df):
 
     results = []
 
+    # If there are no valid cells then we simply fill the columns that would be added by this function with NaN
+    if len(df) == 0:
+        ringprops_df["year_y"] = np.nan
+        ringprops_df["earlywood_width"] = np.nan
+        ringprops_df["latewood_width"] = np.nan
+        return ringprops_df
+
+
     for year, group in df.groupby("year"):
         ew_widths = []
         lw_widths = []
