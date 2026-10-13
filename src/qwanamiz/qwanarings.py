@@ -34,6 +34,10 @@ def main():
     parser.add_argument("--pixel-size", dest = "pixel", type = float, default = 0.55042690590734,
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
+    parser.add_argument("--max-cell-distance", dest = "max_cell_distance", type = float, default = 1000.0,
+                        help = """The maxmimum distance (in the measurement unit) between the cells at the extremities of
+                        two ring boundaries to merge them together. Defaults to 1000.""")
+
     parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 4,
                         help = """The minimum number of cells in a ring-boundary region to consider it. Defaults to 4.""")
 
@@ -264,7 +268,8 @@ def main():
                                                                   cell_to_region, 
                                                                   up_extremities, 
                                                                   down_extremities, 
-                                                                  incompatible_region_pairs)
+                                                                  incompatible_region_pairs,
+                                                                  max_cell_distance = args.max_cell_distance)
         
         pairs_df, valid, excluded = qrings.analyze_pairs_angles(celldata, nearest_extremity)
     
@@ -293,7 +298,8 @@ def main():
         
         incompatible_region_pairs = qrings.incompatible_regions(celldata, cell_to_region)
     
-        nearest_extremity, _ = qrings.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs)
+        nearest_extremity, _ = qrings.get_nearest_extremity(rightcells_df, cell_to_region, up_extremities, down_extremities, incompatible_region_pairs,
+                                                                  max_cell_distance = args.max_cell_distance)
     
         pairs_df, valid, excluded = qrings.analyze_pairs_angles(celldata, nearest_extremity)
     
@@ -313,13 +319,14 @@ def main():
         incompatible_pairs = set()
     
         nearest_extremity, all_regions = qrings.get_nearest_extremity(rightcells_df, 
-                                                                               cell_to_region, 
-                                                                               up_extremities, 
-                                                                               down_extremities, 
-                                                                               incompatible_pairs,
-                                                                               new_boundaries.shape,
-                                                                               75,
-                                                                               pix_to_um)
+                                                                      cell_to_region, 
+                                                                      up_extremities, 
+                                                                      down_extremities, 
+                                                                      incompatible_pairs,
+                                                                      max_cell_distance = args.max_cell_distance,
+                                                                      image_shape = new_boundaries.shape,
+                                                                      border_margin = 75,
+                                                                      pix_to_um = pix_to_um)
     
         valid_pairs, excluded_pairs = qrings.filter_isolated_pairs(nearest_extremity, all_regions)
         
