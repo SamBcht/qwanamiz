@@ -27,8 +27,21 @@ fits your use case, please see the section on detailed documentation.
 
 ## Installation
 
-The latest developement version of `qwanamiz` can be downloaded from GitHub
-using the following command:
+The easiest way to install qwanamiz is to install it from
+[PyPi](https://pypi.org/project/qwanamiz/) using `pip`, preferably within a
+virtual environment:
+
+```bash
+# Installing base qwanamiz utilities from PyPi
+pip install qwanamiz
+
+# Installing qwanamiz along with optional dependencies (read on for more details)
+pip install qwanamiz[dev,docs,viz]
+```
+
+Downloading from PyPi will install the latest stable release of qwanamiz. If
+you want the latest bug fixes or functionality, the developement version of
+`qwanamiz` can be downloaded from GitHub using the following command:
 
 ```bash
 git clone https://github.com/SamBcht/qwanamiz.git
@@ -282,8 +295,8 @@ After compiling the documents, you should be able to access them under
 
 ### `qwanamiz` library functions
 
-Work is under way to provide comprehensive documentation for all the
-library functions used in `qwanamiz` so they can be adapted for other purposes.
+Work is under way to provide comprehensive documentation for all the library
+functions used in `qwanamiz` so they can be adapted for other purposes.
 
 ### `qwanaflow` command-line arguments
 
