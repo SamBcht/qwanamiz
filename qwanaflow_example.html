@@ -9,7 +9,7 @@
   <title>Detailed qwanaflow workflow &mdash; qwanamiz  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -100,49 +100,49 @@
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>usage: qwanaflow [-h] [--remove-suffix REMOVE_SUFFIX] [--pixel-size PIXEL]
-                 [--dir-nrows NROWS] [--dir-ncols NCOLS] [--disable-plots]
-                 [--area-threshold AREA_THRESHOLD]
-                 [--solidity-threshold SOLIDITY_THRESHOLD]
-                 [--max-wall-distance MAX_WALL_DISTANCE]
-                 [--vm-threshold VMTHRESHOLD] [--angle-tolerance ANGLE]
-                 [--stitch-angle-tolerance STITCH_ANGLE]
-                 [--scan-width SCAN_WIDTH] [--ncores NCORES]
-                 input output
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span><span class=" -Color -Color-Bold -Color-Bold-Blue">usage: </span><span class=" -Color -Color-Bold -Color-Bold-Magenta">qwanaflow</span> [<span class=" -Color -Color-Green">-h</span>] [<span class=" -Color -Color-Cyan">--remove-suffix </span><span class=" -Color -Color-Yellow">REMOVE_SUFFIX</span>] [<span class=" -Color -Color-Cyan">--pixel-size </span><span class=" -Color -Color-Yellow">PIXEL</span>]
+                 [<span class=" -Color -Color-Cyan">--dir-nrows </span><span class=" -Color -Color-Yellow">NROWS</span>] [<span class=" -Color -Color-Cyan">--dir-ncols </span><span class=" -Color -Color-Yellow">NCOLS</span>] [<span class=" -Color -Color-Cyan">--disable-plots</span>]
+                 [<span class=" -Color -Color-Cyan">--area-threshold </span><span class=" -Color -Color-Yellow">AREA_THRESHOLD</span>]
+                 [<span class=" -Color -Color-Cyan">--solidity-threshold </span><span class=" -Color -Color-Yellow">SOLIDITY_THRESHOLD</span>]
+                 [<span class=" -Color -Color-Cyan">--max-wall-distance </span><span class=" -Color -Color-Yellow">MAX_WALL_DISTANCE</span>]
+                 [<span class=" -Color -Color-Cyan">--vm-threshold </span><span class=" -Color -Color-Yellow">VMTHRESHOLD</span>] [<span class=" -Color -Color-Cyan">--angle-tolerance </span><span class=" -Color -Color-Yellow">ANGLE</span>]
+                 [<span class=" -Color -Color-Cyan">--stitch-angle-tolerance </span><span class=" -Color -Color-Yellow">STITCH_ANGLE</span>]
+                 [<span class=" -Color -Color-Cyan">--scan-width </span><span class=" -Color -Color-Yellow">SCAN_WIDTH</span>] [<span class=" -Color -Color-Cyan">--ncores </span><span class=" -Color -Color-Yellow">NCORES</span>]
+                 <span class=" -Color -Color-Green">input</span> <span class=" -Color -Color-Green">output</span>
 
-positional arguments:
-  input                 If a single directory, all png files in that directory
+<span class=" -Color -Color-Bold -Color-Bold-Blue">positional arguments:</span>
+  <span class=" -Color -Color-Bold -Color-Bold-Green">input</span>                 If a single directory, all png files in that directory
                         will be processed. If a single .png file, process only
                         that file. If a single .txt file, should be a file
                         containing a list of files to process, with one .png
                         file per line.
-  output                A directory to write output files to.
+  <span class=" -Color -Color-Bold -Color-Bold-Green">output</span>                A directory to write output files to.
 
-options:
-  -h, --help            show this help message and exit
-  --remove-suffix REMOVE_SUFFIX
+<span class=" -Color -Color-Bold -Color-Bold-Blue">options:</span>
+  <span class=" -Color -Color-Bold -Color-Bold-Green">-h</span>, <span class=" -Color -Color-Bold -Color-Bold-Cyan">--help</span>            show this help message and exit
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--remove-suffix</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">REMOVE_SUFFIX</span>
                         String to remove from the input filename when
-                        generating the sample base name. Default: &#39;.png&#39;
-  --pixel-size PIXEL    Conversion factor from of a single pixel to the
+                        generating the sample base name. Default: '.png'
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--pixel-size</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">PIXEL</span>    Conversion factor from of a single pixel to the
                         desired measurement unit. Defaults to 1 (measurements
                         in pixels).
-  --dir-nrows, -r NROWS
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--dir-nrows</span>, <span class=" -Color -Color-Bold -Color-Bold-Green">-r</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">NROWS</span>
                         Number of rows to split the image into for the
                         directionality analysis. If None (the default), the
                         number of rows and colums is automatically determined.
-  --dir-ncols, -c NCOLS
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--dir-ncols</span>, <span class=" -Color -Color-Bold -Color-Bold-Green">-c</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">NCOLS</span>
                         Number of columns to split the image into for the
                         directionality analysis. If None (the default), the
                         number of rows and colums is automatically determined.
-  --disable-plots       Specify this flag to disable the generation of angle
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--disable-plots</span>       Specify this flag to disable the generation of angle
                         plots. By default they will be produced.
-  --area-threshold AREA_THRESHOLD
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--area-threshold</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">AREA_THRESHOLD</span>
                         Lumen area above which a cell can be considered for
                         splitting into several cells using the watershed
                         segmentation algorithm. For a cell to be selected, it
                         must also be below the solidity threshold. Defaults to
                         500.
-  --solidity-threshold SOLIDITY_THRESHOLD
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--solidity-threshold</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">SOLIDITY_THRESHOLD</span>
                         Solidity threshold below which a cell can be
                         considered for splitting into several cells using the
                         watershed segmentation algorithm. Higher values
@@ -151,25 +151,25 @@ options:
                         (presence of indentations). For a cell to be selected,
                         it must also be above the lumen area threshold.
                         Defaults to 0.95.
-  --max-wall-distance MAX_WALL_DISTANCE
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--max-wall-distance</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">MAX_WALL_DISTANCE</span>
                         The maximum distance (in the target measurement unit
                         defined by --pixel-size) between a cell wall pixel and
                         the nearest cell lumen for that pixel to be considered
                         as belonging to the cell. This parameter effectively
                         puts a cap on the maximum possible cell wall
                         thickness. Defaults to 10.
-  --vm-threshold VMTHRESHOLD
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--vm-threshold</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">VMTHRESHOLD</span>
                         The convergence threshold in the search of von Mises
                         distribution parameters. Lower values result in more
                         precise results but slower convergence. Defaults to
                         0.001.
-  --angle-tolerance ANGLE
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--angle-tolerance</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">ANGLE</span>
                         The tolerance (in degrees) around the lower and upper
                         bounds found by the directionality algorithm in
                         determining which cell adjacencies are radial and
                         which are tangential. A higher value means potentially
                         longer, but inexact, radial files. Defaults to 5.
-  --stitch-angle-tolerance STITCH_ANGLE
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--stitch-angle-tolerance</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">STITCH_ANGLE</span>
                         The tolerance (in degrees) around the lower and upper
                         bounds found by the directionality algorithm in
                         determining which cell adjacencies are radial and
@@ -177,16 +177,16 @@ options:
                         initial radial file assignment in stitching together
                         radial files and should therefore use a more
                         permissive angle threshold. Defaults to 20.
-  --scan-width SCAN_WIDTH
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--scan-width</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">SCAN_WIDTH</span>
                         The width (in pixels) of the rectangle to use when
                         computing wall thickness at the boundary between two
                         cells. If None (the default), qwanaflow dynamically
                         computes the scan width for each cell pair to 75% of
-                        the average of the two cells&#39; diameter. Explicitly
+                        the average of the two cells' diameter. Explicitly
                         setting the scan width provides faster computation
                         (especially for lower values) but is potentially less
                         accurate.
-  --ncores NCORES       The number of processes to launch for multiprocessing
+  <span class=" -Color -Color-Bold -Color-Bold-Cyan">--ncores</span> <span class=" -Color -Color-Bold -Color-Bold-Yellow">NCORES</span>       The number of processes to launch for multiprocessing
                         during some cell measurement steps. Defaults to 1 (no
                         multiprocessing).
 </pre></div>
@@ -213,55 +213,53 @@ options:
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Running workflow on test_image
 Reading input image
-</pre></div>
-</div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:00.050387
+runtime : 0:00:00.042530
 Labeling individual cells
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:00.123081
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:00.115462
 Measuring lumen-related features
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:04.684940
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:08.625193
 Splitting cells using watershed algorithm
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:06.383946
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:10.301763
 Compute distance from cell wall pixel to nearest lumen
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:07.280100
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:11.198893
 Measuring whole cell-related features
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:08.020270
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:11.845657
 Producing region adjacency graph
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:09.854384
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:14.037817
 Analyzing directionality and classifying edges
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:11.347167
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:15.572450
 Assigning cells to radial files
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:14.200429
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:18.301346
 Measuring lumen diameters
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:17.070718
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:22.430714
 Measuring wall thickness
 </pre></div>
 </div>
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:41.746824
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>runtime : 0:00:46.856612
 Successfully run
 Saving outputs
 </pre></div>
 </div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Saved workflow output to test_output/test_image_outputs
-runtime : 0:00:44.294480
+runtime : 0:00:49.542798
 </pre></div>
 </div>
 </div>
@@ -280,7 +278,7 @@ runtime : 0:00:44.294480
 
 <span class="c1"># Setting some parameters for matplotlib figures</span>
 <span class="o">%</span><span class="k">matplotlib</span> inline
-<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;figure.figsize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">'figure.figsize'</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -292,15 +290,15 @@ runtime : 0:00:44.294480
 <p>We can read the image as a numpy array under the name <code class="docutils literal notranslate"><span class="pre">bw_image</span></code> (black &amp; white image) using the function <code class="docutils literal notranslate"><span class="pre">read_image</span></code>. Zeros and ones correspond to cell wall and lumen pixels, respectively. <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> expects such a binarized image, which must be obtained from the original image using third-party tools.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">bw_image_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;tests&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;test_image.png&quot;</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">bw_image_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">".."</span><span class="p">,</span> <span class="s2">"tests"</span><span class="p">,</span> <span class="s2">"data"</span><span class="p">,</span> <span class="s2">"test_image.png"</span><span class="p">)</span>
 <span class="n">bw_image</span> <span class="o">=</span> <span class="n">qmiz</span><span class="o">.</span><span class="n">read_image</span><span class="p">(</span><span class="n">bw_image_path</span><span class="p">)</span>
 
-<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">bw_image</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span><span class="p">);</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">bw_image</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">'gray'</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/a2fe62b1e472a44dc6834ddbbde3c7f21283f43aaa6960e34584267ba90e31af.png" src="_images/a2fe62b1e472a44dc6834ddbbde3c7f21283f43aaa6960e34584267ba90e31af.png" />
+<img alt="_images/189b9ee6bc54ba0c5dad85180448380c198b5eca82bf7be682672fb343c2630a.png" src="_images/189b9ee6bc54ba0c5dad85180448380c198b5eca82bf7be682672fb343c2630a.png" />
 </div>
 </div>
 </section>
@@ -315,7 +313,7 @@ runtime : 0:00:44.294480
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/b632c276fbd930080fa17e5344611b5e72858f9b69ef71c2a33a0bc3989c25d4.png" src="_images/b632c276fbd930080fa17e5344611b5e72858f9b69ef71c2a33a0bc3989c25d4.png" />
+<img alt="_images/90301513c467a008bfbee84aa8c8e854a73b187f48747d1b6ec48256ff506aef.png" src="_images/90301513c467a008bfbee84aa8c8e854a73b187f48747d1b6ec48256ff506aef.png" />
 </div>
 </div>
 <p>Once the cells are labeled, we can compute some lumen properties using the function <code class="docutils literal notranslate"><span class="pre">measure_lumens</span></code>. This function is essentially a wrapper for scikit-image’s <code class="docutils literal notranslate"><span class="pre">regionprops_table</span></code> function. Many properties are available and described in the <a class="reference external" href="https://scikit-image.org/docs/0.25.x/api/skimage.measure.html#skimage.measure.regionprops_table">official documentation</a>, but only a few are necessary for downstream analyses.</p>
@@ -333,7 +331,7 @@ runtime : 0:00:44.294480
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.DataFrame&#39;&gt;
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class 'pandas.DataFrame'&gt;
 Index: 4554 entries, 0 to 1139
 Data columns (total 14 columns):
  #   Column             Non-Null Count  Dtype  
@@ -373,12 +371,12 @@ memory usage: 533.7+ KB
                                                               <span class="n">solidity_threshold</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">)</span>
 
 <span class="c1"># Zooming in on three cells that were split by the segmentation algorithm</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">watershed_result</span><span class="p">[</span><span class="mi">2130</span><span class="p">:</span><span class="mi">2250</span><span class="p">,</span><span class="mi">820</span><span class="p">:</span><span class="mi">1000</span><span class="p">],</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span><span class="p">);</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">watershed_result</span><span class="p">[</span><span class="mi">2130</span><span class="p">:</span><span class="mi">2250</span><span class="p">,</span><span class="mi">820</span><span class="p">:</span><span class="mi">1000</span><span class="p">],</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">'gray'</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/9a86fedeb8a96fee5622b99fba902c9d47de2af75af5ad8098d46172786dfd08.png" src="_images/9a86fedeb8a96fee5622b99fba902c9d47de2af75af5ad8098d46172786dfd08.png" />
+<img alt="_images/9bfe7aea500e96295b514b66874a8efb60e9b1c6099659373c62a5277bffc57f.png" src="_images/9bfe7aea500e96295b514b66874a8efb60e9b1c6099659373c62a5277bffc57f.png" />
 </div>
 </div>
 <p>As we can see from the brighter yellow cells in the <code class="docutils literal notranslate"><span class="pre">labeled_image</span></code> array, several cells had their lumens redefined this way by the segmentation algorithm.</p>
@@ -391,7 +389,7 @@ memory usage: 533.7+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/558050b93273430c514889797f9911cf2f9ebf2d58878ea7a03bbfd47e683054.png" src="_images/558050b93273430c514889797f9911cf2f9ebf2d58878ea7a03bbfd47e683054.png" />
+<img alt="_images/6c31afceab41e6e24da42808b1695103e42c4b3bec7c4e7d378cacaa9419f52c.png" src="_images/6c31afceab41e6e24da42808b1695103e42c4b3bec7c4e7d378cacaa9419f52c.png" />
 </div>
 </div>
 <p>By now, we already have several of the measurements that one would expect from a quantitative wood anatomy dataset. However, we have yet to measure lumen diameter and cell wall thickness. In preparation for measuring cell walls, we compute an array that stores the distance from each cell wall pixel to the nearest cell lumen pixel. This array is also useful to determine which cell each wall belongs to. In the image below, we can see that the cell walls of latewood cells appear a brighter blue because their cell walls are thicker.</p>
@@ -408,7 +406,7 @@ memory usage: 533.7+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/8704fcee58c9bbc55192d1332733023fb0b38f9448acb113babae6da252a2330.png" src="_images/8704fcee58c9bbc55192d1332733023fb0b38f9448acb113babae6da252a2330.png" />
+<img alt="_images/6fd8069832ae44806eff0700a23ab0e84720dc2bffeef74d56dd6c81efe5789f.png" src="_images/6fd8069832ae44806eff0700a23ab0e84720dc2bffeef74d56dd6c81efe5789f.png" />
 </div>
 </div>
 <p>Based on the distance array and the map of the cell label nearest to each cell wall pixel, we can expand the cells beyond their lumen to also include their walls. The maximum distance between a cell wall pixel and the closest lumen for the pixel to be assigned to a cell is controllable through the command-line parameter <code class="docutils literal notranslate"><span class="pre">--max-wall-distance</span></code>, which we set here to the default of 10. Here, 10 means 10 micrometers but this depends on the value of the <code class="docutils literal notranslate"><span class="pre">--pixel-size</span></code> parameter (which defaults to 1). By default, this means that a cell wall cannot be thicker than 10 pixels, which may or may not be appropriate based on the species and image resolution. Indeed, the <code class="docutils literal notranslate"><span class="pre">--max-wall-distance</span></code> parameter effectively constrains the maximum thickness that a cell wall may have. For the image that we are working with, this is hardly an issue as walls are typically thinner than that.</p>
@@ -426,7 +424,7 @@ memory usage: 533.7+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/f86a950132dbc7b56edfe712a119e1a6931fabd4407707c31931fa08497ab38c.png" src="_images/f86a950132dbc7b56edfe712a119e1a6931fabd4407707c31931fa08497ab38c.png" />
+<img alt="_images/ac1fe55f82efac0491f9cebcf7bc24fa4049fed788a3ec0b698c76b011665361.png" src="_images/ac1fe55f82efac0491f9cebcf7bc24fa4049fed788a3ec0b698c76b011665361.png" />
 </div>
 </div>
 <p>Now, we can measure the area of the whole cells using the same approach as we did earlier for lumens.</p>
@@ -453,7 +451,7 @@ memory usage: 533.7+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.DataFrame&#39;&gt;
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class 'pandas.DataFrame'&gt;
 MultiIndex: 13291 entries, (np.int32(612), np.int32(676)) to (np.int32(1414), np.int32(4562))
 Data columns (total 7 columns):
  #   Column           Non-Null Count  Dtype  
@@ -499,7 +497,7 @@ memory usage: 814.2+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.DataFrame&#39;&gt;
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class 'pandas.DataFrame'&gt;
 MultiIndex: 13291 entries, (np.int32(612), np.int32(676)) to (np.int32(1414), np.int32(4562))
 Data columns (total 10 columns):
  #   Column           Non-Null Count  Dtype  
@@ -529,7 +527,7 @@ memory usage: 1.5+ MB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/14fb8173ce6e04f35ff3bac958c0f88a183742462d5eae76c0157de35ff85555.png" src="_images/14fb8173ce6e04f35ff3bac958c0f88a183742462d5eae76c0157de35ff85555.png" />
+<img alt="_images/73eb999446b6cb0593cc2ca4b91fb323e8471513a916569b179cdcbb57c196ef.png" src="_images/73eb999446b6cb0593cc2ca4b91fb323e8471513a916569b179cdcbb57c196ef.png" />
 </div>
 </div>
 <p>The function <code class="docutils literal notranslate"><span class="pre">plot_directionality</span></code> displays an image with arrows showing the direction of radial growth determined by the directionality analysis for each sub-panel. This may be useful for debugging images that yield unexpected results.</p>
@@ -541,7 +539,7 @@ memory usage: 1.5+ MB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/b6c887f7e8cc2d3ec83794abe22d93c058944f393e357a418c2acb28691b958e.png" src="_images/b6c887f7e8cc2d3ec83794abe22d93c058944f393e357a418c2acb28691b958e.png" />
+<img alt="_images/75587d3ff257a50f78bcb848a3053c72d9f0c4b67f5af8e912188f3dd881d4a4.png" src="_images/75587d3ff257a50f78bcb848a3053c72d9f0c4b67f5af8e912188f3dd881d4a4.png" />
 </div>
 </div>
 <p>Using the lower and upper bounds from the directionality analysis, we can classify cell adjacencies based on the angle between them. The function <code class="docutils literal notranslate"><span class="pre">classify_edges</span></code> will accordingly add a <code class="docutils literal notranslate"><span class="pre">direction</span></code> column to the <code class="docutils literal notranslate"><span class="pre">rag_df</span></code> DataFrame and accepts a tolerance parameter (in degrees) around the lower and upper bounds. This allows for cells that are radially adjacent but whose angle departs from the local mean angle to still be considered as such. This parameter is controllable from the command-line using the argument <code class="docutils literal notranslate"><span class="pre">--angle-tolerance</span></code>.</p>
@@ -550,7 +548,7 @@ memory usage: 1.5+ MB
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># This function updates the rag_df DataFrame</span>
 <span class="c1"># tolerance corresponds to the --angle-tolerance command-line argument</span>
 <span class="n">rag_df</span> <span class="o">=</span> <span class="n">qmiz</span><span class="o">.</span><span class="n">classify_edges</span><span class="p">(</span><span class="n">rag_df</span><span class="p">,</span> <span class="n">tolerance</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span>
-<span class="n">rag_df</span><span class="p">[</span><span class="s1">&#39;direction&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
+<span class="n">rag_df</span><span class="p">[</span><span class="s1">'direction'</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -569,12 +567,12 @@ Name: count, dtype: int64
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">qplots</span><span class="o">.</span><span class="n">plot_adjacencies</span><span class="p">(</span><span class="n">base_image</span> <span class="o">=</span> <span class="n">bw_image</span><span class="p">,</span>
                         <span class="n">adjacency</span> <span class="o">=</span> <span class="n">rag_df</span><span class="p">,</span>
                         <span class="n">scaling</span> <span class="o">=</span> <span class="n">pix_to_um</span><span class="p">,</span>
-                        <span class="n">adj_type</span> <span class="o">=</span> <span class="s1">&#39;radial&#39;</span><span class="p">)</span>
+                        <span class="n">adj_type</span> <span class="o">=</span> <span class="s1">'radial'</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/dc6156689e5dca3210fd8685a15cd78a6a495265286b22cc614e837822f44b79.png" src="_images/dc6156689e5dca3210fd8685a15cd78a6a495265286b22cc614e837822f44b79.png" />
+<img alt="_images/47880f8ab1d480a85227c646c128a52993a83c4a97fe1e44e57d1ea1aaf1af7d.png" src="_images/47880f8ab1d480a85227c646c128a52993a83c4a97fe1e44e57d1ea1aaf1af7d.png" />
 </div>
 </div>
 <p>We can also see which cell adjacencies have been identified as tangential. Again, the results are as we would expect.</p>
@@ -583,13 +581,13 @@ Name: count, dtype: int64
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">qplots</span><span class="o">.</span><span class="n">plot_adjacencies</span><span class="p">(</span><span class="n">base_image</span> <span class="o">=</span> <span class="n">bw_image</span><span class="p">,</span>
                         <span class="n">adjacency</span> <span class="o">=</span> <span class="n">rag_df</span><span class="p">,</span>
                         <span class="n">scaling</span> <span class="o">=</span> <span class="n">pix_to_um</span><span class="p">,</span>
-                        <span class="n">adj_type</span> <span class="o">=</span> <span class="s1">&#39;tangential&#39;</span><span class="p">,</span>
-                        <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">)</span>
+                        <span class="n">adj_type</span> <span class="o">=</span> <span class="s1">'tangential'</span><span class="p">,</span>
+                        <span class="n">color</span> <span class="o">=</span> <span class="s1">'red'</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/2e24294ebd4bcbae4475af6917c14318242d10e015c31c180f2800d8373168db.png" src="_images/2e24294ebd4bcbae4475af6917c14318242d10e015c31c180f2800d8373168db.png" />
+<img alt="_images/2cb26cd09bbbf32232738eb5eab6b05684400f2de6309df34335eb9e31053cdc.png" src="_images/2cb26cd09bbbf32232738eb5eab6b05684400f2de6309df34335eb9e31053cdc.png" />
 </div>
 </div>
 </section>
@@ -625,7 +623,7 @@ Name: count, dtype: int64
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.DataFrame&#39;&gt;
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class 'pandas.DataFrame'&gt;
 Index: 4557 entries, 1 to 4573
 Data columns (total 22 columns):
  #   Column             Non-Null Count  Dtype  
@@ -666,7 +664,7 @@ memory usage: 947.9+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/3f2e9942a63fafdcedc509a48cfad8941c98a07a23d3c86ec7e39d74043605e9.png" src="_images/3f2e9942a63fafdcedc509a48cfad8941c98a07a23d3c86ec7e39d74043605e9.png" />
+<img alt="_images/dc8edf35606fd45ed1a8ee273c1cd68eebd743357ac6c44062e3c607f26ea10e.png" src="_images/dc8edf35606fd45ed1a8ee273c1cd68eebd743357ac6c44062e3c607f26ea10e.png" />
 </div>
 </div>
 </section>
@@ -683,7 +681,7 @@ memory usage: 947.9+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.DataFrame&#39;&gt;
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class 'pandas.DataFrame'&gt;
 Index: 4557 entries, 1 to 4573
 Data columns (total 27 columns):
  #   Column             Non-Null Count  Dtype  
@@ -737,7 +735,7 @@ memory usage: 996.8+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/1db6d9247cab9f696cd285a9c0a18f60349b2be3ff3d53006ebd916d7209b4b3.png" src="_images/1db6d9247cab9f696cd285a9c0a18f60349b2be3ff3d53006ebd916d7209b4b3.png" />
+<img alt="_images/8eca1be75c1fa3944fab6e909be971705dac5a0ed9a202774a732377dc2d56f2.png" src="_images/8eca1be75c1fa3944fab6e909be971705dac5a0ed9a202774a732377dc2d56f2.png" />
 </div>
 </div>
 </section>
@@ -763,7 +761,7 @@ memory usage: 996.8+ KB
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.DataFrame&#39;&gt;
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class 'pandas.DataFrame'&gt;
 Index: 4557 entries, 1 to 4573
 Data columns (total 34 columns):
  #   Column                Non-Null Count  Dtype  
@@ -826,12 +824,12 @@ memory usage: 1.3+ MB
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># This function call removes some columns that are not needed from cell_df</span>
 <span class="c1"># and adds a column for the sample ID</span>
-<span class="n">cell_df</span> <span class="o">=</span> <span class="n">qmiz</span><span class="o">.</span><span class="n">prepare_cell_output</span><span class="p">(</span><span class="n">cells</span> <span class="o">=</span> <span class="n">cell_df</span><span class="p">,</span> <span class="n">sampleID</span> <span class="o">=</span> <span class="s2">&quot;test_image&quot;</span><span class="p">)</span>
+<span class="n">cell_df</span> <span class="o">=</span> <span class="n">qmiz</span><span class="o">.</span><span class="n">prepare_cell_output</span><span class="p">(</span><span class="n">cells</span> <span class="o">=</span> <span class="n">cell_df</span><span class="p">,</span> <span class="n">sampleID</span> <span class="o">=</span> <span class="s2">"test_image"</span><span class="p">)</span>
 
 <span class="c1"># One typically would not need to specify the arguments and call this function manually</span>
 <span class="c1"># qwanaflow takes care of computing the appropriate values according to command-line parameters</span>
-<span class="n">qmiz</span><span class="o">.</span><span class="n">write_qwanaflow_outputs</span><span class="p">(</span><span class="n">output</span> <span class="o">=</span> <span class="s1">&#39;test_output&#39;</span><span class="p">,</span>
-                             <span class="n">base_name</span> <span class="o">=</span> <span class="s1">&#39;test_image&#39;</span><span class="p">,</span>
+<span class="n">qmiz</span><span class="o">.</span><span class="n">write_qwanaflow_outputs</span><span class="p">(</span><span class="n">output</span> <span class="o">=</span> <span class="s1">'test_output'</span><span class="p">,</span>
+                             <span class="n">base_name</span> <span class="o">=</span> <span class="s1">'test_image'</span><span class="p">,</span>
                              <span class="n">prediction</span> <span class="o">=</span> <span class="n">bw_image</span><span class="p">,</span>
                              <span class="n">distance_map</span> <span class="o">=</span> <span class="n">distance_map</span><span class="p">,</span>
                              <span class="n">expanded_labels</span> <span class="o">=</span> <span class="n">expanded_labels</span><span class="p">,</span>

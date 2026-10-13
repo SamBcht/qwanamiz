@@ -9,7 +9,7 @@
   <title>qwanamiz &mdash; qwanamiz  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -102,8 +102,19 @@ fits your use case, please see the section on detailed documentation.</p>
 </section>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
-<p>The latest developement version of <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> can be downloaded from GitHub
-using the following command:</p>
+<p>The easiest way to install qwanamiz is to install it from
+<a class="reference external" href="https://pypi.org/project/qwanamiz/">PyPi</a> using <code class="docutils literal notranslate"><span class="pre">pip</span></code>, preferably within a
+virtual environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Installing base qwanamiz utilities from PyPi</span>
+pip<span class="w"> </span>install<span class="w"> </span>qwanamiz
+
+<span class="c1"># Installing qwanamiz along with optional dependencies (read on for more details)</span>
+pip<span class="w"> </span>install<span class="w"> </span>qwanamiz<span class="o">[</span>dev,docs,viz<span class="o">]</span>
+</pre></div>
+</div>
+<p>Downloading from PyPi will install the latest stable release of qwanamiz. If
+you want the latest bug fixes or functionality, the developement version of
+<code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> can be downloaded from GitHub using the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/SamBcht/qwanamiz.git
 </pre></div>
 </div>
@@ -311,8 +322,13 @@ respective <a class="reference external" href="https://github.com/SamBcht/qwanad
 <section id="example-vignettes">
 <h3>Example vignettes<a class="headerlink" href="#example-vignettes" title="Link to this heading"></a></h3>
 <p>Users who want to better understand the detailed workflow of <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> and
-<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> should have a look at the detailed example vignettes under the
-<code class="docutils literal notranslate"><span class="pre">docs</span></code> folder:</p>
+<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> should have a look at the detailed example vignettes:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://sambcht.github.io/qwanamiz/qwanaflow_example.html">qwanaflow example</a></p></li>
+<li><p><a class="reference external" href="https://sambcht.github.io/qwanamiz/qwanarings_example.html">qwanarings example</a></p></li>
+</ul>
+<p>These online examples are derived from the Jupyter notebooks under the <code class="docutils literal notranslate"><span class="pre">docs</span></code>
+folder:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">qwanaflow_example.ipynb</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">qwanarings_example.ipynb</span></code></p></li>
@@ -336,10 +352,11 @@ make<span class="w"> </span>html
 </div>
 <p>After compiling the documents, you should be able to access them under
 <code class="docutils literal notranslate"><span class="pre">docs/_build/html/index.html</span></code>.</p>
-<p>Work is under way to host these example vignettes on the web so users will no
-longer need to compile them themselves.</p>
-<p>Work is also under way to provide comprehensive documentation for all the
-library functions used in <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> so they can be adapted for other purposes.</p>
+</section>
+<section id="qwanamiz-library-functions">
+<h3><code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> library functions<a class="headerlink" href="#qwanamiz-library-functions" title="Link to this heading"></a></h3>
+<p>Work is under way to provide comprehensive documentation for all the library
+functions used in <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code> so they can be adapted for other purposes.</p>
 </section>
 <section id="qwanaflow-command-line-arguments">
 <h3><code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> command-line arguments<a class="headerlink" href="#qwanaflow-command-line-arguments" title="Link to this heading"></a></h3>
@@ -367,7 +384,7 @@ options:
   -h, --help            show this help message and exit
   --remove-suffix REMOVE_SUFFIX
                         String to remove from the input filename when
-                        generating the sample base name. Default: &#39;.png&#39;
+                        generating the sample base name. Default: '.png'
   --pixel-size PIXEL    Conversion factor from of a single pixel to the
                         desired measurement unit. Defaults to 1 (measurements
                         in pixels).
@@ -427,7 +444,7 @@ options:
                         computing wall thickness at the boundary between two
                         cells. If None (the default), qwanaflow dynamically
                         computes the scan width for each cell pair to 75% of
-                        the average of the two cells&#39; diameter. Explicitly
+                        the average of the two cells' diameter. Explicitly
                         setting the scan width provides faster computation
                         (especially for lower values) but is potentially less
                         accurate.
@@ -442,6 +459,7 @@ options:
 <p>Running <code class="docutils literal notranslate"><span class="pre">qwanarings</span> <span class="pre">--help</span></code> will provide a list of command-line arguments that
 can be used to control the growth-ring detection workflow:</p>
 <div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span>usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
+                  [--max-cell-distance MAX_CELL_DISTANCE]
                   [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
                   [--iterations ITERATIONS]
 
@@ -449,11 +467,15 @@ options:
   -h, --help            show this help message and exit
   --input_dir INPUT_DIR
                         Path to the main directory containing subfolders for
-                        each processed image. Suffixes &#39;_imgs.npz&#39;,
-                        &#39;_cells.csv&#39; and &#39;_adjacency.csv&#39; must be in the
+                        each processed image. Suffixes '_imgs.npz',
+                        '_cells.csv' and '_adjacency.csv' must be in the
                         subfolders to obtain the input files.
   --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
                         Defaults to 0.55042690590734 micrometers.
+  --max-cell-distance MAX_CELL_DISTANCE
+                        The maximum distance (in the measurement unit)
+                        between the cells at the extremities of two ring
+                        boundaries to merge them together. Defaults to 1000.
   --minimum-cells MINCELLS
                         The minimum number of cells in a ring-boundary region
                         to consider it. Defaults to 4.
@@ -476,9 +498,9 @@ can be used to launch the visualization script:</p>
 positional arguments:
   prefix              The prefix of the sample to use qwanamiz.py with.
                       qwanamiz will look for file paths corresponding to
-                      &#39;prefix + _imgs.npz&#39;, &#39;prefix + _cells.csv&#39;, &#39;prefix +
-                      _ring_imgs.npz&#39;, &#39;prefix + _rings.pkl&#39;, and &#39;prefix +
-                      _polygons.pkl&#39; These files should all be output by
+                      'prefix + _imgs.npz', 'prefix + _cells.csv', 'prefix +
+                      _ring_imgs.npz', 'prefix + _rings.pkl', and 'prefix +
+                      _polygons.pkl' These files should all be output by
                       qwanaflow or qwanarings. Files output by the qwanarings
                       utility are optional and will not be drawn if only
                       qwanaflow has been run.

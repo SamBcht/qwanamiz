@@ -9,7 +9,7 @@
   <title>Changelog &mdash; qwanamiz  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -47,7 +47,8 @@
 <li class="toctree-l1"><a class="reference internal" href="qwanaflow_example.html">Detailed <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> workflow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="qwanarings_example.html">qwanarings example</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Changelog</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#v0-1-0-24-06-2024">v0.1.0 (24/06/2024)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#v1-0-1-october-13-2026">v1.0.1 (October 13, 2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#v1-0-0-april-27-2026">v1.0.0 (April 27, 2026)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
@@ -80,11 +81,33 @@
              
   <section id="changelog">
 <h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading"></a></h1>
-<!--next-version-placeholder-->
-<section id="v0-1-0-24-06-2024">
-<h2>v0.1.0 (24/06/2024)<a class="headerlink" href="#v0-1-0-24-06-2024" title="Link to this heading"></a></h2>
+<section id="v1-0-1-october-13-2026">
+<h2>v1.0.1 (October 13, 2026)<a class="headerlink" href="#v1-0-1-october-13-2026" title="Link to this heading"></a></h2>
+<p>This release mostly fixes bugs :</p>
 <ul class="simple">
-<li><p>First release of <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code>!</p></li>
+<li><p>Fixed a bug in <code class="docutils literal notranslate"><span class="pre">plot_angles</span></code> (<code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code>) where indexing the subplots threw
+an indexing error when all plots were arranged as a single row or column.</p></li>
+<li><p>Fixed a bug where <code class="docutils literal notranslate"><span class="pre">compute_cell_distances</span></code> (<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>) did not handle
+empty ring boundaries properly.</p></li>
+<li><p>Fixed a bug where <code class="docutils literal notranslate"><span class="pre">compute_cell_distances</span></code> (<code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>) did not handle year
+labels properly.</p></li>
+<li><p>Fixed a bug that resulted in early- and latewood width
+(<code class="docutils literal notranslate"><span class="pre">early_latewood_width</span></code> in <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code>) computation to halt with a KeyError
+when no radial files were considered valid. NaN values are now returned
+instead when such a situation occurs.</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">--max-cell-distance</span></code> argument to <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> with a default value of
+1000 to prevent spurious merging of ring width boundaries with
+<code class="docutils literal notranslate"><span class="pre">get_nearest_neighbor</span></code> when the cells are too far away.</p></li>
+<li><p>Installation instructions updated to reflect availability of package on
+<a class="reference external" href="https://pypi.org/project/qwanamiz/">PyPi</a>.</p></li>
+<li><p>README updated to link to the detailed <code class="docutils literal notranslate"><span class="pre">qwanaflow</span></code> and <code class="docutils literal notranslate"><span class="pre">qwanarings</span></code> example
+vignettes.</p></li>
+</ul>
+</section>
+<section id="v1-0-0-april-27-2026">
+<h2>v1.0.0 (April 27, 2026)<a class="headerlink" href="#v1-0-0-april-27-2026" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>First official release of <code class="docutils literal notranslate"><span class="pre">qwanamiz</span></code></p></li>
 </ul>
 </section>
 </section>
