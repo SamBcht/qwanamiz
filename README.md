@@ -416,7 +416,7 @@ options:
   --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
                         Defaults to 0.55042690590734 micrometers.
   --max-cell-distance MAX_CELL_DISTANCE
-                        The maxmimum distance (in the measurement unit)
+                        The maximum distance (in the measurement unit)
                         between the cells at the extremities of two ring
                         boundaries to merge them together. Defaults to 1000.
   --minimum-cells MINCELLS

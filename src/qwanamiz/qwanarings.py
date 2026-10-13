@@ -35,7 +35,7 @@ def main():
                         help = """Size of a pixel in the wanted measurement unit. Defaults to 0.55042690590734 micrometers.""")
 
     parser.add_argument("--max-cell-distance", dest = "max_cell_distance", type = float, default = 1000.0,
-                        help = """The maxmimum distance (in the measurement unit) between the cells at the extremities of
+                        help = """The maximum distance (in the measurement unit) between the cells at the extremities of
                         two ring boundaries to merge them together. Defaults to 1000.""")
 
     parser.add_argument("--minimum-cells", dest = "mincells", type = int, default = 4,
