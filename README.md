@@ -27,8 +27,21 @@ fits your use case, please see the section on detailed documentation.
 
 ## Installation
 
-The latest developement version of `qwanamiz` can be downloaded from GitHub
-using the following command:
+The easiest way to install qwanamiz is to install it from
+[PyPi](https://pypi.org/project/qwanamiz/) using `pip`, preferably within a
+virtual environment:
+
+```bash
+# Installing base qwanamiz utilities from PyPi
+pip install qwanamiz
+
+# Installing qwanamiz along with optional dependencies (read on for more details)
+pip install qwanamiz[dev,docs,viz]
+```
+
+Downloading from PyPi will install the latest stable release of qwanamiz. If
+you want the latest bug fixes or functionality, the developement version of
+`qwanamiz` can be downloaded from GitHub using the following command:
 
 ```bash
 git clone https://github.com/SamBcht/qwanamiz.git
@@ -246,8 +259,13 @@ respective [GitHub page](https://github.com/SamBcht/qwanadate).
 ### Example vignettes
 
 Users who want to better understand the detailed workflow of `qwanaflow` and
-`qwanarings` should have a look at the detailed example vignettes under the
-`docs` folder:
+`qwanarings` should have a look at the detailed example vignettes:
+
+* [qwanaflow example](https://sambcht.github.io/qwanamiz/qwanaflow_example.html)
+* [qwanarings example](https://sambcht.github.io/qwanamiz/qwanarings_example.html)
+
+These online examples are derived from the Jupyter notebooks under the `docs`
+folder:
 
 * `qwanaflow_example.ipynb`
 * `qwanarings_example.ipynb`
@@ -275,11 +293,10 @@ make html
 After compiling the documents, you should be able to access them under
 `docs/_build/html/index.html`.
 
-Work is under way to host these example vignettes on the web so users will no
-longer need to compile them themselves.
+### `qwanamiz` library functions
 
-Work is also under way to provide comprehensive documentation for all the
-library functions used in `qwanamiz` so they can be adapted for other purposes.
+Work is under way to provide comprehensive documentation for all the library
+functions used in `qwanamiz` so they can be adapted for other purposes.
 
 ### `qwanaflow` command-line arguments
 
@@ -385,6 +402,7 @@ can be used to control the growth-ring detection workflow:
 
 ```plaintext
 usage: qwanarings [-h] --input_dir INPUT_DIR [--pixel-size PIXEL]
+                  [--max-cell-distance MAX_CELL_DISTANCE]
                   [--minimum-cells MINCELLS] [--first-year FIRSTYEAR]
                   [--iterations ITERATIONS]
 
@@ -397,6 +415,10 @@ options:
                         subfolders to obtain the input files.
   --pixel-size PIXEL    Size of a pixel in the wanted measurement unit.
                         Defaults to 0.55042690590734 micrometers.
+  --max-cell-distance MAX_CELL_DISTANCE
+                        The maximum distance (in the measurement unit)
+                        between the cells at the extremities of two ring
+                        boundaries to merge them together. Defaults to 1000.
   --minimum-cells MINCELLS
                         The minimum number of cells in a ring-boundary region
                         to consider it. Defaults to 4.

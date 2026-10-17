@@ -818,6 +818,7 @@ def get_nearest_extremity(cells_df,
                           upward_cells, 
                           downward_cells, 
                           incompatible_regions, 
+                          max_cell_distance = 1000,
                           image_shape=None, 
                           border_margin=10.0,
                           pix_to_um=1):
@@ -872,10 +873,8 @@ def get_nearest_extremity(cells_df,
     down_to_up = {down_labels[j]: up_labels[i] for j, i in enumerate(np.argmin(dist_matrix.T, axis=1))}
 
     # Step 5: Find mutual nearest pairs with different regions
-    region_pairs = []
     mutual_pairs = []
     neighborhoods = {}
-    
         
     for up_label, down_label in up_to_down.items():
         if down_to_up.get(down_label) == up_label:
@@ -883,19 +882,20 @@ def get_nearest_extremity(cells_df,
             down_region = cell_to_region[down_label]
             if up_region != down_region:
                 region_pair = tuple(sorted((up_region, down_region)))
+
+                # Computing the distance between the two merge candidates
+                # to make sure that they are close enough to be merged
+                up_idx = up_labels.index(up_label)
+                down_idx = down_labels.index(down_label)
+
+                p_up = np.array(up_centroids[up_idx])
+                p_down = np.array(down_centroids[down_idx])
+                segment_len = np.linalg.norm(p_up - p_down)
                 
-                # Skip incompatible region pairs
-                if region_pair not in incompatible_regions:
+                # Skip incompatible region pairs and pairs whose distance between the cells is two large
+                if (region_pair not in incompatible_regions) and (segment_len <= max_cell_distance):
                     mutual_pairs.append((up_label, down_label))
-                    region_pairs.append(region_pair)
                     
-                    up_idx = up_labels.index(up_label)
-                    down_idx = down_labels.index(down_label)
-
-                    p_up = np.array(up_centroids[up_idx])
-                    p_down = np.array(down_centroids[down_idx])
-                    segment_len = np.linalg.norm(p_up - p_down)
-
                     # Radius threshold
                     radius = 3 * segment_len
 
@@ -2565,6 +2565,10 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
     # Ensure a copy and index by label
     df = celldata.copy().set_index("label")
 
+    # An array of years identified in the dataset
+    # May not always have a difference of 1 between years due to missing rings or other anomalies
+    years = sorted(np.unique(df['year']))
+
     # Initialize columns
     df["dist_to_next"] = np.nan
     df["dist_to_prev"] = np.nan
@@ -2578,8 +2582,8 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
         boundary = np.array(boundary)
         tree = cKDTree(boundary)
 
-        # Cells in current ring i+1
-        cells_in_ring = df[df[year_col] == (i + 1)]
+        # Cells in ring corresponding to current year
+        cells_in_ring = df[df[year_col] == years[i]]
         if len(cells_in_ring) == 0:
             continue
 
@@ -2590,7 +2594,7 @@ def compute_cell_distances(celldata, skeleton_boundaries, year_col="year"):
         df.loc[cells_in_ring.index, "dist_to_next"] = d_curr
 
         # Distance to PREVIOUS ring line (only if exists)
-        if i > 0:
+        if i > 0 and len(skeleton_boundaries[i - 1]):
             prev_boundary = np.array(skeleton_boundaries[i - 1])
             tree_prev = cKDTree(prev_boundary)
             d_prev, _ = tree_prev.query(centroids)
@@ -2746,6 +2750,14 @@ def early_latewood_width(celldata, ringprops_df):
     df = celldata[celldata["valid_radial_file"]].copy()
 
     results = []
+
+    # If there are no valid cells then we simply fill the columns that would be added by this function with NaN
+    if len(df) == 0:
+        ringprops_df["year_y"] = np.nan
+        ringprops_df["earlywood_width"] = np.nan
+        ringprops_df["latewood_width"] = np.nan
+        return ringprops_df
+
 
     for year, group in df.groupby("year"):
         ew_widths = []

@@ -37,7 +37,13 @@ def plot_angles(params, num_rows, num_cols):
             upper_bound = params[f'{i+1}_{j+1}']['bounds'][1]
 
             # Plotting
-            ax = axes[i, j]
+
+            # The axes object will be 1-dimensional if there is only
+            # one row or one column. We need to take that into account
+            if num_rows > 1 and num_cols > 1:
+                ax = axes[i, j]
+            else:
+                ax = axes[i + j]
             
             # Plot the empirical distribution
             ax.plot(x_histo, y_histo, label='Raw', color='blue')
